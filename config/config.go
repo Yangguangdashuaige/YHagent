@@ -10,7 +10,7 @@ import (
 
 // Config 全局配置/密钥结构体，所有敏感配置统一在这里管理
 type Config struct {
-	ArkAPIKey     string // 火山方舟API密钥（敏感）
+	ArkAPIKey     string // 火山方舟API密钥
 	ModelEndPoint string // 模型接入点ID
 	ArkBaseUrl    string // 方舟服务地址
 }
