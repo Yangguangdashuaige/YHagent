@@ -14,6 +14,10 @@ type ChatService interface {
 	// 模型每产生一段回答文本，就通过 onChunk 推给调用方。
 	ChatWithSession(ctx context.Context, sessionID, userText string, onChunk func(content string)) error
 
+	// ChatWithSessionImages 与 ChatWithSession 相同，但允许随消息携带图片（截图识别）。
+	// images 为 data URL（data:image/jpeg;base64,...），无图片时传 nil。
+	ChatWithSessionImages(ctx context.Context, sessionID, userText string, images []string, onChunk func(content string)) error
+
 	// Reset 清空指定会话的历史上下文。
 	Reset(sessionID string)
 }

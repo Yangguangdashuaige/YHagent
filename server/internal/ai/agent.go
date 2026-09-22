@@ -30,7 +30,15 @@ const defaultSystemPrompt = `你是“三角洲行动”游戏助手小小轩，
 1. 需要实时游戏数据（物品价格、战备配装、钥匙卡、子弹、密码、任务等）时，必须调用对应工具获取，不要凭空编造数据。
 2. 调用工具前可以根据用户意图补齐合理的默认参数；工具返回异常时，用通俗中文向用户说明情况并给出替代建议。
 3. 回答一律使用中文，简洁直接，适当使用列表和emoji，不要输出工具原始JSON。
-4. 价格、战备值等数字以工具返回的最新数据为准，并说明数据仅供参考。`
+4. 价格、战备值等数字以工具返回的最新数据为准，并说明数据仅供参考。
+5. 推荐改枪方案时（delta_gun_build_advisor）：
+   - 每个改枪码必须单独放在一个代码块中，方便玩家一键复制；
+   - 结合 props_change 用一两句话讲清该方案相对裸枪的取舍（如后座控制大幅提升、牺牲了多少腰射/操控）；
+   - 价格未知（price_unknown=true）时如实说明，不要编造价格；
+   - 最后给出游戏内导入步骤：进入改枪台 → 方案/导入 → 输入改枪码；
+   - 数据来自社区玩家方案，提醒玩家实际手感因人而异。
+6. 当用户发送游戏截图（改枪界面、仓库、价格页等）时：先用文字描述你识别到的内容（枪械型号、配件名称、关键数字），
+   对不确定的配件明确标注“不确定”，请用户确认后再调用工具给出建议，不要凭模糊识别直接下结论。`
 
 // Agent Agent 核心：持有大模型客户端、工具注册中心和会话管理器，
 // 负责跑完“提问→模型决策→工具执行→结果回传→流式回答”的完整多轮循环。
@@ -97,15 +105,42 @@ func (a *Agent) Chat(ctx context.Context, userText string, onChunk func(content 
 // ChatWithSession 在指定会话中发起一轮流式对话，完整多轮 Function Call 循环：
 // 用户提问 → 带上下文和工具定义请求豆包 → 模型要求调工具则执行并把结果回传 → 直到模型输出最终回答并流式推给前端。
 func (a *Agent) ChatWithSession(ctx context.Context, sessionID, userText string, onChunk func(content string)) error {
-	if strings.TrimSpace(userText) == "" {
+	return a.ChatWithSessionMulti(ctx, sessionID, userText, nil, onChunk)
+}
+
+// ChatWithSessionImages 实现 ChatService 接口：入参为 data URL 字符串切片
+func (a *Agent) ChatWithSessionImages(ctx context.Context, sessionID, userText string, images []string, onChunk func(content string)) error {
+	ims := make([]UserImage, 0, len(images))
+	for _, d := range images {
+		ims = append(ims, UserImage{DataURL: d})
+	}
+	return a.ChatWithSessionMulti(ctx, sessionID, userText, ims, onChunk)
+}
+
+// ChatWithSessionMulti 与 ChatWithSession 相同，但支持随消息携带图片（二期截图识别：服务端透传多模态）
+func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText string, images []UserImage, onChunk func(content string)) error {
+	hasText := strings.TrimSpace(userText) != ""
+	hasImage := false
+	for _, im := range images {
+		if strings.TrimSpace(im.DataURL) != "" {
+			hasImage = true
+			break
+		}
+	}
+	if !hasText && !hasImage {
 		return errors.New("提问内容不能为空")
+	}
+	// 纯图片消息时补一句引导，避免模型面对无文字图片自由发挥
+	textForModel := userText
+	if !hasText && hasImage {
+		textForModel = "我发了一张游戏截图，请识别并说明图中的内容。"
 	}
 	if sessionID == "" {
 		sessionID = defaultSessionID
 	}
 	session := a.sessions.GetOrCreate(sessionID, a.systemPrompt)
-	session.append(NewUserMessage(userText))
-	log.Printf("[agent] 会话 %s 收到提问: %s", sessionID, previewArgs(userText))
+	session.append(NewUserMessageWithImages(textForModel, images))
+	log.Printf("[agent] 会话 %s 收到提问（图片%d张）: %s", sessionID, len(images), previewArgs(userText))
 
 	for round := 0; round < maxToolRounds; round++ {
 		// pendingCalls 收集本轮模型要求执行的工具调用；answerBuilder 累积本轮流式文本

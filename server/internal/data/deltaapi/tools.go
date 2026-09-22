@@ -423,11 +423,12 @@ func RegisterTools(reg *ai.Registry, c *Client) {
 	// 20. 改枪码 - 烽火
 	reg.Register(ai.NewFunctionTool(
 		"delta_gun_build_code",
-		"查询改枪码（烽火方案），支持按枪械分类/枪械名称搜索和翻页。用户问“某把枪的改枪码/配件方案”时使用。",
+		"查询改枪码（烽火方案）原始分页数据，支持按枪械分类/枪械名称搜索和翻页。"+
+			"用户只是想随便看看/翻列表时使用；用户要“推荐/最好用/压枪/腰射/省钱的方案”时优先使用 delta_gun_build_advisor。",
 		map[string]any{
 			"p":     ai.IntProp("页码，默认1"),
 			"mtype": ai.StrProp("枪械分类，如 步枪/冲锋枪/狙击步枪"),
-			"gun":   ai.StrProp("枪械名称，如 M4A1"),
+			"gun":   ai.StrProp("枪械完整名称，如 K437突击步枪"),
 		},
 		nil,
 		func(ctx context.Context, raw json.RawMessage) (any, error) {
@@ -440,6 +441,28 @@ func RegisterTools(reg *ai.Registry, c *Client) {
 				return nil, err
 			}
 			return compactResult(data, 20), nil
+		},
+	))
+
+	// 20-1. 智能改枪顾问：多页聚合 + 意图排序 Top5（一期核心功能）
+	reg.Register(ai.NewFunctionTool(
+		"delta_gun_build_advisor",
+		"智能改枪顾问：玩家说“给我推荐/来一套XX枪的改装方案/改枪码”，并带有压枪稳、腰射、开镜快、"+
+			"打得远、均衡、省钱、热门好用等偏好时使用。自动聚合该枪最多96个社区方案，按偏好解析八维属性排序后返回Top5（含可直接导入的改枪码）。"+
+			"gun 支持简称（如 K437 会自动补全为 K437突击步枪）；知道枪械分类时请一并传入 mtype 以提高命中率。",
+		map[string]any{
+			"gun":    ai.StrProp("枪械名称（必填），支持简称，如 K437、M700"),
+			"intent": ai.EnumProp("改装偏好（可选，默认 balanced）", "recoil", "hipshot", "stable", "control", "range", "balanced", "budget", "popular"),
+			"budget": ai.IntProp("预算上限（可选，单位哈夫币，如 500000 表示50万）；与 intent=budget 搭配使用"),
+			"mtype":  ai.StrProp("枪械分类（可选）：步枪/冲锋枪/精确射手步枪/狙击步枪/轻机枪/霰弹枪/手枪/特殊武器"),
+		},
+		[]string{"gun"},
+		func(ctx context.Context, raw json.RawMessage) (any, error) {
+			p, err := decodeArgs[GunAdvisorParams](raw)
+			if err != nil {
+				return nil, err
+			}
+			return c.RecommendGunBuilds(ctx, p)
 		},
 	))
 

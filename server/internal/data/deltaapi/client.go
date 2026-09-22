@@ -54,15 +54,20 @@ const (
 	pathMarket            = "/v1/sjz_api/market"            // 当前市集所需物品
 )
 
-// 各类数据的默认缓存时长：既省接口资源点数，又保证价格类数据的时效性
+// 各类数据的缓存时长严格按上游文档标注的更新频率分级：
+// 更新越慢的数据缓存越久（省资源点），每分钟更新的行情只缓存 60 秒。
 const (
-	cacheStaticTTL   = 12 * time.Hour // 基础信息库 / 筛选项 / 赛季任务 等近乎静态的数据
-	cacheTaskTTL     = 6 * time.Hour  // 赛季任务（单次消耗10点资源）
-	cacheLongTTL     = 10 * time.Minute
-	cacheNormalTTL   = 5 * time.Minute
-	cachePriceTTL    = 60 * time.Second // 实时价格 / 战备配装
-	cacheDIYTTL      = 3 * time.Minute  // DIY卡战备单次消耗10点资源，但计算结果时效性强
+	cacheStaticTTL   = 24 * time.Hour // 基础信息库/筛选项：赛季内近乎静态（单次20点资源）
+	cacheSeasonTTL   = 6 * time.Hour  // 赛季任务：随赛季更新（单次10点资源）
+	cacheBuildTTL    = 6 * time.Hour  // 改枪码：社区方案沉淀，变化极慢
+	cacheDailyTTL    = 2 * time.Hour  // 文档标注"每天0点更新"：钥匙卡预测、倒子弹
 	cachePasswordTTL = 30 * time.Minute
+	cacheMarketTTL   = 30 * time.Minute // 市集所需物品：随轮换变化
+	cacheLongTTL     = 10 * time.Minute // 文档标注"10分钟更新"：排行榜、制造利润、兑换成本
+	cacheNormalTTL   = 10 * time.Minute // 弹药包等普通分析类，与上游更新节奏对齐
+	cacheWeeklyTTL   = 10 * time.Minute // 全物品价格快照（20点资源/次），平衡时效与点数消耗
+	cachePriceTTL    = 60 * time.Second // 文档标注"每分钟更新"：实时价格/排行、卡战备
+	cacheDIYTTL      = 3 * time.Minute  // DIY卡战备（单次10点资源），结果时效性强
 )
 
 // httpTimeout 三角洲接口整体超时时间（DIY计算文档说明一般3秒内出结果，留足余量）
@@ -171,7 +176,8 @@ func (c *Client) doGet(ctx context.Context, apiPath string, query url.Values, tt
 		if err := json.Unmarshal(body, &env); err != nil {
 			return nil, fmt.Errorf("解析响应失败: %w", err)
 		}
-		if env.Code != 0 {
+		// 上游各接口成功码不统一：绝大多数为 0，改枪码等部分接口为 200，两者都视为成功
+		if env.Code != 0 && env.Code != 200 {
 			tip := env.Msg
 			if tip == "" {
 				tip = env.Message
@@ -243,7 +249,7 @@ type ItemPriceAllParams struct {
 func (c *Client) AllItemPrice(ctx context.Context, p ItemPriceAllParams) (json.RawMessage, error) {
 	q := queryValues()
 	setInt(q, "isZb", p.IsZb)
-	return c.doGet(ctx, pathItemPriceAll, q, cachePriceTTL)
+	return c.doGet(ctx, pathItemPriceAll, q, cacheWeeklyTTL)
 }
 
 // FakeAccountRankParams 假账排行榜入参
@@ -395,36 +401,36 @@ type ManufactureParams struct {
 	DeptLevel int `json:"l"` // 部门等级
 }
 
-// ManufacturePro 特勤处制造利润Pro - 自有源计算（10分钟更新，消耗1点资源）
+// ManufacturePro 特勤处制造利润Pro - 自有源计算（文档标注10分钟更新，消耗1点资源）
 func (c *Client) ManufacturePro(ctx context.Context, p ManufactureParams) (json.RawMessage, error) {
 	q := queryValues()
 	setInt(q, "t", p.Type)
 	setInt(q, "l", p.DeptLevel)
-	return c.doGet(ctx, pathManufacturePro, q, cacheNormalTTL)
+	return c.doGet(ctx, pathManufacturePro, q, cacheLongTTL)
 }
 
 // Exchange 军需处兑换 - 成本，deptType：1战斗 2医疗 3后勤 4战术 5研发
 func (c *Client) Exchange(ctx context.Context, deptType int) (json.RawMessage, error) {
 	q := queryValues()
 	setInt(q, "t", deptType)
-	return c.doGet(ctx, pathExchange, q, cacheNormalTTL)
+	return c.doGet(ctx, pathExchange, q, cacheLongTTL)
 }
 
 // ExchangePay 军需处兑换 - 子弹收益（10分钟更新，消耗1点资源）
 func (c *Client) ExchangePay(ctx context.Context) (json.RawMessage, error) {
-	return c.doGet(ctx, pathExchangePay, queryValues(), cacheNormalTTL)
+	return c.doGet(ctx, pathExchangePay, queryValues(), cacheLongTTL)
 }
 
 // ExchangeZb 军需处兑换 - 战备假账（10分钟更新，消耗1点资源）
 func (c *Client) ExchangeZb(ctx context.Context) (json.RawMessage, error) {
-	return c.doGet(ctx, pathExchangeZb, queryValues(), cacheNormalTTL)
+	return c.doGet(ctx, pathExchangeZb, queryValues(), cacheLongTTL)
 }
 
-// KeysDay 今日钥匙卡低价预测，mapID：1大坝 2航天 3长弓 4巴克什 5监狱（每天0点更新，消耗1点资源）
+// KeysDay 今日钥匙卡低价预测，mapID：1大坝 2航天 3长弓 4巴克什 5监狱（文档标注每天0点更新，消耗1点资源）
 func (c *Client) KeysDay(ctx context.Context, mapID int) (json.RawMessage, error) {
 	q := queryValues()
 	setPositiveIntWithDefault(q, "mid", mapID, 1)
-	return c.doGet(ctx, pathKeysDay, q, cacheLongTTL)
+	return c.doGet(ctx, pathKeysDay, q, cacheDailyTTL)
 }
 
 // AmmoPack 子弹自选包收益，grade 为品质等级 0~6（消耗1点资源）
@@ -434,11 +440,11 @@ func (c *Client) AmmoPack(ctx context.Context, grade int) (json.RawMessage, erro
 	return c.doGet(ctx, pathAmmoPack, q, cacheNormalTTL)
 }
 
-// AmmoDay 今日倒子弹低价预测，grade 为品质等级 0~6（消耗1点资源）
+// AmmoDay 今日倒子弹低价预测，grade 为品质等级 0~6（文档标注每天0点更新）
 func (c *Client) AmmoDay(ctx context.Context, grade int) (json.RawMessage, error) {
 	q := queryValues()
 	setPositiveIntWithDefault(q, "grade", grade, 0)
-	return c.doGet(ctx, pathAmmoDay, q, cacheNormalTTL)
+	return c.doGet(ctx, pathAmmoDay, q, cacheDailyTTL)
 }
 
 // GunBuildCodeParams 改枪码查询入参
@@ -448,18 +454,18 @@ type GunBuildCodeParams struct {
 	Gun   string `json:"gun"`   // 枪械名称
 }
 
-// GunBuildCode 改枪码 - 烽火（消耗1点资源）
+// GunBuildCode 改枪码 - 烽火（消耗1点资源）。社区方案沉淀变化极慢，长缓存 6 小时。
 func (c *Client) GunBuildCode(ctx context.Context, p GunBuildCodeParams) (json.RawMessage, error) {
 	q := queryValues()
 	setPositiveIntWithDefault(q, "p", p.Page, 1)
 	setString(q, "mtype", p.Mtype)
 	setString(q, "gun", p.Gun)
-	return c.doGet(ctx, pathGunBuildCode, q, cacheLongTTL)
+	return c.doGet(ctx, pathGunBuildCode, q, cacheBuildTTL)
 }
 
-// SeasonTaskS11 赛季任务 - S11（单次消耗10点资源，已做长缓存）
+// SeasonTaskS11 赛季任务 - S11（单次消耗10点资源，随赛季更新）
 func (c *Client) SeasonTaskS11(ctx context.Context) (json.RawMessage, error) {
-	return c.doGet(ctx, pathSeasonTaskS11, queryValues(), cacheTaskTTL)
+	return c.doGet(ctx, pathSeasonTaskS11, queryValues(), cacheSeasonTTL)
 }
 
 // MapPassword 今日密码（消耗1点资源）
@@ -469,5 +475,5 @@ func (c *Client) MapPassword(ctx context.Context) (json.RawMessage, error) {
 
 // Market 当前市集所需物品（消耗1点资源）
 func (c *Client) Market(ctx context.Context) (json.RawMessage, error) {
-	return c.doGet(ctx, pathMarket, queryValues(), cacheLongTTL)
+	return c.doGet(ctx, pathMarket, queryValues(), cacheMarketTTL)
 }

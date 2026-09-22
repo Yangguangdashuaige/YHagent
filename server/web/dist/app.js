@@ -20,11 +20,19 @@ const inputEl = document.getElementById("input");
 const sendBtn = document.getElementById("sendBtn");
 const clearBtn = document.getElementById("clearBtn");
 const logoutBtn = document.getElementById("logoutBtn");
+const imageInput = document.getElementById("imageInput");
+const attachBtn = document.getElementById("attachBtn");
+const imagePreview = document.getElementById("imagePreview");
 
 // ---------- 会话状态 ----------
 let busy = false;
 let currentBubble = null;
 let answerText = "";
+// 待发送图片（已压缩的 data URL），二期：截图识别
+let pendingImages = [];
+const MAX_IMAGES = 3;
+const MAX_IMAGE_EDGE = 1280; // 服务端/模型只需要看清文字，1280px 足够且大幅省流量
+const JPEG_QUALITY = 0.82;
 
 // ---------- 工具 ----------
 
@@ -66,14 +74,25 @@ function ensureSessionId() {
   return id;
 }
 
-function addMessage(role, text) {
+function addMessage(role, text, images) {
   const wrap = document.createElement("div");
   wrap.className = "msg " + role;
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  if (text) bubble.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
+  (images || []).forEach((src) => {
+    const img = document.createElement("img");
+    img.className = "msg-image";
+    img.src = src;
+    img.alt = "用户发送的截图";
+    bubble.appendChild(img);
+  });
+  if (text) {
+    const span = document.createElement("span");
+    span.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
+    bubble.appendChild(span);
+  }
   wrap.appendChild(bubble);
-  messagesEl.appendChild(bubble);
+  messagesEl.appendChild(wrap);
   scrollToBottom();
   return bubble;
 }
@@ -86,6 +105,85 @@ function showTyping(bubble) {
 function setBusy(b) {
   busy = b;
   sendBtn.disabled = b;
+  attachBtn.disabled = b;
+}
+
+// ---------- 图片处理（二期：截图识别） ----------
+
+// 把任意图片文件压缩到最长边 1280px 的 JPEG data URL，失败时返回 null
+function compressImage(file) {
+  return new Promise((resolve) => {
+    if (!file || !file.type || !file.type.startsWith("image/")) {
+      resolve(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > MAX_IMAGE_EDGE || height > MAX_IMAGE_EDGE) {
+        const scale = MAX_IMAGE_EDGE / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#000"; // 透明 PNG 转 JPEG 时底色兜底
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", JPEG_QUALITY));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
+  });
+}
+
+async function addImageFiles(files) {
+  if (!files || !files.length || busy) return;
+  for (const file of files) {
+    if (pendingImages.length >= MAX_IMAGES) {
+      alert("最多只能发送 " + MAX_IMAGES + " 张图片");
+      break;
+    }
+    const dataURL = await compressImage(file);
+    if (dataURL) {
+      pendingImages.push(dataURL);
+    }
+  }
+  renderImagePreview();
+}
+
+function renderImagePreview() {
+  imagePreview.innerHTML = "";
+  if (!pendingImages.length) {
+    imagePreview.classList.add("hidden");
+    return;
+  }
+  imagePreview.classList.remove("hidden");
+  pendingImages.forEach((src, idx) => {
+    const thumb = document.createElement("div");
+    thumb.className = "thumb";
+    const img = document.createElement("img");
+    img.src = src;
+    const btn = document.createElement("button");
+    btn.className = "thumb-remove";
+    btn.type = "button";
+    btn.textContent = "×";
+    btn.title = "移除";
+    btn.addEventListener("click", () => {
+      pendingImages.splice(idx, 1);
+      renderImagePreview();
+    });
+    thumb.appendChild(img);
+    thumb.appendChild(btn);
+    imagePreview.appendChild(thumb);
+  });
 }
 
 // ---------- 视图切换 ----------
@@ -114,14 +212,18 @@ async function verifyToken(token) {
   return resp.ok;
 }
 
-// 流式提问：onChunk 每收到一段回答文本被回调；出错时 throw Error（中文信息）
-async function streamChat(sessionId, text, onChunk) {
+// 流式提问：images 为可选的 data URL 数组；onChunk 每收到一段回答文本被回调；出错时 throw Error（中文信息）
+async function streamChat(sessionId, text, images, onChunk) {
   let resp;
   try {
     resp = await fetch("/v1/chat", {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ session_id: sessionId, message: text }),
+      body: JSON.stringify({
+        session_id: sessionId,
+        message: text,
+        images: images || [],
+      }),
     });
   } catch (e) {
     throw new Error("无法连接服务器，请检查网络后重试");
@@ -213,11 +315,14 @@ loginForm.addEventListener("submit", async (e) => {
 
 async function send() {
   const text = inputEl.value.trim();
-  if (!text || busy) return;
+  const images = pendingImages.slice();
+  if ((!text && !images.length) || busy) return;
 
-  addMessage("user", text);
+  addMessage("user", text, images);
   inputEl.value = "";
   inputEl.style.height = "auto";
+  pendingImages = [];
+  renderImagePreview();
   setBusy(true);
 
   currentBubble = addMessage("assistant", "");
@@ -225,7 +330,7 @@ async function send() {
   answerText = "";
 
   try {
-    await streamChat(ensureSessionId(), text, (chunk) => {
+    await streamChat(ensureSessionId(), text, images, (chunk) => {
       answerText += chunk;
       currentBubble.innerHTML = escapeHtml(answerText).replace(/\n/g, "<br>");
       scrollToBottom();
@@ -245,6 +350,34 @@ async function send() {
 }
 
 sendBtn.addEventListener("click", send);
+
+// 图片附件按钮 + 隐藏的文件选择框
+attachBtn.addEventListener("click", () => {
+  if (!busy) imageInput.click();
+});
+imageInput.addEventListener("change", async () => {
+  if (imageInput.files && imageInput.files.length) {
+    await addImageFiles(Array.from(imageInput.files));
+  }
+  imageInput.value = ""; // 允许再次选择同一个文件
+});
+
+// 支持直接在输入框粘贴截图（微信/QQ 截图后 Ctrl+V 即可发送）
+inputEl.addEventListener("paste", (e) => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  const files = [];
+  for (const item of items) {
+    if (item.kind === "file" && item.type.startsWith("image/")) {
+      const f = item.getAsFile();
+      if (f) files.push(f);
+    }
+  }
+  if (files.length) {
+    e.preventDefault();
+    addImageFiles(files);
+  }
+});
 
 inputEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {

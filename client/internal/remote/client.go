@@ -49,18 +49,24 @@ func New(baseURL, token string) (*Client, error) {
 	}, nil
 }
 
-// ChatWithSession 实现 ai.ChatService：发起远端流式对话并把片段通过 onChunk 推给上层
+// ChatWithSession 实现对话服务接口：发起远端流式对话并把片段通过 onChunk 推给上层
 func (c *Client) ChatWithSession(ctx context.Context, sessionID, userText string, onChunk func(content string)) error {
-	if strings.TrimSpace(userText) == "" {
+	return c.ChatWithSessionImages(ctx, sessionID, userText, nil, onChunk)
+}
+
+// ChatWithSessionImages 与 ChatWithSession 相同，额外携带图片 data URL（截图识别）
+func (c *Client) ChatWithSessionImages(ctx context.Context, sessionID, userText string, images []string, onChunk func(content string)) error {
+	if strings.TrimSpace(userText) == "" && len(images) == 0 {
 		return errors.New("提问内容不能为空")
 	}
 	if sessionID == "" {
 		sessionID = "default"
 	}
 
-	payload, _ := json.Marshal(map[string]string{
+	payload, _ := json.Marshal(map[string]any{
 		"session_id": sessionID,
 		"message":    userText,
+		"images":     images,
 	})
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/v1/chat", bytes.NewReader(payload))

@@ -247,12 +247,58 @@ body {
 }
 
 /* ===== 输入区 ===== */
+.composer-wrap {
+  background: rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
 .composer {
   display: flex;
   gap: 8px;
   padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
-  background: rgba(255, 255, 255, 0.03);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: flex-end;
+}
+/* 图片附件预览条 */
+.image-preview {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 0;
+  flex-wrap: wrap;
+}
+.thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.thumb .thumb-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-bottom-left-radius: 8px;
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+  padding: 0;
+  cursor: pointer;
+}
+.attach-btn {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
 }
 #input {
   flex: 1;
@@ -294,4 +340,17 @@ body {
 #sendBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* 聊天气泡内的截图缩略图 */
+.msg-image {
+  display: block;
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.msg-image:last-child {
+  margin-bottom: 0;
 }

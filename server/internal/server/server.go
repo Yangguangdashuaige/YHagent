@@ -20,8 +20,10 @@ package server
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -32,7 +34,9 @@ import (
 )
 
 const (
-	maxChatBodyBytes = 8 << 10 // 单条提问上限 8KB
+	maxChatBodyBytes = 12 << 20 // 单条请求上限 12MB：容纳最多3张压缩后的截图（base64）
+	maxChatImages    = 3        // 单条消息最多携带图片数
+	maxImageBytes    = 4 << 20  // 单张图片解码后上限 4MB
 	sseHeartbeat     = 25 * time.Second
 )
 
@@ -84,7 +88,7 @@ func New(cfg Config) (*Server, error) {
 		Addr:              cfg.Addr,
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
+		ReadTimeout:       60 * time.Second, // 图片消息体积较大，给慢网络上传留足时间
 		// 流式响应不能设置 WriteTimeout / IdleTimeout 过短，否则长回答会被掐断
 		IdleTimeout: 120 * time.Second,
 	}
@@ -124,17 +128,61 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 type chatRequest struct {
-	SessionID string `json:"session_id"`
-	Message   string `json:"message"`
+	SessionID string   `json:"session_id"`
+	Message   string   `json:"message"`
+	Images    []string `json:"images"` // 可选，元素为 data URL：data:image/jpeg;base64,...
+}
+
+// validateImages 校验图片数量、data URL 形态与解码后大小，返回清洗后的列表
+func validateImages(images []string) ([]string, error) {
+	if len(images) == 0 {
+		return nil, nil
+	}
+	if len(images) > maxChatImages {
+		return nil, fmt.Errorf("单次最多发送 %d 张图片", maxChatImages)
+	}
+	out := make([]string, 0, len(images))
+	for _, raw := range images {
+		d := strings.TrimSpace(raw)
+		if d == "" {
+			continue
+		}
+		comma := strings.IndexByte(d, ',')
+		if !strings.HasPrefix(d, "data:image/") || comma < 0 {
+			return nil, errors.New("图片格式不合法，仅支持 data URL 形式的图片")
+		}
+		head := d[:comma]
+		// 允许常见截图格式；;base64 标记必须存在
+		allowed := strings.Contains(head, "image/jpeg") || strings.Contains(head, "image/jpg") ||
+			strings.Contains(head, "image/png") || strings.Contains(head, "image/webp") ||
+			strings.Contains(head, "image/gif")
+		if !allowed || !strings.Contains(head, ";base64") {
+			return nil, errors.New("仅支持 JPEG/PNG/WebP/GIF 格式的图片")
+		}
+		decoded, err := base64.StdEncoding.DecodeString(d[comma+1:])
+		if err != nil {
+			return nil, errors.New("图片数据解析失败，请重新选择图片")
+		}
+		if len(decoded) > maxImageBytes {
+			return nil, fmt.Errorf("单张图片不能超过 %dMB", maxImageBytes>>20)
+		}
+		out = append(out, d)
+	}
+	return out, nil
 }
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	var req chatRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxChatBodyBytes)).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求参数解析失败"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求参数解析失败或体积过大"})
 		return
 	}
-	if strings.TrimSpace(req.Message) == "" {
+	images, err := validateImages(req.Images)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	if strings.TrimSpace(req.Message) == "" && len(images) == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "提问内容不能为空"})
 		return
 	}
@@ -186,7 +234,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 客户端断连时 r.Context() 会取消，上游豆包调用随之终止，不白烧 token
-	err := s.cfg.Chat.ChatWithSession(r.Context(), req.SessionID, req.Message, func(chunk string) {
+	err = s.cfg.Chat.ChatWithSessionImages(r.Context(), req.SessionID, req.Message, images, func(chunk string) {
 		writeEvent("chunk", chunk)
 	})
 	if err != nil {

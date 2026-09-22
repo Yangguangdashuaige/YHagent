@@ -36,16 +36,21 @@
     <main id="messages" class="messages">
       <div class="msg assistant">
         <div class="bubble">
-          指挥官你好，我是小小轩 👋<br />
-          可以问我物品价格、地图密码、钥匙卡行情、战备配装、赛季任务等。<br />
-          试试问我：<b>“M14 现在多少钱？”</b>
-        </div>
+        指挥官你好，我是小小轩 👋<br />
+        可以问我物品价格、地图密码、钥匙卡行情、战备配装、赛季任务、智能改枪推荐等。<br />
+        试试问我：<b>“K437 压枪优先的改枪方案”</b>，也可以直接发改枪界面截图让我识别。
+      </div>
       </div>
     </main>
 
-    <footer class="composer">
-      <textarea id="input" rows="1" placeholder="输入问题，Enter 发送 / Shift+Enter 换行"></textarea>
-      <button id="sendBtn">发送</button>
+    <footer class="composer-wrap">
+      <div id="imagePreview" class="image-preview hidden"></div>
+      <div class="composer">
+        <input id="imageInput" type="file" accept="image/*" multiple hidden />
+        <button id="attachBtn" class="icon-btn attach-btn" title="发送截图（可识别改枪界面/价格页）">🖼️</button>
+        <textarea id="input" rows="1" placeholder="输入问题，Enter 发送 / Shift+Enter 换行；可直接粘贴截图"></textarea>
+        <button id="sendBtn">发送</button>
+      </div>
     </footer>
   </div>
 
