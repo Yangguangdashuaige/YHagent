@@ -1,0 +1,47 @@
+# 每次代码推送到 GitHub 的 master 分支，自动镜像同步到 GitLab 的 main 分支。
+#
+# 前置配置（只需一次）：
+#   1. GitLab 头像 → Edit profile → Access Tokens，创建一个 Token：
+#      - Role 至少 Maintainer（项目 Owner 自己的 Token 即可）
+#      - 勾选 scope：write_repository
+#   2. GitHub 仓库 Settings → Secrets and variables → Actions → New repository secret：
+#      - Name: GITLAB_TOKEN
+#      - Secret: 粘贴上一步生成的 GitLab Token
+#
+# 注意：GitLab 的 main 为受保护分支，只要 GitLab 侧 main 始终是 GitHub master
+# 的祖先（本工作流常规推送，非强制覆盖），Maintainer/Owner 的 Token 即可推送成功。
+# 不要在 GitLab 上直接往 main 提交，否则会导致非快进而同步失败。
+name: Mirror to GitLab
+
+on:
+  push:
+    branches: [master]
+  # 支持在 Actions 页面手动触发一次同步（补救/首次验证用）
+  workflow_dispatch:
+
+# 同一时间只跑一个镜像任务，避免并发推送互相竞争
+concurrency:
+  group: mirror-gitlab
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出完整历史
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 推送 master 到 GitLab main
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/Yangguangdashuaige/YHagent.git"
+          # 常规快进推送；同时同步标签
+          git push gitlab master:main --tags
