@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -29,6 +30,7 @@ import (
 	"yhagent-server/internal/data/cache"
 	"yhagent-server/internal/data/deltaapi"
 	"yhagent-server/internal/server"
+	"yhagent-server/web"
 )
 
 func main() {
@@ -50,11 +52,16 @@ func main() {
 	deltaapi.RegisterTools(agent.Tools(), deltaClient)
 	log.Printf("[server] Agent初始化完成，已注册 %d 个工具（共享缓存已启用）", len(agent.Tools().Names()))
 
-	// 4. 启动 HTTP/SSE 服务
+	// 4. 启动 HTTP/SSE 服务（网页版静态资源编译期嵌入，部署仍是单个二进制）
+	webFS, err := fs.Sub(web.Dist, "dist")
+	if err != nil {
+		log.Fatalf("网页资源加载失败: %v", err)
+	}
 	srv, err := server.New(server.Config{
 		Addr:  os.Getenv("SERVER_ADDR"),
 		Token: os.Getenv("SERVER_TOKEN"),
 		Chat:  agent,
+		Web:   webFS,
 	})
 	if err != nil {
 		log.Fatalf("服务初始化失败: %v", err)

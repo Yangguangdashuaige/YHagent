@@ -22,6 +22,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"log"
 	"net/http"
 	"strings"
@@ -40,6 +41,9 @@ type Config struct {
 	Addr  string         // 监听地址，如 ":8080"
 	Token string         // 客户端访问令牌（Bearer），必填，拒绝裸奔
 	Chat  ai.ChatService // Agent 核心（工具已注册、缓存已挂载）
+	// Web 网页版静态资源根（含 index.html）。传入后根路径提供网页入口；
+	// 传 nil 则只提供 /v1/* API（网页功能关闭）。
+	Web fs.FS
 }
 
 // Server HTTP 服务
@@ -65,6 +69,16 @@ func New(cfg Config) (*Server, error) {
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("POST /v1/chat", s.withAuth(s.handleChat))
 	mux.HandleFunc("POST /v1/session/reset", s.withAuth(s.handleReset))
+	// 网页版"访问码"登录时据此校验令牌是否有效，避免发消息才发现 401
+	mux.HandleFunc("GET /v1/auth/check", s.withAuth(func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}))
+
+	// 网页入口：根路径提供静态页面。
+	// ServeMux 按最长前缀匹配，/v1/、/healthz 等更具体的路由优先命中，API 不受影响。
+	if cfg.Web != nil {
+		mux.Handle("GET /", http.FileServerFS(cfg.Web))
+	}
 
 	s.http = &http.Server{
 		Addr:              cfg.Addr,
