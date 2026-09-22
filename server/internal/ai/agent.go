@@ -105,6 +105,7 @@ func (a *Agent) ChatWithSession(ctx context.Context, sessionID, userText string,
 	}
 	session := a.sessions.GetOrCreate(sessionID, a.systemPrompt)
 	session.append(NewUserMessage(userText))
+	log.Printf("[agent] 会话 %s 收到提问: %s", sessionID, previewArgs(userText))
 
 	for round := 0; round < maxToolRounds; round++ {
 		// pendingCalls 收集本轮模型要求执行的工具调用；answerBuilder 累积本轮流式文本
@@ -149,6 +150,8 @@ func (a *Agent) ChatWithSession(ctx context.Context, sessionID, userText string,
 				// 极少数情况下模型不下发ID，本地补一个，保证 tool 消息能与 tool_calls 对应
 				callID = fmt.Sprintf("call_%d_%d", round, idx)
 			}
+			log.Printf("[agent] 会话 %s 第%d轮 调用工具 #%d: %s 参数=%s",
+				sessionID, round+1, idx+1, call.Function.Name, previewArgs(call.Function.Arguments))
 			result := a.executeToolSafe(ctx, call)
 			session.append(NewToolResultMessage(callID, call.Function.Name, result))
 		}
@@ -190,9 +193,11 @@ func (a *Agent) executeToolSafe(parent context.Context, call chat.ChatCompletion
 	ctx, cancel := context.WithTimeout(parent, toolExecuteTimeout)
 	defer cancel()
 
+	start := time.Now()
 	output, err := tool.Execute(ctx, rawArgs)
+	cost := time.Since(start)
 	if err != nil {
-		log.Printf("[agent] 工具 %s 执行失败: %v", call.Function.Name, err)
+		log.Printf("[agent] 工具 %s 执行失败 耗时=%dms: %v", call.Function.Name, cost.Milliseconds(), err)
 		return toolErrorJSON(friendlyToolError(err))
 	}
 
@@ -201,11 +206,26 @@ func (a *Agent) executeToolSafe(parent context.Context, call chat.ChatCompletion
 		log.Printf("[agent] 工具 %s 结果序列化失败: %v", call.Function.Name, err)
 		return toolErrorJSON("工具返回数据格式异常，请稍后再试")
 	}
+	log.Printf("[agent] 工具 %s 执行成功 耗时=%dms 返回=%d字节", call.Function.Name, cost.Milliseconds(), len(payload))
 	if len(payload) > maxToolResultBytes {
 		log.Printf("[agent] 工具 %s 返回过大(%d字节)，已截断降级", call.Function.Name, len(payload))
 		return toolErrorJSON("工具返回数据量过大，请增加筛选条件（如名称、分类、分页）缩小范围后重试")
 	}
 	return string(payload)
+}
+
+// previewArgs 把工具调用参数压缩成适合写日志的短字符串：
+// 去掉空白并限制长度，避免大分页参数把日志撑爆。
+func previewArgs(raw string) string {
+	s := strings.Join(strings.Fields(raw), "")
+	if s == "" {
+		return "{}"
+	}
+	const max = 300
+	if len(s) > max {
+		return s[:max] + "...(截断)"
+	}
+	return s
 }
 
 // toolErrorJSON 构造回传给模型的统一错误结构
