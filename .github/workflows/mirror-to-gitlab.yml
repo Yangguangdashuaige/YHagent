@@ -40,8 +40,14 @@ jobs:
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
+          if [ -z "${GITLAB_TOKEN}" ]; then
+            echo "::error::未读取到 GITLAB_TOKEN。请在 GitHub 仓库 Settings → Secrets and variables → Actions 添加名为 GITLAB_TOKEN 的 repository secret。"
+            exit 1
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/Yangguangdashuaige/YHagent.git"
+          # 凭据只写进本地 http header 配置，不进入 remote URL，避免出现在日志中
+          git config "http.https://gitlab.com/.extraHeader" "PRIVATE-TOKEN: ${GITLAB_TOKEN}"
+          git remote add gitlab "https://gitlab.com/Yangguangdashuaige/YHagent.git"
           # 常规快进推送；同时同步标签
           git push gitlab master:main --tags
