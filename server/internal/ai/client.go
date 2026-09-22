@@ -145,11 +145,15 @@ func buildCompleteToolCalls(acc map[int32]*chat.ChatCompletionMessageToolCallChu
 	return calls
 }
 
-// CreateEmbedding 向量生成
-func (c *SeedClient) CreateEmbedding(ctx context.Context, texts embedding.EmbeddingInput) ([][]float32, error) {
+// CreateEmbedding 批量生成文本向量，返回与入参顺序一致的向量列表。
+// 模型来自配置 ARK_EMBEDDING_MODEL（默认 doubao-embedding-vision-251215，需在方舟控制台开通）。
+func (c *SeedClient) CreateEmbedding(ctx context.Context, texts []string) ([][]float32, error) {
 	resp, err := c.client.CreateEmbeddings(ctx, &embedding.EmbeddingRequest{
-		Model: "doubao-embedding-vision-251215",
-		Input: texts,
+		Model: config.AppConfig.DoubaoEmbeddingModel,
+		Input: embedding.EmbeddingInput{
+			Type:        embedding.StringArrayEmbeddingInput,
+			StringArray: texts,
+		},
 	})
 	if err != nil {
 		return nil, err

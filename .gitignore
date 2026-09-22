@@ -16,6 +16,9 @@ main
 *.test
 vendor/
 
+# 交叉编译出的 Linux 服务端产物
+yhagent-server
+
 # ==================== Wails构建产物（客户端位于 client/ 子目录） ====================
 **/build/bin/
 

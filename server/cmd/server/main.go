@@ -29,6 +29,8 @@ import (
 	"yhagent-server/internal/config"
 	"yhagent-server/internal/data/cache"
 	"yhagent-server/internal/data/deltaapi"
+	"yhagent-server/internal/knowledge"
+	"yhagent-server/internal/knowledge/embedded"
 	"yhagent-server/internal/server"
 	"yhagent-server/web"
 )
@@ -50,6 +52,20 @@ func main() {
 
 	agent := ai.NewAgent(aiClient)
 	deltaapi.RegisterTools(agent.Tools(), deltaClient)
+
+	// 3.1 加载编译期嵌入的静态知识库索引；有内容才注册 search_knowledge 工具，
+	//     未建库（空占位索引）时模型看不到该工具，不影响其余对话能力。
+	kbStore, kbErr := knowledge.DecodeGOB(embedded.IndexGOB)
+	if kbErr != nil {
+		log.Printf("[server] 知识库索引加载失败，search_knowledge 不可用: %v", kbErr)
+	} else if kbStore.Len() > 0 {
+		knowledge.RegisterTool(agent.Tools(), kbStore, aiClient)
+		log.Printf("[server] 静态知识库已加载：%d 个知识切片（%s，%d维）",
+			kbStore.Len(), kbStore.Model, kbStore.Dimension)
+	} else {
+		log.Printf("[server] 静态知识库为空，search_knowledge 未注册（放文档后运行 cmd/indexer 建库）")
+	}
+
 	log.Printf("[server] Agent初始化完成，已注册 %d 个工具（共享缓存已启用）", len(agent.Tools().Names()))
 
 	// 4. 启动 HTTP/SSE 服务（网页版静态资源编译期嵌入，部署仍是单个二进制）
