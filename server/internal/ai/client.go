@@ -5,16 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"time"
 
 	"yhagent-server/internal/config"
 
 	"github.com/volcengine/ark-runtime-go/arkruntime"
 	"github.com/volcengine/ark-runtime-go/arkruntime/model/chat"
-	"github.com/volcengine/ark-runtime-go/arkruntime/model/embedding"
 )
 
 type SeedClient struct {
 	client *arkruntime.Client
+	http   *http.Client // 多模态向量化端点用标准库 HTTP 调用
 }
 
 func NewSeedClient() *SeedClient {
@@ -25,6 +27,7 @@ func NewSeedClient() *SeedClient {
 			config.AppConfig.DoubaoAPIKey,
 			arkruntime.WithBaseUrl(config.AppConfig.DoubaoBaseURL),
 		),
+		http: &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
@@ -146,27 +149,8 @@ func buildCompleteToolCalls(acc map[int32]*chat.ChatCompletionMessageToolCallChu
 }
 
 // CreateEmbedding 批量生成文本向量，返回与入参顺序一致的向量列表。
-// 模型来自配置 ARK_EMBEDDING_MODEL（默认 doubao-embedding-vision-251215，需在方舟控制台开通）。
+// 固定走 doubao-embedding-vision 接入点的多模态向量化端点（见 embedding_multimodal.go），
+// 模型/接入点来自配置 ARK_EMBEDDING_MODEL。
 func (c *SeedClient) CreateEmbedding(ctx context.Context, texts []string) ([][]float32, error) {
-	resp, err := c.client.CreateEmbeddings(ctx, &embedding.EmbeddingRequest{
-		Model: config.AppConfig.DoubaoEmbeddingModel,
-		Input: embedding.EmbeddingInput{
-			Type:        embedding.StringArrayEmbeddingInput,
-			StringArray: texts,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	embeddings := make([][]float32, 0, len(resp.Data))
-	for _, d := range resp.Data {
-		if vec, ok := d.Embedding.GetFloat64Array(); ok {
-			f32Vec := make([]float32, len(vec))
-			for i, v := range vec {
-				f32Vec[i] = float32(v)
-			}
-			embeddings = append(embeddings, f32Vec)
-		}
-	}
-	return embeddings, nil
+	return createMultimodalEmbeddings(ctx, c.http, texts)
 }

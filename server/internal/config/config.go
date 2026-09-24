@@ -14,7 +14,8 @@ type Config struct {
 	DoubaoEndpoint string
 	DoubaoBaseURL  string
 
-	// 知识库向量化模型（静态知识库 RAG 用），默认当前方舟唯一在线的多模态向量化模型
+	// 知识库向量化模型接入点（静态知识库 RAG 用）：
+	// 火山方舟 doubao-embedding-vision 接入点 ID（ep- 开头），文本/图片共用同一向量空间
 	DoubaoEmbeddingModel string
 
 	// 新增三角洲开放平台配置
@@ -33,8 +34,9 @@ var AppConfig *Config
 // DefaultDoubaoBaseURL 火山方舟北京区默认 API 地址，ARK_BASE_URL 未配置时兜底
 const DefaultDoubaoBaseURL = "https://ark.cn-beijing.volces.com/api/v3"
 
-// DefaultEmbeddingModel 知识库向量化模型：doubao-embedding-vision-251215
-// 同时支持纯文本输入（2048维），是 2026 年方舟唯一在线的向量化模型，需在控制台开通。
+// DefaultEmbeddingModel 向量化接入点的兜底值。
+// 推荐在 .env 中用 ARK_EMBEDDING_MODEL 配置自己的 doubao-embedding-vision
+// 在线推理接入点 ID（ep- 开头），建库与线上查询必须走同一接入点。
 const DefaultEmbeddingModel = "doubao-embedding-vision-251215"
 
 // getenvOr 依次读取多个环境变量名，返回第一个非空值（兼容不同的.env命名习惯，不改变Config结构）
@@ -59,7 +61,7 @@ func Load() error {
 		// API 基础地址：读 ARK_BASE_URL / DOUBAO_BASE_URL，留空则用北京区默认地址
 		DoubaoBaseURL: getenvOr("DOUBAO_BASE_URL", "ARK_BASE_URL"),
 
-		// 向量化模型：可通过 ARK_EMBEDDING_MODEL 覆盖，默认 doubao-embedding-vision-251215
+		// 向量化模型接入点：ARK_EMBEDDING_MODEL 指定 doubao-embedding-vision 的 ep- 接入点
 		DoubaoEmbeddingModel: getenvOr("ARK_EMBEDDING_MODEL", "DOUBAO_EMBEDDING_MODEL"),
 
 		// 三角洲API配置
