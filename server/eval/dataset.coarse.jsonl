@@ -1,0 +1,100 @@
+{"id":"R001","query":"SR-25射手步枪用什么弹药","category":"item","qtype":"lookup","difficulty":"easy","expected":["物品-SR-25射手步枪.md"]}
+{"id":"R002","query":"AS Val突击步枪这枪怎么样","category":"item","qtype":"lookup","difficulty":"easy","expected":["物品-AS Val突击步枪.md"]}
+{"id":"R003","query":"qjb201轻机枪的属性数据","category":"item","qtype":"robust","difficulty":"medium","expected":["物品-QJB201轻机枪.md"],"note":"全小写型号鲁棒性"}
+{"id":"R004","query":"打烽火想带把半自动射手步枪，M14和SR-25选哪个","category":"item","qtype":"compare","difficulty":"hard","expected":["物品-M14射手步枪.md","物品-SR-25射手步枪.md"],"note":"对比类：双目标召回"}
+{"id":"R005","query":"腾龙突击步枪数据","category":"item","qtype":"lookup","difficulty":"easy","expected":["物品-腾龙突击步枪.md"]}
+{"id":"R006","query":"m700狙击步枪","category":"item","qtype":"robust","difficulty":"easy","expected":["物品-M700狙击步枪.md"],"note":"全小写+超短查询"}
+{"id":"R007","query":"DVC12+P和普通的DVC12弹药有什么区别","category":"item","qtype":"compare","difficulty":"medium","expected":["物品-5.8x42mm DVC12+P.md","物品-5.8x42mm DVC12.md"]}
+{"id":"R008","query":"7.62x51mm的弹药都有哪几种","category":"item","qtype":"attr_lookup","difficulty":"hard","expected":["物品-7.62x51mm BPZ.md","物品-7.62x51mm LS.md","物品-7.62x51mm M61.md","物品-7.62x51mm M62.md","物品-7.62x51mm M80.md","物品-7.62x51mm Ultra Nosler.md"],"note":"按口径聚合：6种弹"}
+{"id":"R009","query":"7.62x51里面穿透等级最高的子弹是哪种","category":"item","qtype":"attr_lookup","difficulty":"hard","expected":["物品-7.62x51mm M61.md"],"note":"按属性反查：M61穿透6级最高"}
+{"id":"R010","query":"7.62×54R SNB弹好用吗","category":"item","qtype":"robust","difficulty":"medium","expected":["物品-7.62x54R SNB.md"],"note":"全角×符号鲁棒性"}
+{"id":"R011","query":"龙息弹是什么效果的弹药","category":"item","qtype":"lookup","difficulty":"easy","expected":["物品-12 Gauge 龙息弹.md"]}
+{"id":"R012","query":"6级红品的防弹衣都有哪几件","category":"item","qtype":"attr_lookup","difficulty":"hard","expected":["物品-HA-2重型防弹衣.md","物品-泰坦防弹装甲.md","物品-特里克MAS2.0装甲.md","物品-金刚防弹衣.md"],"note":"按品质反查：4件红甲（各含三档磨损变体）"}
+{"id":"R013","query":"泰坦防弹装甲占仓库多少格","category":"item","qtype":"lookup","difficulty":"easy","expected":["物品-泰坦防弹装甲.md"]}
+{"id":"R014","query":"GT5指挥官头盔几乎全新和破损的属性差多少","category":"item","qtype":"compare","difficulty":"medium","expected":["物品-GT5 指挥官头盔 (几乎全新).md","物品-GT5 指挥官头盔 (破损).md"],"note":"同物品磨损变体对比"}
+{"id":"R015","query":"H70精英头盔和DICH-9重型头盔哪个防护好","category":"item","qtype":"compare","difficulty":"medium","expected":["物品-H70 精英头盔.md","物品-DICH-9重型头盔.md"]}
+{"id":"R016","query":"头盔耐久掉了能用什么修","category":"item","qtype":"paraphrase","difficulty":"medium","expected":["物品-标准头盔维修包.md","物品-精密头盔维修包.md","物品-自制头盔维修包.md","物品-高级头盔维修组合.md"],"note":"用途反查物品，不出现维修包字面"}
+{"id":"R017","query":"高级护甲维修组合里都有什么东西","category":"item","qtype":"lookup","difficulty":"medium","expected":["物品-高级护甲维修组合.md"]}
+{"id":"R018","query":"蛛网钛制制退器什么属性","category":"item","qtype":"lookup","difficulty":"medium","expected":["物品-蛛网钛制制退器.md"],"note":"蝶变赛季新配件，考验新词召回"}
+{"id":"R019","query":"AUG 45发扩容弹匣哪里获取","category":"item","qtype":"lookup","difficulty":"easy","expected":["物品-AUG45发扩容弹匣.md"]}
+{"id":"R020","query":"沙漠之鹰的镂空竞赛套件是干嘛的","category":"item","qtype":"lookup","difficulty":"medium","expected":["物品-沙漠之鹰镂空竞赛套件.md"]}
+{"id":"R021","query":"带热成像的瞄准镜有哪几种","category":"item","qtype":"attr_lookup","difficulty":"hard","expected":["物品-先进热融合全息瞄准镜.md","物品-先进白热成像战斗瞄准镜.md","物品-八倍先进热成像狙击镜.md"],"note":"按功能聚合：3种热成像瞄具"}
+{"id":"R022","query":"复合弓可以装什么倍镜","category":"item","qtype":"paraphrase","difficulty":"medium","expected":["物品-复合弓无框瞄具.md","物品-复合弓智能倍镜.md"],"note":"倍镜=瞄具改写"}
+{"id":"R023","query":"锚点导轨后托适配哪些枪","category":"item","qtype":"lookup","difficulty":"medium","expected":["物品-锚点导轨后托.md"]}
+{"id":"R024","query":"想多背点东西进图，打什么针好","category":"item","qtype":"paraphrase","difficulty":"hard","expected":["物品-M1肌肉强化针.md"],"note":"用途（负重提升）反查，不出现针名"}
+{"id":"R025","query":"有没有能让我跑得更久的针剂","category":"item","qtype":"paraphrase","difficulty":"hard","expected":["物品-体能激活针.md"],"note":"用途（体力恢复）反查"}
+{"id":"R026","query":"哈夫克脑机液超体是干嘛用的","category":"item","qtype":"lookup","difficulty":"medium","expected":["物品-哈夫克脑机液-“超体”.md"]}
+{"id":"R027","query":"能做手术的包类道具都有哪些","category":"item","qtype":"attr_lookup","difficulty":"hard","expected":["物品-DEK野战手术包.md","物品-简易手术包.md","物品-战术快拆手术包.md"],"note":"按功能聚合：3种手术包"}
+{"id":"R028","query":"DVE止疼片和缓释止痛片选哪个","category":"item","qtype":"compare","difficulty":"medium","expected":["物品-DVE止疼片.md","物品-缓释止痛片.md"]}
+{"id":"R029","query":"普罗透斯干扰器有什么效果","category":"item","qtype":"lookup","difficulty":"medium","expected":["物品-普罗透斯干扰器.md"]}
+{"id":"R030","query":"潮汐监狱的房间钥匙都有哪些","category":"item","qtype":"attr_lookup","difficulty":"hard","expected":["物品-典狱长收藏室.md","物品-人偶影印室.md","物品-生物样本室.md","物品-监狱服务器房.md","物品-食堂洗碗间.md"],"note":"按地图聚合：潮汐监狱13把房间钥匙（权限卡另计）"}
+{"id":"R031","query":"地下通道钥匙是哪张图哪个房间的","category":"item","qtype":"lookup","difficulty":"easy","expected":["物品-地下通道钥匙.md"]}
+{"id":"R032","query":"监狱的门禁卡分几个等级","category":"item","qtype":"paraphrase","difficulty":"medium","expected":["物品-一级监狱权限卡.md","物品-二级监狱权限卡.md","物品-三级监狱权限卡.md"],"note":"门禁卡=权限卡改写"}
+{"id":"R033","query":"长弓溪谷实验楼相关的钥匙有哪几把","category":"item","qtype":"attr_lookup","difficulty":"hard","expected":["物品-实验楼资料室.md","物品-实验楼办公室.md"],"note":"地图+地点双条件聚合"}
+{"id":"R034","query":"GTO重型战术包能装多少东西","category":"item","qtype":"lookup","difficulty":"easy","expected":["物品-GTO重型战术包.md"]}
+{"id":"R035","query":"玩烽火想多带点战利品出来，有什么大容量背包推荐","category":"item","qtype":"paraphrase","difficulty":"hard","expected":["物品-GTO重型战术包.md","物品-HLS-2重型背包.md","物品-重型登山包.md"],"note":"口语化需求反查大容量背包"}
+{"id":"R036","query":"D2和D3战术登山包有什么区别","category":"item","qtype":"compare","difficulty":"medium","expected":["物品-D2战术登山包.md","物品-D3战术登山包.md"]}
+{"id":"R037","query":"长弓溪谷酒店的房卡钥匙都有哪几种","category":"item","qtype":"attr_lookup","difficulty":"hard","expected":["物品-酒店国王房.md","物品-酒店将军房.md","物品-酒店方片房.md","物品-酒店王子房.md","物品-酒店黑桃房.md"],"note":"地图+主题聚合：5种酒店房卡"}
+{"id":"R038","query":"海盗金币银币铜币都在哪张图刷，哪个值钱","category":"item","qtype":"compare","difficulty":"hard","expected":["物品-亮闪闪的海盗金币.md","物品-古怪的海盗银币.md","物品-锈迹斑斑的海盗铜币.md"]}
+{"id":"R039","query":"曼德尔超算单元在哪里能刷到","category":"item","qtype":"lookup","difficulty":"medium","expected":["物品-曼德尔超算单元.md"]}
+{"id":"R040","query":"烽火世界杯纪念奖杯怎么获得","category":"item","qtype":"lookup","difficulty":"medium","expected":["物品-烽火世界杯纪念奖杯.md"]}
+{"id":"R041","query":"黄金鳄鱼头雕像是什么品质的收集品","category":"item","qtype":"lookup","difficulty":"medium","expected":["物品-黄金鳄鱼头雕像.md"]}
+{"id":"R042","query":"蝶变时刻赛季具体是几月几号上线的","category":"announce","qtype":"date_lookup","difficulty":"medium","expected":["官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md"],"note":"答案在顶层摘要片，用title_exact排除同文档小节"}
+{"id":"R043","query":"烈火冲天赛季新出了哪些武器","category":"announce","qtype":"entity_agg","difficulty":"medium","expected":["官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md"]}
+{"id":"R044","query":"阿萨拉赛季的新干员叫什么，是哪个职业","category":"announce","qtype":"entity_agg","difficulty":"medium","expected":["官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md"]}
+{"id":"R045","query":"代号银翼的侦察干员是什么时候实装的","category":"announce","qtype":"multi_hop","difficulty":"hard","expected":["官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md"],"note":"多跳：干员代号→赛季公告，query不含赛季名"}
+{"id":"R046","query":"代号旅人的干员全名叫什么","category":"announce","qtype":"multi_hop","difficulty":"hard","expected":["官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md"]}
+{"id":"R047","query":"裂变赛季新增的直升机叫什么名字","category":"announce","qtype":"lookup","difficulty":"easy","expected":["官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md"]}
+{"id":"R048","query":"听说群星赛季长弓溪谷地图翻新了，具体改了什么","category":"announce","qtype":"colloquial","difficulty":"medium","expected":["官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md"]}
+{"id":"R049","query":"烽火挑战模式怎么获得门票","category":"announce","qtype":"paraphrase","difficulty":"hard","expected":["官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md"],"note":"玩家口语（买票/门票）与官方术语（门票获取方式）对齐"}
+{"id":"R050","query":"破壁赛季的图灵砖阿萨拉幻想活动怎么玩","category":"announce","qtype":"lookup","difficulty":"hard","expected":["官方公告-20250630-7月3日更新公告丨新赛季【破壁】即将开启！.md"]}
+{"id":"R051","query":"8月14日的武器平衡性调整具体改了哪些枪","category":"announce","qtype":"date_lookup","difficulty":"medium","expected":["官方公告-20240813-8月14日更新公告丨武器平衡性调整.md"],"note":"30+份平衡调整公告中按日期精确定位"}
+{"id":"R052","query":"12月18日的季中平衡性调整都调整了什么","category":"announce","qtype":"date_lookup","difficulty":"medium","expected":["官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md"]}
+{"id":"R053","query":"4月16日和4月17日分别发了什么公告，不是一个赛季吗","category":"announce","qtype":"confusable","difficulty":"hard","expected":["官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md","官方公告-20250417-4月17日更新公告丨新赛季【黑夜之子】即将开启！.md"],"note":"跨年份相邻日期双赛季，极易混淆"}
+{"id":"R054","query":"2月13日的深蓝平衡性调整内容","category":"announce","qtype":"date_lookup","difficulty":"medium","expected":["官方公告-20250212-2月13日更新公告丨深蓝平衡性调整\u0026活动上新！.md"]}
+{"id":"R055","query":"12月6日全面战场的干员平衡性调整动了哪些干员","category":"announce","qtype":"date_lookup","difficulty":"medium","expected":["官方公告-20241205-12月6日更新公告丨全面战场干员平衡性调整.md"]}
+{"id":"R056","query":"电锯惊魂联动那次季中平衡性调整改了什么","category":"announce","qtype":"paraphrase","difficulty":"medium","expected":["官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md"],"note":"以联动活动指代公告，query无日期"}
+{"id":"R057","query":"10月10日的更新公告内容是什么","category":"announce","qtype":"confusable","difficulty":"hard","expected":["官方公告-20241009-10月10日更新公告丨新干员乌鲁鲁报道\u0026绝密行动即将开启！.md","官方公告-20261009-10月10日更新公告丨季中平衡性调整＆极星守望即将上线！.md"],"note":"同日期跨两年双公告，双目标"}
+{"id":"R058","query":"阿萨拉疯狂星期四是什么活动，有什么奖励","category":"announce","qtype":"lookup","difficulty":"medium","expected":["官方公告-20260506-5月7日更新公告丨阿萨拉疯狂星期四来袭！.md"]}
+{"id":"R059","query":"宝藏月系列活动都有哪些内容","category":"announce","qtype":"entity_agg","difficulty":"hard","expected":["官方公告-20260805-8月6日更新公告丨宝藏月开启\u0026烽火挑战新赛段！.md","官方公告-20260809-8月9日更新公告丨宝藏月全新活动开启！.md","官方公告-20260812-8月13日更新公告丨宝藏月加码\u0026火箭鼠鼠送宝！.md","官方公告-20250806-8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！.md","官方公告-20250820-8月21日更新公告丨宝藏月捆绑包、AW联动外观免费领 ！.md","官方公告-20260729-7月30日更新公告丨2600限时三角券＆宝藏月捆绑包免费送！.md"],"note":"跨两年6份同主题公告聚合"}
+{"id":"R060","query":"麦小蛋什么时候返场回归","category":"announce","qtype":"paraphrase","difficulty":"medium","expected":["官方公告-20250618-6月19日更新公告丨麦小蛋限时回归\u0026赛季末冲刺即将开启！.md"],"note":"返场/回归→限时回归"}
+{"id":"R061","query":"彩虹六号联动和明日方舟联动分别是什么时候开的","category":"announce","qtype":"confusable","difficulty":"hard","expected":["官方公告-20260707-7月8日更新公告丨彩虹六号_围攻联动开启！.md","官方公告-20250710-7月11日更新公告丨方舟联动\u0026赠礼活动即将开启！.md","官方公告-20250628-方舟联动特别赠礼活动预告.md"],"note":"双联动对比；注意彩虹六号文件名是下划线"}
+{"id":"R062","query":"设备锁功能在哪里开启，有什么用","category":"announce","qtype":"lookup","difficulty":"easy","expected":["官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md"]}
+{"id":"R063","query":"用连点器或者鼠标宏会被封号吗","category":"announce","qtype":"paraphrase","difficulty":"medium","expected":["官方公告-20241018-《三角洲行动》针对“坐挂车”、“使用连点器”违规行为打击公告.md","官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md"],"note":"玩家常见疑问映射到两份打击公告"}
+{"id":"R064","query":"在网吧玩三角洲怎么防止账号被盗","category":"announce","qtype":"colloquial","difficulty":"medium","expected":["官方公告-20250730-网吧辨别真假游戏客户端，谨防账号被盗！.md"]}
+{"id":"R065","query":"官方对AI视觉吸附类外挂的打击进展怎么样了","category":"announce","qtype":"entity_agg","difficulty":"hard","expected":["官方公告-20260518-_AI视觉吸附_类外挂专项打击公告.md","官方公告-20260528-PC\u0026移动双端“AI吸附”外挂打击进展公告.md","官方公告-20260605-AI 视觉吸附类外挂打击声明.md"],"note":"同主题三份进展公告聚合"}
+{"id":"R066","query":"三角洲现在日活大概有多少","category":"announce","qtype":"colloquial","difficulty":"medium","expected":["官方公告-20250813-《三角洲行动》7月平均日活跃用户数突破2000万！.md"]}
+{"id":"R067","query":"高校特权的新生认证和武器外观体验是一个东西吗","category":"announce","qtype":"confusable","difficulty":"hard","expected":["官方公告-20260320-高校特权「新生认证」3月31日到期提醒！.md","官方公告-20260320-《三角洲行动》高校特权3月武器外观体验刷新.md"],"note":"同日两份高校主题公告区分"}
+{"id":"R068","query":"NVIDIA显卡驱动兼容性问题官方怎么说","category":"announce","qtype":"lookup","difficulty":"easy","expected":["官方公告-20260413-关于NVIDIA部分显卡驱动兼容性风险提醒.md"]}
+{"id":"R069","query":"2026烽火职业联赛夏季赛的赛制规则","category":"announce","qtype":"lookup","difficulty":"medium","expected":["官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md"],"note":"103切片的巨文档，考顶层片定位"}
+{"id":"R070","query":"把账号借给别人用有什么风险","category":"announce","qtype":"paraphrase","difficulty":"medium","expected":["官方公告-20250723-警惕账号共享，共同守护账号安全!.md","官方公告-20250821-账号共享风险提醒＆透视作弊专项打击公示.md"],"note":"借号→账号共享"}
+{"id":"R071","query":"从高楼跳下来快落地的时候喷一下喷气背包能不能免摔伤","category":"mechanism","qtype":"colloquial","difficulty":"hard","expected":["视频-BV1kBfVYhEAs-三角洲流言害死人！【流言终结者1】.md"]}
+{"id":"R072","query":"为什么我扛着队友的盒子跑反而更快，是bug吗","category":"mechanism","qtype":"colloquial","difficulty":"medium","expected":["视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md"]}
+{"id":"R073","query":"铁丝网能不能直接跳过去","category":"mechanism","qtype":"lookup","difficulty":"medium","expected":["视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md"]}
+{"id":"R074","query":"张姐开大的声音能传多远","category":"mechanism","qtype":"lookup","difficulty":"medium","expected":["视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md"]}
+{"id":"R075","query":"盾狗开大的时候减伤到底有多少","category":"mechanism","qtype":"paraphrase","difficulty":"medium","expected":["视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md"],"note":"盾狗=深蓝的俗称"}
+{"id":"R076","query":"手臂骨折了舔包速度会不会变慢","category":"mechanism","qtype":"colloquial","difficulty":"hard","expected":["视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md","视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md"],"note":"舔包=搜刮盒子"}
+{"id":"R077","query":"人在水里是不是没法把雷扔上岸","category":"mechanism","qtype":"colloquial","difficulty":"medium","expected":["视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md"]}
+{"id":"R078","query":"潜到水底对面是不是就发现不了我了","category":"mechanism","qtype":"colloquial","difficulty":"medium","expected":["视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md"]}
+{"id":"R079","query":"露娜的电箭和探测箭能被击落吗","category":"mechanism","qtype":"lookup","difficulty":"medium","expected":["视频-BV1o1YszeExj-小碎步原来是这么用的【三角洲流言终结者4】.md"]}
+{"id":"R080","query":"牧羊人的小面包飞得越远伤害越低吗","category":"mechanism","qtype":"paraphrase","difficulty":"medium","expected":["视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md"],"note":"小面包=牧羊人投掷物俗称"}
+{"id":"R081","query":"骇爪无人机的闪光最远多少米还能生效","category":"mechanism","qtype":"lookup","difficulty":"hard","expected":["视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md"]}
+{"id":"R082","query":"无名开大的时候对面能听到什么声音","category":"mechanism","qtype":"colloquial","difficulty":"medium","expected":["视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md"]}
+{"id":"R083","query":"医疗粉针和治疗针能一起叠加用吗","category":"mechanism","qtype":"lookup","difficulty":"medium","expected":["视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md"]}
+{"id":"R084","query":"倒地以后在地上爬会一直掉血吗","category":"mechanism","qtype":"colloquial","difficulty":"medium","expected":["视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md"]}
+{"id":"R085","query":"听力加成的道具堆叠起来有没有上限","category":"mechanism","qtype":"lookup","difficulty":"hard","expected":["视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md","视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md"],"note":"同一机制在#10/#12两期都有测试"}
+{"id":"R086","query":"背的东西太重是不是就跳不高了","category":"mechanism","qtype":"colloquial","difficulty":"medium","expected":["视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md"]}
+{"id":"R087","query":"乌鲁鲁的燃烧弹能不能烧掉对面放的道具","category":"mechanism","qtype":"colloquial","difficulty":"hard","expected":["视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md"]}
+{"id":"R088","query":"液氮能不能冻死水里的敌人","category":"mechanism","qtype":"lookup","difficulty":"medium","expected":["视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md"]}
+{"id":"R089","query":"热成像瞄具能看穿水面看到水底的人吗","category":"mechanism","qtype":"lookup","difficulty":"medium","expected":["视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md"]}
+{"id":"R090","query":"脚挂在栏杆上再跳下来会不会摔骨折","category":"mechanism","qtype":"colloquial","difficulty":"medium","expected":["视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md"]}
+{"id":"R091","query":"银翼的EMP能打断哪些技能和道具","category":"mechanism","qtype":"lookup","difficulty":"hard","expected":["视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md"]}
+{"id":"R092","query":"张姐的电刺到底能不能把教官的盾缴下来","category":"mechanism","qtype":"confusable","difficulty":"hard","expected":["视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md","视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md","视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md"],"note":"教官盾缴械在#3/#10/#11三期出现"}
+{"id":"R093","query":"乌鲁鲁从高处跳下来到底会不会骨折","category":"mechanism","qtype":"confusable","difficulty":"hard","expected":["视频-BV1kBfVYhEAs-三角洲流言害死人！【流言终结者1】.md","视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md","视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md"],"note":"同一被动在#1/#2/#7三期都测过"}
+{"id":"R094","query":"威龙从零号大坝顶上直接跳下来为什么没事","category":"mechanism","qtype":"confusable","difficulty":"hard","expected":["视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md"],"note":"跨视频易混淆：#1也讲威龙无伤落地但机制不同"}
+{"id":"R095","query":"烟雾弹扔脚下到底能不能把自己身上的火灭掉","category":"mechanism","qtype":"confusable","difficulty":"hard","expected":["视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md","视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md"],"note":"#2/#7两期都测过烟雾灭火"}
+{"id":"R096","query":"烈火冲天的战利品归属者机制是什么规则","category":"mechanism","qtype":"lookup","difficulty":"medium","expected":["官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md"]}
+{"id":"R097","query":"钓鱼玩法需要什么条件才能解锁","category":"mechanism","qtype":"paraphrase","difficulty":"medium","expected":["官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md"]}
+{"id":"R098","query":"赤枭巡猎玩法能选什么难度和行动","category":"mechanism","qtype":"lookup","difficulty":"hard","expected":["官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md"]}
+{"id":"R099","query":"破壁赛季的曼德尔砖气象感应活动怎么参与","category":"mechanism","qtype":"lookup","difficulty":"hard","expected":["官方公告-20250630-7月3日更新公告丨新赛季【破壁】即将开启！.md"],"note":"流言终结者#8的曼德尔砖预警机制切片是强干扰"}
+{"id":"R100","query":"超感追查是个什么玩法","category":"mechanism","qtype":"lookup","difficulty":"medium","expected":["官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md"]}

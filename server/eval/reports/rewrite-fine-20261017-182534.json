@@ -1,0 +1,6200 @@
+{
+  "tag": "rewrite-fine",
+  "time": "2026-10-17 18:25:34",
+  "model": "ep-20260923220247-hfvrt",
+  "dimension": 2048,
+  "chunk_count": 4484,
+  "k": 8,
+  "overall": {
+    "all": {
+      "n": 100,
+      "hit@1": 0.83,
+      "hit@3": 0.95,
+      "hit@5": 0.97,
+      "hit@8": 0.98,
+      "mrr@8": 0.8928333333333335
+    },
+    "chunk": {
+      "n": 100,
+      "hit@1": 0.83,
+      "hit@3": 0.95,
+      "hit@5": 0.97,
+      "hit@8": 0.98,
+      "mrr@8": 0.8928333333333335
+    },
+    "file": {
+      "n": 0,
+      "hit@1": 0,
+      "hit@3": 0,
+      "hit@5": 0,
+      "hit@8": 0,
+      "mrr@8": 0
+    }
+  },
+  "by_category": {
+    "announce": {
+      "n": 29,
+      "hit@1": 0.7586206896551724,
+      "hit@3": 0.896551724137931,
+      "hit@5": 0.9655172413793104,
+      "hit@8": 0.9655172413793104,
+      "mrr@8": 0.843103448275862
+    },
+    "item": {
+      "n": 41,
+      "hit@1": 0.8536585365853658,
+      "hit@3": 0.975609756097561,
+      "hit@5": 0.975609756097561,
+      "hit@8": 0.975609756097561,
+      "mrr@8": 0.9065040650406505
+    },
+    "mechanism": {
+      "n": 30,
+      "hit@1": 0.8666666666666667,
+      "hit@3": 0.9666666666666667,
+      "hit@5": 0.9666666666666667,
+      "hit@8": 1,
+      "mrr@8": 0.9222222222222223
+    }
+  },
+  "by_difficulty": {
+    "easy": {
+      "n": 12,
+      "hit@1": 0.9166666666666666,
+      "hit@3": 0.9166666666666666,
+      "hit@5": 0.9166666666666666,
+      "hit@8": 0.9166666666666666,
+      "mrr@8": 0.9166666666666666
+    },
+    "hard": {
+      "n": 35,
+      "hit@1": 0.7142857142857143,
+      "hit@3": 0.9428571428571428,
+      "hit@5": 0.9428571428571428,
+      "hit@8": 0.9714285714285714,
+      "mrr@8": 0.8238095238095239
+    },
+    "medium": {
+      "n": 53,
+      "hit@1": 0.8867924528301887,
+      "hit@3": 0.9622641509433962,
+      "hit@5": 1,
+      "hit@8": 1,
+      "mrr@8": 0.9330188679245284
+    }
+  },
+  "by_qtype": {
+    "attr_lookup": {
+      "n": 8,
+      "hit@1": 0.75,
+      "hit@3": 1,
+      "hit@5": 1,
+      "hit@8": 1,
+      "mrr@8": 0.8541666666666666
+    },
+    "colloquial": {
+      "n": 13,
+      "hit@1": 0.7692307692307693,
+      "hit@3": 1,
+      "hit@5": 1,
+      "hit@8": 1,
+      "mrr@8": 0.8846153846153846
+    },
+    "compare": {
+      "n": 7,
+      "hit@1": 1,
+      "hit@3": 1,
+      "hit@5": 1,
+      "hit@8": 1,
+      "mrr@8": 1
+    },
+    "confusable": {
+      "n": 8,
+      "hit@1": 0.875,
+      "hit@3": 0.875,
+      "hit@5": 0.875,
+      "hit@8": 0.875,
+      "mrr@8": 0.875
+    },
+    "date_lookup": {
+      "n": 5,
+      "hit@1": 0.8,
+      "hit@3": 0.8,
+      "hit@5": 1,
+      "hit@8": 1,
+      "mrr@8": 0.85
+    },
+    "entity_agg": {
+      "n": 4,
+      "hit@1": 0.5,
+      "hit@3": 0.75,
+      "hit@5": 1,
+      "hit@8": 1,
+      "mrr@8": 0.675
+    },
+    "lookup": {
+      "n": 36,
+      "hit@1": 0.9166666666666666,
+      "hit@3": 0.9444444444444444,
+      "hit@5": 0.9444444444444444,
+      "hit@8": 0.9722222222222222,
+      "mrr@8": 0.9351851851851853
+    },
+    "multi_hop": {
+      "n": 2,
+      "hit@1": 0.5,
+      "hit@3": 1,
+      "hit@5": 1,
+      "hit@8": 1,
+      "mrr@8": 0.75
+    },
+    "paraphrase": {
+      "n": 14,
+      "hit@1": 0.7142857142857143,
+      "hit@3": 1,
+      "hit@5": 1,
+      "hit@8": 1,
+      "mrr@8": 0.8452380952380951
+    },
+    "robust": {
+      "n": 3,
+      "hit@1": 1,
+      "hit@3": 1,
+      "hit@5": 1,
+      "hit@8": 1,
+      "mrr@8": 1
+    }
+  },
+  "cases": [
+    {
+      "id": "R001",
+      "query": "SR-25射手步枪用什么弹药",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "SR-25射手步枪",
+      "top_k": [
+        {
+          "source": "物品-SR-25射手步枪.md",
+          "title": "SR-25射手步枪",
+          "score": 0.716
+        },
+        {
+          "source": "物品-SR25 20发弹匣.md",
+          "title": "SR25 20发弹匣",
+          "score": 0.684
+        },
+        {
+          "source": "物品-SR9射手步枪.md",
+          "title": "SR9射手步枪",
+          "score": 0.672
+        },
+        {
+          "source": "物品-5.7x28mm SS197SR.md",
+          "title": "5.7x28mm SS197SR",
+          "score": 0.658
+        },
+        {
+          "source": "物品-SR25 30发扩容弹匣.md",
+          "title": "SR25 30发扩容弹匣",
+          "score": 0.641
+        },
+        {
+          "source": "物品-7.62x51mm LS.md",
+          "title": "7.62x51mm LS",
+          "score": 0.634
+        },
+        {
+          "source": "官方公告-20250113-1月15日更新公告丨新赛季“焰火”即将开启！.md",
+          "title": "1月15日更新公告丨新赛季“焰火”即将开启！ \u003e 武器平衡性调整与优化 \u003e 烽火地带",
+          "score": 0.633
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 新武器——RM277突击步枪、SVCH射手步枪",
+          "score": 0.632
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-SR-25射手步枪.md",
+          "title_contains": "SR-25射手步枪"
+        }
+      ]
+    },
+    {
+      "id": "R002",
+      "query": "AS Val突击步枪这枪怎么样",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "AS Val突击步枪",
+      "top_k": [
+        {
+          "source": "物品-AS Val突击步枪.md",
+          "title": "AS Val突击步枪",
+          "score": 0.777
+        },
+        {
+          "source": "物品-AS Val突击步枪-哈夫克科技.md",
+          "title": "AS Val突击步枪-哈夫克科技",
+          "score": 0.734
+        },
+        {
+          "source": "物品-AS Val枪托尾盖.md",
+          "title": "AS Val枪托尾盖",
+          "score": 0.694
+        },
+        {
+          "source": "物品-AS Val刺客高级枪管.md",
+          "title": "AS Val刺客高级枪管",
+          "score": 0.664
+        },
+        {
+          "source": "官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md",
+          "title": "10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！ \u003e 武器平衡性调整 \u003e 全面战场",
+          "score": 0.63
+        },
+        {
+          "source": "官方公告-20260408-4月9日更新公告丨赛季末冲刺即将开启！.md",
+          "title": "4月9日更新公告丨赛季末冲刺即将开启！ \u003e 新活动 \u003e 洲末品枪（双模式）",
+          "score": 0.623
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 武器平衡性调整与优化 \u003e 烽火地带",
+          "score": 0.614
+        },
+        {
+          "source": "物品-ASh-12战斗步枪.md",
+          "title": "ASh-12战斗步枪",
+          "score": 0.613
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-AS Val突击步枪.md",
+          "title_contains": "AS Val突击步枪"
+        }
+      ]
+    },
+    {
+      "id": "R003",
+      "query": "qjb201轻机枪的属性数据",
+      "category": "item",
+      "qtype": "robust",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "QJB201轻机枪",
+      "top_k": [
+        {
+          "source": "物品-QJB201轻机枪.md",
+          "title": "QJB201轻机枪",
+          "score": 0.755
+        },
+        {
+          "source": "物品-QJB201脚架.md",
+          "title": "QJB201脚架",
+          "score": 0.678
+        },
+        {
+          "source": "物品-QJB201新式獠牙短枪管.md",
+          "title": "QJB201新式獠牙短枪管",
+          "score": 0.676
+        },
+        {
+          "source": "物品-QJB201新式重锤战术枪管.md",
+          "title": "QJB201新式重锤战术枪管",
+          "score": 0.659
+        },
+        {
+          "source": "物品-M249轻机枪.md",
+          "title": "M249轻机枪",
+          "score": 0.651
+        },
+        {
+          "source": "物品-QJB201新式稳固导气箍.md",
+          "title": "QJB201新式稳固导气箍",
+          "score": 0.641
+        },
+        {
+          "source": "物品-QCQ171冲锋枪.md",
+          "title": "QCQ171冲锋枪",
+          "score": 0.636
+        },
+        {
+          "source": "物品-M250通用机枪.md",
+          "title": "M250通用机枪",
+          "score": 0.634
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-QJB201轻机枪.md",
+          "title_contains": "QJB201轻机枪"
+        }
+      ]
+    },
+    {
+      "id": "R004",
+      "query": "打烽火想带把半自动射手步枪，M14和SR-25选哪个",
+      "category": "item",
+      "qtype": "compare",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "M14射手步枪",
+      "top_k": [
+        {
+          "source": "物品-M14射手步枪.md",
+          "title": "M14射手步枪",
+          "score": 0.649
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 武器平衡性调整与优化 \u003e 烽火地带 \u003e M14精确射手步枪",
+          "score": 0.648
+        },
+        {
+          "source": "物品-SR-25射手步枪.md",
+          "title": "SR-25射手步枪",
+          "score": 0.642
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 玩法更新 \u003e 新武器——M82狙击步枪、AR57突击步枪",
+          "score": 0.64
+        },
+        {
+          "source": "官方公告-20250806-8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！.md",
+          "title": "8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！ \u003e 武器平衡性调整与优化 \u003e 烽火地带",
+          "score": 0.64
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 新枪解锁-MK47突击步枪",
+          "score": 0.638
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 新增哈夫克军工限时武器改件 \u003e M700 HVK旋风枪身系统",
+          "score": 0.636
+        },
+        {
+          "source": "官方公告-20250319-3月20日更新公告丨武器平衡性调整\u0026活动上新！.md",
+          "title": "3月20日更新公告丨武器平衡性调整\u0026活动上新！ \u003e 武器平衡性调整 \u003e 烽火地带",
+          "score": 0.635
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-M14射手步枪.md",
+          "title_contains": "M14射手步枪"
+        },
+        {
+          "source": "物品-SR-25射手步枪.md",
+          "title_contains": "SR-25射手步枪"
+        }
+      ]
+    },
+    {
+      "id": "R005",
+      "query": "腾龙突击步枪数据",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "腾龙突击步枪",
+      "top_k": [
+        {
+          "source": "物品-腾龙突击步枪.md",
+          "title": "腾龙突击步枪",
+          "score": 0.748
+        },
+        {
+          "source": "官方公告-20250113-1月15日更新公告丨新赛季“焰火”即将开启！.md",
+          "title": "1月15日更新公告丨新赛季“焰火”即将开启！ \u003e 武器平衡性调整与优化 \u003e 双模式",
+          "score": 0.68
+        },
+        {
+          "source": "物品-新式腾龙高速导气箍.md",
+          "title": "新式腾龙高速导气箍",
+          "score": 0.652
+        },
+        {
+          "source": "物品-新式腾龙稳固导气箍.md",
+          "title": "新式腾龙稳固导气箍",
+          "score": 0.651
+        },
+        {
+          "source": "官方公告-20250514-5月15日更新公告丨神奇容器第二弹\u0026活动上新！.md",
+          "title": "5月15日更新公告丨神奇容器第二弹\u0026活动上新！ \u003e 新活动 \u003e 洲末品枪（双模式）",
+          "score": 0.622
+        },
+        {
+          "source": "官方公告-20250521-5月22日更新公告丨平衡性调整\u0026活动上新！.md",
+          "title": "5月22日更新公告丨平衡性调整\u0026活动上新！ \u003e 武器平衡性调整 \u003e 烽火地带",
+          "score": 0.609
+        },
+        {
+          "source": "官方公告-20250806-8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！.md",
+          "title": "8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！ \u003e 宝藏月特别活动 \u003e 洲末品枪（双模式）",
+          "score": 0.603
+        },
+        {
+          "source": "物品-QBZ95-1突击步枪.md",
+          "title": "QBZ95-1突击步枪",
+          "score": 0.603
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-腾龙突击步枪.md",
+          "title_contains": "腾龙突击步枪"
+        }
+      ]
+    },
+    {
+      "id": "R006",
+      "query": "m700狙击步枪",
+      "category": "item",
+      "qtype": "robust",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "M700狙击步枪",
+      "top_k": [
+        {
+          "source": "物品-M700狙击步枪.md",
+          "title": "M700狙击步枪",
+          "score": 0.812
+        },
+        {
+          "source": "物品-M7战斗步枪.md",
+          "title": "M7战斗步枪",
+          "score": 0.753
+        },
+        {
+          "source": "物品-M700稳定一体枪托.md",
+          "title": "M700稳定一体枪托",
+          "score": 0.751
+        },
+        {
+          "source": "物品-M14射手步枪.md",
+          "title": "M14射手步枪",
+          "score": 0.75
+        },
+        {
+          "source": "物品-M700 10发弹匣.md",
+          "title": "M700 10发弹匣",
+          "score": 0.741
+        },
+        {
+          "source": "物品-M700猎食军规枪管.md",
+          "title": "M700猎食军规枪管",
+          "score": 0.74
+        },
+        {
+          "source": "物品-M700一体消音管.md",
+          "title": "M700一体消音管",
+          "score": 0.74
+        },
+        {
+          "source": "物品-M700军规护木.md",
+          "title": "M700军规护木",
+          "score": 0.737
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-M700狙击步枪.md",
+          "title_contains": "M700狙击步枪"
+        }
+      ]
+    },
+    {
+      "id": "R007",
+      "query": "DVC12+P和普通的DVC12弹药有什么区别",
+      "category": "item",
+      "qtype": "compare",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "5.8x42mm DVC12+P",
+      "top_k": [
+        {
+          "source": "物品-5.8x42mm DVC12+P.md",
+          "title": "5.8x42mm DVC12+P",
+          "score": 0.76
+        },
+        {
+          "source": "物品-5.8x42mm DVC12.md",
+          "title": "5.8x42mm DVC12",
+          "score": 0.691
+        },
+        {
+          "source": "物品-5.8x42mm DBP10+P.md",
+          "title": "5.8x42mm DBP10+P",
+          "score": 0.63
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 新弹药\u0026新配件 \u003e 新增弹药",
+          "score": 0.618
+        },
+        {
+          "source": "物品-12 Gauge DART.md",
+          "title": "12 Gauge DART",
+          "score": 0.606
+        },
+        {
+          "source": "物品-12 Gauge 龙息弹.md",
+          "title": "12 Gauge 龙息弹",
+          "score": 0.601
+        },
+        {
+          "source": "物品-12.7x55mm PS12B.md",
+          "title": "12.7x55mm PS12B",
+          "score": 0.601
+        },
+        {
+          "source": "物品-12.7x55mm PD12双头弹.md",
+          "title": "12.7x55mm PD12双头弹",
+          "score": 0.598
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-5.8x42mm DVC12+P.md",
+          "title_contains": "5.8x42mm DVC12+P"
+        },
+        {
+          "source": "物品-5.8x42mm DVC12.md",
+          "title_contains": "5.8x42mm DVC12"
+        }
+      ]
+    },
+    {
+      "id": "R008",
+      "query": "7.62x51mm的弹药都有哪几种",
+      "category": "item",
+      "qtype": "attr_lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "7.62x51mm M62",
+      "top_k": [
+        {
+          "source": "物品-7.62x51mm M62.md",
+          "title": "7.62x51mm M62",
+          "score": 0.685
+        },
+        {
+          "source": "物品-7.62x51mm LS.md",
+          "title": "7.62x51mm LS",
+          "score": 0.684
+        },
+        {
+          "source": "物品-7.62x51mm M61.md",
+          "title": "7.62x51mm M61",
+          "score": 0.681
+        },
+        {
+          "source": "物品-7.62x39mm SUB_5.md",
+          "title": "7.62x39mm SUB_5",
+          "score": 0.66
+        },
+        {
+          "source": "物品-7.62x54R BT.md",
+          "title": "7.62x54R BT",
+          "score": 0.659
+        },
+        {
+          "source": "物品-7.62x54R SNB.md",
+          "title": "7.62x54R SNB",
+          "score": 0.655
+        },
+        {
+          "source": "物品-7.62x54R LPS.md",
+          "title": "7.62x54R LPS",
+          "score": 0.65
+        },
+        {
+          "source": "物品-7.62x51mm Ultra Nosler.md",
+          "title": "7.62x51mm Ultra Nosler",
+          "score": 0.65
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-7.62x51mm BPZ.md",
+          "title_contains": "7.62x51mm BPZ"
+        },
+        {
+          "source": "物品-7.62x51mm LS.md",
+          "title_contains": "7.62x51mm LS"
+        },
+        {
+          "source": "物品-7.62x51mm M61.md",
+          "title_contains": "7.62x51mm M61"
+        },
+        {
+          "source": "物品-7.62x51mm M62.md",
+          "title_contains": "7.62x51mm M62"
+        },
+        {
+          "source": "物品-7.62x51mm M80.md",
+          "title_contains": "7.62x51mm M80"
+        },
+        {
+          "source": "物品-7.62x51mm Ultra Nosler.md",
+          "title_contains": "7.62x51mm Ultra Nosler"
+        }
+      ]
+    },
+    {
+      "id": "R009",
+      "query": "7.62x51里面穿透等级最高的子弹是哪种",
+      "category": "item",
+      "qtype": "attr_lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 3,
+      "hit_title": "7.62x51mm M61",
+      "top_k": [
+        {
+          "source": "物品-7.62x51mm M62.md",
+          "title": "7.62x51mm M62",
+          "score": 0.744
+        },
+        {
+          "source": "物品-7.62x51mm LS.md",
+          "title": "7.62x51mm LS",
+          "score": 0.736
+        },
+        {
+          "source": "物品-7.62x51mm M61.md",
+          "title": "7.62x51mm M61",
+          "score": 0.736
+        },
+        {
+          "source": "物品-7.62x54R BT.md",
+          "title": "7.62x54R BT",
+          "score": 0.717
+        },
+        {
+          "source": "物品-7.62x39mm AP.md",
+          "title": "7.62x39mm AP",
+          "score": 0.714
+        },
+        {
+          "source": "物品-7.62x39mm SUB_5.md",
+          "title": "7.62x39mm SUB_5",
+          "score": 0.709
+        },
+        {
+          "source": "物品-7.62x51mm Ultra Nosler.md",
+          "title": "7.62x51mm Ultra Nosler",
+          "score": 0.703
+        },
+        {
+          "source": "物品-7.62x54R SNB.md",
+          "title": "7.62x54R SNB",
+          "score": 0.702
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-7.62x51mm M61.md",
+          "title_contains": "7.62x51mm M61"
+        }
+      ]
+    },
+    {
+      "id": "R010",
+      "query": "7.62×54R SNB弹好用吗",
+      "category": "item",
+      "qtype": "robust",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "7.62x54R SNB",
+      "top_k": [
+        {
+          "source": "物品-7.62x54R SNB.md",
+          "title": "7.62x54R SNB",
+          "score": 0.736
+        },
+        {
+          "source": "物品-7.62x54R BT.md",
+          "title": "7.62x54R BT",
+          "score": 0.651
+        },
+        {
+          "source": "物品-7.62x54R T46M.md",
+          "title": "7.62x54R T46M",
+          "score": 0.628
+        },
+        {
+          "source": "物品-7.62x54R LPS.md",
+          "title": "7.62x54R LPS",
+          "score": 0.617
+        },
+        {
+          "source": "物品-7.62x51mm M62.md",
+          "title": "7.62x51mm M62",
+          "score": 0.61
+        },
+        {
+          "source": "物品-7.62x51mm LS.md",
+          "title": "7.62x51mm LS",
+          "score": 0.609
+        },
+        {
+          "source": "物品-SV-98狙击步枪.md",
+          "title": "SV-98狙击步枪",
+          "score": 0.603
+        },
+        {
+          "source": "物品-SVD狙击步枪.md",
+          "title": "SVD狙击步枪",
+          "score": 0.598
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-7.62x54R SNB.md",
+          "title_contains": "7.62x54R SNB"
+        }
+      ]
+    },
+    {
+      "id": "R011",
+      "query": "龙息弹是什么效果的弹药",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "12 Gauge 龙息弹",
+      "top_k": [
+        {
+          "source": "物品-12 Gauge 龙息弹.md",
+          "title": "12 Gauge 龙息弹",
+          "score": 0.752
+        },
+        {
+          "source": "官方公告-20250417-4月17日更新公告丨新赛季【黑夜之子】即将开启！.md",
+          "title": "4月17日更新公告丨新赛季【黑夜之子】即将开启！ \u003e 玩法更新 \u003e 新弹药/新配件/新装备——龙息弹、新增夜视仪头盔",
+          "score": 0.629
+        },
+        {
+          "source": "物品-12 Gauge独头 RIP.md",
+          "title": "12 Gauge独头 RIP",
+          "score": 0.61
+        },
+        {
+          "source": "物品-12 Gauge 8.5毫米鹿弹.md",
+          "title": "12 Gauge 8.5毫米鹿弹",
+          "score": 0.602
+        },
+        {
+          "source": "物品-12 Gauge DART.md",
+          "title": "12 Gauge DART",
+          "score": 0.601
+        },
+        {
+          "source": "物品-.357 Magnum 9号霰射_鼠弹_.md",
+          "title": ".357 Magnum 9号霰射\"鼠弹\"",
+          "score": 0.599
+        },
+        {
+          "source": "物品-5.8x42mm DBP10.md",
+          "title": "5.8x42mm DBP10",
+          "score": 0.595
+        },
+        {
+          "source": "物品-“六”级弹.md",
+          "title": "“六”级弹",
+          "score": 0.595
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-12 Gauge 龙息弹.md",
+          "title_contains": "12 Gauge 龙息弹"
+        }
+      ]
+    },
+    {
+      "id": "R012",
+      "query": "6级红品的防弹衣都有哪几件",
+      "category": "item",
+      "qtype": "attr_lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 2,
+      "hit_title": "金刚防弹衣",
+      "top_k": [
+        {
+          "source": "物品-泰坦防弹装甲 (破损).md",
+          "title": "泰坦防弹装甲 (破损)",
+          "score": 0.667
+        },
+        {
+          "source": "物品-金刚防弹衣.md",
+          "title": "金刚防弹衣",
+          "score": 0.666
+        },
+        {
+          "source": "物品-HA-2重型防弹衣 (破损).md",
+          "title": "HA-2重型防弹衣 (破损)",
+          "score": 0.664
+        },
+        {
+          "source": "物品-金刚防弹衣 (破损).md",
+          "title": "金刚防弹衣 (破损)",
+          "score": 0.66
+        },
+        {
+          "source": "物品-泰坦防弹装甲.md",
+          "title": "泰坦防弹装甲",
+          "score": 0.657
+        },
+        {
+          "source": "物品-HA-2重型防弹衣.md",
+          "title": "HA-2重型防弹衣",
+          "score": 0.655
+        },
+        {
+          "source": "物品-泰坦防弹装甲 (几乎全新).md",
+          "title": "泰坦防弹装甲 (几乎全新)",
+          "score": 0.654
+        },
+        {
+          "source": "物品-金刚防弹衣 (几乎全新).md",
+          "title": "金刚防弹衣 (几乎全新)",
+          "score": 0.651
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-HA-2重型防弹衣.md",
+          "title_contains": "HA-2重型防弹衣"
+        },
+        {
+          "source": "物品-泰坦防弹装甲.md",
+          "title_contains": "泰坦防弹装甲"
+        },
+        {
+          "source": "物品-特里克MAS2.0装甲.md",
+          "title_contains": "特里克MAS2.0装甲"
+        },
+        {
+          "source": "物品-金刚防弹衣.md",
+          "title_contains": "金刚防弹衣"
+        }
+      ]
+    },
+    {
+      "id": "R013",
+      "query": "泰坦防弹装甲占仓库多少格",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "泰坦防弹装甲",
+      "top_k": [
+        {
+          "source": "物品-泰坦防弹装甲.md",
+          "title": "泰坦防弹装甲",
+          "score": 0.701
+        },
+        {
+          "source": "物品-泰坦防弹装甲 (几乎全新).md",
+          "title": "泰坦防弹装甲 (几乎全新)",
+          "score": 0.696
+        },
+        {
+          "source": "物品-泰坦防弹装甲 (破损).md",
+          "title": "泰坦防弹装甲 (破损)",
+          "score": 0.683
+        },
+        {
+          "source": "物品-TG战术防弹衣.md",
+          "title": "TG战术防弹衣",
+          "score": 0.624
+        },
+        {
+          "source": "物品-TG-H防弹衣.md",
+          "title": "TG-H防弹衣",
+          "score": 0.619
+        },
+        {
+          "source": "物品-TG战术防弹衣 (几乎全新).md",
+          "title": "TG战术防弹衣 (几乎全新)",
+          "score": 0.617
+        },
+        {
+          "source": "物品-TG-H防弹衣 (几乎全新).md",
+          "title": "TG-H防弹衣 (几乎全新)",
+          "score": 0.613
+        },
+        {
+          "source": "物品-TG战术防弹衣 (破损).md",
+          "title": "TG战术防弹衣 (破损)",
+          "score": 0.612
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-泰坦防弹装甲.md",
+          "title_contains": "泰坦防弹装甲"
+        }
+      ]
+    },
+    {
+      "id": "R014",
+      "query": "GT5指挥官头盔几乎全新和破损的属性差多少",
+      "category": "item",
+      "qtype": "compare",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "GT5 指挥官头盔 (破损)",
+      "top_k": [
+        {
+          "source": "物品-GT5 指挥官头盔 (破损).md",
+          "title": "GT5 指挥官头盔 (破损)",
+          "score": 0.727
+        },
+        {
+          "source": "物品-GT5 指挥官头盔 (几乎全新).md",
+          "title": "GT5 指挥官头盔 (几乎全新)",
+          "score": 0.718
+        },
+        {
+          "source": "物品-GT5 指挥官头盔.md",
+          "title": "GT5 指挥官头盔",
+          "score": 0.695
+        },
+        {
+          "source": "物品-GT1 战术头盔 (破损).md",
+          "title": "GT1 战术头盔 (破损)",
+          "score": 0.659
+        },
+        {
+          "source": "物品-GT1 战术头盔 (几乎全新).md",
+          "title": "GT1 战术头盔 (几乎全新)",
+          "score": 0.647
+        },
+        {
+          "source": "物品-H01 战术头盔 (几乎全新).md",
+          "title": "H01 战术头盔 (几乎全新)",
+          "score": 0.628
+        },
+        {
+          "source": "物品-GT1 战术头盔.md",
+          "title": "GT1 战术头盔",
+          "score": 0.62
+        },
+        {
+          "source": "物品-GN 重型头盔 (破损).md",
+          "title": "GN 重型头盔 (破损)",
+          "score": 0.618
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-GT5 指挥官头盔 (几乎全新).md",
+          "title_contains": "GT5 指挥官头盔 (几乎全新)"
+        },
+        {
+          "source": "物品-GT5 指挥官头盔 (破损).md",
+          "title_contains": "GT5 指挥官头盔 (破损)"
+        }
+      ]
+    },
+    {
+      "id": "R015",
+      "query": "H70精英头盔和DICH-9重型头盔哪个防护好",
+      "category": "item",
+      "qtype": "compare",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "DICH-9重型头盔",
+      "top_k": [
+        {
+          "source": "物品-DICH-9重型头盔.md",
+          "title": "DICH-9重型头盔",
+          "score": 0.76
+        },
+        {
+          "source": "物品-DICH-9重型头盔 (几乎全新).md",
+          "title": "DICH-9重型头盔 (几乎全新)",
+          "score": 0.756
+        },
+        {
+          "source": "物品-DICH-9重型头盔 (破损).md",
+          "title": "DICH-9重型头盔 (破损)",
+          "score": 0.747
+        },
+        {
+          "source": "物品-H70 精英头盔.md",
+          "title": "H70 精英头盔",
+          "score": 0.742
+        },
+        {
+          "source": "物品-H70 夜视精英头盔.md",
+          "title": "H70 夜视精英头盔",
+          "score": 0.732
+        },
+        {
+          "source": "物品-H70 精英头盔 (几乎全新).md",
+          "title": "H70 精英头盔 (几乎全新)",
+          "score": 0.728
+        },
+        {
+          "source": "物品-H70 夜视精英头盔 (几乎全新).md",
+          "title": "H70 夜视精英头盔 (几乎全新)",
+          "score": 0.725
+        },
+        {
+          "source": "物品-H70 夜视精英头盔 (破损).md",
+          "title": "H70 夜视精英头盔 (破损)",
+          "score": 0.721
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-H70 精英头盔.md",
+          "title_contains": "H70 精英头盔"
+        },
+        {
+          "source": "物品-DICH-9重型头盔.md",
+          "title_contains": "DICH-9重型头盔"
+        }
+      ]
+    },
+    {
+      "id": "R016",
+      "query": "头盔耐久掉了能用什么修",
+      "category": "item",
+      "qtype": "paraphrase",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "高级头盔维修组合",
+      "top_k": [
+        {
+          "source": "物品-高级头盔维修组合.md",
+          "title": "高级头盔维修组合",
+          "score": 0.67
+        },
+        {
+          "source": "物品-精密头盔维修包.md",
+          "title": "精密头盔维修包",
+          "score": 0.663
+        },
+        {
+          "source": "物品-标准头盔维修包.md",
+          "title": "标准头盔维修包",
+          "score": 0.661
+        },
+        {
+          "source": "物品-自制头盔维修包.md",
+          "title": "自制头盔维修包",
+          "score": 0.652
+        },
+        {
+          "source": "物品-安保头盔 (破损).md",
+          "title": "安保头盔 (破损)",
+          "score": 0.599
+        },
+        {
+          "source": "物品-H01 战术头盔 (破损).md",
+          "title": "H01 战术头盔 (破损)",
+          "score": 0.592
+        },
+        {
+          "source": "物品-安保头盔 (几乎全新).md",
+          "title": "安保头盔 (几乎全新)",
+          "score": 0.59
+        },
+        {
+          "source": "物品-安保头盔.md",
+          "title": "安保头盔",
+          "score": 0.587
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-标准头盔维修包.md",
+          "title_contains": "标准头盔维修包"
+        },
+        {
+          "source": "物品-精密头盔维修包.md",
+          "title_contains": "精密头盔维修包"
+        },
+        {
+          "source": "物品-自制头盔维修包.md",
+          "title_contains": "自制头盔维修包"
+        },
+        {
+          "source": "物品-高级头盔维修组合.md",
+          "title_contains": "高级头盔维修组合"
+        }
+      ]
+    },
+    {
+      "id": "R017",
+      "query": "高级护甲维修组合里都有什么东西",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "高级护甲维修组合",
+      "top_k": [
+        {
+          "source": "物品-高级护甲维修组合.md",
+          "title": "高级护甲维修组合",
+          "score": 0.754
+        },
+        {
+          "source": "物品-高级头盔维修组合.md",
+          "title": "高级头盔维修组合",
+          "score": 0.697
+        },
+        {
+          "source": "物品-精密护甲维修包.md",
+          "title": "精密护甲维修包",
+          "score": 0.676
+        },
+        {
+          "source": "物品-标准护甲维修包.md",
+          "title": "标准护甲维修包",
+          "score": 0.671
+        },
+        {
+          "source": "物品-自制护甲维修包.md",
+          "title": "自制护甲维修包",
+          "score": 0.658
+        },
+        {
+          "source": "物品-精密头盔维修包.md",
+          "title": "精密头盔维修包",
+          "score": 0.624
+        },
+        {
+          "source": "物品-标准头盔维修包.md",
+          "title": "标准头盔维修包",
+          "score": 0.612
+        },
+        {
+          "source": "物品-高级医药箱.md",
+          "title": "高级医药箱",
+          "score": 0.61
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-高级护甲维修组合.md",
+          "title_contains": "高级护甲维修组合"
+        }
+      ]
+    },
+    {
+      "id": "R018",
+      "query": "蛛网钛制制退器什么属性",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "蛛网钛制制退器",
+      "top_k": [
+        {
+          "source": "物品-蛛网钛制制退器.md",
+          "title": "蛛网钛制制退器",
+          "score": 0.813
+        },
+        {
+          "source": "物品-钛金竞赛制退器.md",
+          "title": "钛金竞赛制退器",
+          "score": 0.733
+        },
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 新配件\u0026新弹药\u0026新装备 \u003e 蛛网钛制制退器",
+          "score": 0.713
+        },
+        {
+          "source": "物品-精英手枪制退器.md",
+          "title": "精英手枪制退器",
+          "score": 0.676
+        },
+        {
+          "source": "物品-钢制膛口制退器.md",
+          "title": "钢制膛口制退器",
+          "score": 0.673
+        },
+        {
+          "source": "物品-泰坦消音器.md",
+          "title": "泰坦消音器",
+          "score": 0.665
+        },
+        {
+          "source": "物品-FFC双流制退器.md",
+          "title": "FFC双流制退器",
+          "score": 0.662
+        },
+        {
+          "source": "物品-泰坦补偿器.md",
+          "title": "泰坦补偿器",
+          "score": 0.654
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-蛛网钛制制退器.md",
+          "title_contains": "蛛网钛制制退器"
+        }
+      ]
+    },
+    {
+      "id": "R019",
+      "query": "AUG 45发扩容弹匣哪里获取",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 0,
+      "top_k": [
+        {
+          "source": "物品-AUG45发扩容弹匣.md",
+          "title": "AUG45发扩容弹匣",
+          "score": 0.779
+        },
+        {
+          "source": "物品-SMG45 40发扩容弹匣.md",
+          "title": "SMG45 40发扩容弹匣",
+          "score": 0.728
+        },
+        {
+          "source": "物品-新式45发扩容弹匣.md",
+          "title": "新式45发扩容弹匣",
+          "score": 0.719
+        },
+        {
+          "source": "物品-SG552 45发扩容弹匣.md",
+          "title": "SG552 45发扩容弹匣",
+          "score": 0.711
+        },
+        {
+          "source": "物品-勇士45发扩容弹匣.md",
+          "title": "勇士45发扩容弹匣",
+          "score": 0.707
+        },
+        {
+          "source": "物品-45发 K437扩容弹匣.md",
+          "title": "45发 K437扩容弹匣",
+          "score": 0.704
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 新增配件 \u003e AUG 45发扩容弹匣",
+          "score": 0.702
+        },
+        {
+          "source": "物品-5.8新式45发 扩容弹匣.md",
+          "title": "5.8新式45发 扩容弹匣",
+          "score": 0.698
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-AUG 45发扩容弹匣.md",
+          "title_contains": "AUG 45发扩容弹匣"
+        }
+      ]
+    },
+    {
+      "id": "R020",
+      "query": "沙漠之鹰的镂空竞赛套件是干嘛的",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "沙漠之鹰镂空竞赛套件",
+      "top_k": [
+        {
+          "source": "物品-沙漠之鹰镂空竞赛套件.md",
+          "title": "沙漠之鹰镂空竞赛套件",
+          "score": 0.762
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 新增配件 \u003e 沙漠之鹰镂空竞赛套件",
+          "score": 0.748
+        },
+        {
+          "source": "物品-沙鹰竞技枪管.md",
+          "title": "沙鹰竞技枪管",
+          "score": 0.612
+        },
+        {
+          "source": "物品-沙鹰竞技后握.md",
+          "title": "沙鹰竞技后握",
+          "score": 0.605
+        },
+        {
+          "source": "物品-AK镂空握把.md",
+          "title": "AK镂空握把",
+          "score": 0.603
+        },
+        {
+          "source": "物品-竞赛阻手器.md",
+          "title": "竞赛阻手器",
+          "score": 0.602
+        },
+        {
+          "source": "物品-AMR-HT镂空枪托.md",
+          "title": "AMR-HT镂空枪托",
+          "score": 0.602
+        },
+        {
+          "source": "物品-沙漠之鹰.md",
+          "title": "沙漠之鹰",
+          "score": 0.6
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-沙漠之鹰镂空竞赛套件.md",
+          "title_contains": "沙漠之鹰镂空竞赛套件"
+        }
+      ]
+    },
+    {
+      "id": "R021",
+      "query": "带热成像的瞄准镜有哪几种",
+      "category": "item",
+      "qtype": "attr_lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "先进白热成像战斗瞄准镜",
+      "top_k": [
+        {
+          "source": "物品-先进白热成像战斗瞄准镜.md",
+          "title": "先进白热成像战斗瞄准镜",
+          "score": 0.629
+        },
+        {
+          "source": "物品-八倍先进热成像狙击镜.md",
+          "title": "八倍先进热成像狙击镜",
+          "score": 0.625
+        },
+        {
+          "source": "物品-先进热融合全息瞄准镜.md",
+          "title": "先进热融合全息瞄准镜",
+          "score": 0.624
+        },
+        {
+          "source": "物品-军用热像仪.md",
+          "title": "军用热像仪",
+          "score": 0.608
+        },
+        {
+          "source": "官方公告-20250113-1月15日更新公告丨新赛季“焰火”即将开启！.md",
+          "title": "1月15日更新公告丨新赛季“焰火”即将开启！ \u003e 新配件，参与活动快步解锁！（双模式） \u003e 新配件解锁",
+          "score": 0.603
+        },
+        {
+          "source": "物品-已损坏的热像仪.md",
+          "title": "已损坏的热像仪",
+          "score": 0.579
+        },
+        {
+          "source": "官方公告-20250113-1月15日更新公告丨新赛季“焰火”即将开启！.md",
+          "title": "1月15日更新公告丨新赛季“焰火”即将开启！ \u003e 新配件，参与活动快步解锁！（双模式） \u003e 新配件市场",
+          "score": 0.575
+        },
+        {
+          "source": "官方公告-20250417-4月17日更新公告丨新赛季【黑夜之子】即将开启！.md",
+          "title": "4月17日更新公告丨新赛季【黑夜之子】即将开启！ \u003e 玩法更新 \u003e 零号大坝-夜战",
+          "score": 0.564
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-先进热融合全息瞄准镜.md",
+          "title_contains": "先进热融合全息瞄准镜"
+        },
+        {
+          "source": "物品-先进白热成像战斗瞄准镜.md",
+          "title_contains": "先进白热成像战斗瞄准镜"
+        },
+        {
+          "source": "物品-八倍先进热成像狙击镜.md",
+          "title_contains": "八倍先进热成像狙击镜"
+        }
+      ]
+    },
+    {
+      "id": "R022",
+      "query": "复合弓可以装什么倍镜",
+      "category": "item",
+      "qtype": "paraphrase",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "复合弓智能倍镜",
+      "top_k": [
+        {
+          "source": "物品-复合弓智能倍镜.md",
+          "title": "复合弓智能倍镜",
+          "score": 0.717
+        },
+        {
+          "source": "物品-复合弓无框瞄具.md",
+          "title": "复合弓无框瞄具",
+          "score": 0.671
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 新弹药\u0026新配件 \u003e 新增配件",
+          "score": 0.655
+        },
+        {
+          "source": "物品-复合弓.md",
+          "title": "复合弓",
+          "score": 0.653
+        },
+        {
+          "source": "物品-复合弓重型弓臂.md",
+          "title": "复合弓重型弓臂",
+          "score": 0.643
+        },
+        {
+          "source": "物品-复合弓轻型弓臂.md",
+          "title": "复合弓轻型弓臂",
+          "score": 0.64
+        },
+        {
+          "source": "物品-复合弓稳定平衡杆.md",
+          "title": "复合弓稳定平衡杆",
+          "score": 0.634
+        },
+        {
+          "source": "物品-复合弓增强弓弦.md",
+          "title": "复合弓增强弓弦",
+          "score": 0.629
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-复合弓无框瞄具.md",
+          "title_contains": "复合弓无框瞄具"
+        },
+        {
+          "source": "物品-复合弓智能倍镜.md",
+          "title_contains": "复合弓智能倍镜"
+        }
+      ]
+    },
+    {
+      "id": "R023",
+      "query": "锚点导轨后托适配哪些枪",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "锚点导轨后托",
+      "top_k": [
+        {
+          "source": "物品-锚点导轨后托.md",
+          "title": "锚点导轨后托",
+          "score": 0.739
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 新增配件 \u003e 锚点导轨后托",
+          "score": 0.737
+        },
+        {
+          "source": "物品-核心导轨枪托.md",
+          "title": "核心导轨枪托",
+          "score": 0.639
+        },
+        {
+          "source": "物品-M14导轨一体枪托.md",
+          "title": "M14导轨一体枪托",
+          "score": 0.635
+        },
+        {
+          "source": "物品-QR高性能后托.md",
+          "title": "QR高性能后托",
+          "score": 0.63
+        },
+        {
+          "source": "物品-SVCH支点后托.md",
+          "title": "SVCH支点后托",
+          "score": 0.629
+        },
+        {
+          "source": "物品-MK47主宰者后托.md",
+          "title": "MK47主宰者后托",
+          "score": 0.622
+        },
+        {
+          "source": "物品-影袭导轨枪托.md",
+          "title": "影袭导轨枪托",
+          "score": 0.622
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-锚点导轨后托.md",
+          "title_contains": "锚点导轨后托"
+        }
+      ]
+    },
+    {
+      "id": "R024",
+      "query": "想多背点东西进图，打什么针好",
+      "category": "item",
+      "qtype": "paraphrase",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 2,
+      "hit_title": "M1肌肉强化针",
+      "top_k": [
+        {
+          "source": "物品-体能激活针.md",
+          "title": "体能激活针",
+          "score": 0.592
+        },
+        {
+          "source": "物品-M1肌肉强化针.md",
+          "title": "M1肌肉强化针",
+          "score": 0.591
+        },
+        {
+          "source": "物品-M2肌肉注射剂.md",
+          "title": "M2肌肉注射剂",
+          "score": 0.566
+        },
+        {
+          "source": "物品-去甲肾上腺素.md",
+          "title": "去甲肾上腺素",
+          "score": 0.559
+        },
+        {
+          "source": "物品-注射器.md",
+          "title": "注射器",
+          "score": 0.551
+        },
+        {
+          "source": "物品-感知激活针.md",
+          "title": "感知激活针",
+          "score": 0.547
+        },
+        {
+          "source": "物品-强效注射器.md",
+          "title": "强效注射器",
+          "score": 0.527
+        },
+        {
+          "source": "物品-OE2战斗兴奋剂.md",
+          "title": "OE2战斗兴奋剂",
+          "score": 0.526
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-M1肌肉强化针.md",
+          "title_contains": "M1肌肉强化针"
+        }
+      ]
+    },
+    {
+      "id": "R025",
+      "query": "有没有能让我跑得更久的针剂",
+      "category": "item",
+      "qtype": "paraphrase",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 2,
+      "hit_title": "体能激活针",
+      "top_k": [
+        {
+          "source": "物品-去甲肾上腺素.md",
+          "title": "去甲肾上腺素",
+          "score": 0.65
+        },
+        {
+          "source": "物品-体能激活针.md",
+          "title": "体能激活针",
+          "score": 0.65
+        },
+        {
+          "source": "物品-M1肌肉强化针.md",
+          "title": "M1肌肉强化针",
+          "score": 0.616
+        },
+        {
+          "source": "物品-感知激活针.md",
+          "title": "感知激活针",
+          "score": 0.609
+        },
+        {
+          "source": "物品-OE2战斗兴奋剂.md",
+          "title": "OE2战斗兴奋剂",
+          "score": 0.602
+        },
+        {
+          "source": "物品-M2肌肉注射剂.md",
+          "title": "M2肌肉注射剂",
+          "score": 0.601
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 新消耗品\u0026新针剂",
+          "score": 0.601
+        },
+        {
+          "source": "物品-强效注射器.md",
+          "title": "强效注射器",
+          "score": 0.599
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-体能激活针.md",
+          "title_contains": "体能激活针"
+        }
+      ]
+    },
+    {
+      "id": "R026",
+      "query": "哈夫克脑机液超体是干嘛用的",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "哈夫克脑机液-“超体”",
+      "top_k": [
+        {
+          "source": "物品-哈夫克脑机液-“超体”.md",
+          "title": "哈夫克脑机液-“超体”",
+          "score": 0.815
+        },
+        {
+          "source": "物品-哈夫克端脑止疼剂.md",
+          "title": "哈夫克端脑止疼剂",
+          "score": 0.64
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 新消耗品\u0026新针剂",
+          "score": 0.627
+        },
+        {
+          "source": "物品-哈夫克特工信息装备.md",
+          "title": "哈夫克特工信息装备",
+          "score": 0.622
+        },
+        {
+          "source": "物品-脑机头戴设备.md",
+          "title": "脑机头戴设备",
+          "score": 0.614
+        },
+        {
+          "source": "物品-脑机控制端子.md",
+          "title": "脑机控制端子",
+          "score": 0.613
+        },
+        {
+          "source": "物品-脑机relink医疗报告.md",
+          "title": "脑机relink医疗报告",
+          "score": 0.599
+        },
+        {
+          "source": "物品-哈夫币.md",
+          "title": "哈夫币",
+          "score": 0.598
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-哈夫克脑机液-“超体”.md",
+          "title_contains": "哈夫克脑机液"
+        }
+      ]
+    },
+    {
+      "id": "R027",
+      "query": "能做手术的包类道具都有哪些",
+      "category": "item",
+      "qtype": "attr_lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "简易手术包",
+      "top_k": [
+        {
+          "source": "物品-简易手术包.md",
+          "title": "简易手术包",
+          "score": 0.645
+        },
+        {
+          "source": "物品-战术快拆手术包.md",
+          "title": "战术快拆手术包",
+          "score": 0.633
+        },
+        {
+          "source": "物品-DEK野战手术包.md",
+          "title": "DEK野战手术包",
+          "score": 0.599
+        },
+        {
+          "source": "物品-手术剪刀.md",
+          "title": "手术剪刀",
+          "score": 0.54
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 系统优化 \u003e 烽火地带",
+          "score": 0.524
+        },
+        {
+          "source": "物品-无菌敷料包.md",
+          "title": "无菌敷料包",
+          "score": 0.523
+        },
+        {
+          "source": "物品-野战急救包.md",
+          "title": "野战急救包",
+          "score": 0.517
+        },
+        {
+          "source": "物品-精密护甲维修包.md",
+          "title": "精密护甲维修包",
+          "score": 0.515
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-DEK野战手术包.md",
+          "title_contains": "DEK野战手术包"
+        },
+        {
+          "source": "物品-简易手术包.md",
+          "title_contains": "简易手术包"
+        },
+        {
+          "source": "物品-战术快拆手术包.md",
+          "title_contains": "战术快拆手术包"
+        }
+      ]
+    },
+    {
+      "id": "R028",
+      "query": "DVE止疼片和缓释止痛片选哪个",
+      "category": "item",
+      "qtype": "compare",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "DVE止疼片",
+      "top_k": [
+        {
+          "source": "物品-DVE止疼片.md",
+          "title": "DVE止疼片",
+          "score": 0.747
+        },
+        {
+          "source": "物品-缓释止痛片.md",
+          "title": "缓释止痛片",
+          "score": 0.669
+        },
+        {
+          "source": "物品-哈夫克端脑止疼剂.md",
+          "title": "哈夫克端脑止疼剂",
+          "score": 0.613
+        },
+        {
+          "source": "物品-瓶装抗生素.md",
+          "title": "瓶装抗生素",
+          "score": 0.571
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e C4黏附与骨折影响详细测试 \u003e 四肢骨折效果测试",
+          "score": 0.567
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e C4黏附与骨折影响详细测试 \u003e 血包耐久消耗规则测试",
+          "score": 0.554
+        },
+        {
+          "source": "物品-维生素泡腾片.md",
+          "title": "维生素泡腾片",
+          "score": 0.55
+        },
+        {
+          "source": "物品-DT-AVS防弹衣.md",
+          "title": "DT-AVS防弹衣",
+          "score": 0.542
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-DVE止疼片.md",
+          "title_contains": "DVE止疼片"
+        },
+        {
+          "source": "物品-缓释止痛片.md",
+          "title_contains": "缓释止痛片"
+        }
+      ]
+    },
+    {
+      "id": "R029",
+      "query": "普罗透斯干扰器有什么效果",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "普罗透斯干扰器",
+      "top_k": [
+        {
+          "source": "物品-普罗透斯干扰器.md",
+          "title": "普罗透斯干扰器",
+          "score": 0.831
+        },
+        {
+          "source": "物品-电子干扰器.md",
+          "title": "电子干扰器",
+          "score": 0.619
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 新消耗品\u0026新针剂",
+          "score": 0.589
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 玩法更新 \u003e 新侦察干员：卢克·埃弗利，代号回响",
+          "score": 0.573
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 干员平衡性调整 \u003e 特战干员-回响",
+          "score": 0.563
+        },
+        {
+          "source": "官方公告-20260520-5月21日更新公告丨季中平衡性调整！.md",
+          "title": "5月21日更新公告丨季中平衡性调整！ \u003e 干员平衡性调整 \u003e 特战干员-回响",
+          "score": 0.562
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 蝶的ADS无人机效果鉴定",
+          "score": 0.556
+        },
+        {
+          "source": "官方公告-20241205-12月6日更新公告丨全面战场干员平衡性调整.md",
+          "title": "12月6日更新公告丨全面战场干员平衡性调整 \u003e 全面战场干员平衡性调整 \u003e 特战干员-蛊",
+          "score": 0.553
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-普罗透斯干扰器.md",
+          "title_contains": "普罗透斯干扰器"
+        }
+      ]
+    },
+    {
+      "id": "R030",
+      "query": "潮汐监狱的房间钥匙都有哪些",
+      "category": "item",
+      "qtype": "attr_lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "典狱长收藏室",
+      "top_k": [
+        {
+          "source": "物品-典狱长收藏室.md",
+          "title": "典狱长收藏室",
+          "score": 0.676
+        },
+        {
+          "source": "物品-水位控制室.md",
+          "title": "水位控制室",
+          "score": 0.675
+        },
+        {
+          "source": "物品-仓库区监控房.md",
+          "title": "仓库区监控房",
+          "score": 0.674
+        },
+        {
+          "source": "物品-监狱体检室.md",
+          "title": "监狱体检室",
+          "score": 0.673
+        },
+        {
+          "source": "物品-人偶影印室.md",
+          "title": "人偶影印室",
+          "score": 0.666
+        },
+        {
+          "source": "物品-监狱审讯室.md",
+          "title": "监狱审讯室",
+          "score": 0.665
+        },
+        {
+          "source": "物品-监狱服务器房.md",
+          "title": "监狱服务器房",
+          "score": 0.664
+        },
+        {
+          "source": "物品-食堂洗碗间.md",
+          "title": "食堂洗碗间",
+          "score": 0.658
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-典狱长收藏室.md",
+          "title_contains": "典狱长收藏室"
+        },
+        {
+          "source": "物品-人偶影印室.md",
+          "title_contains": "人偶影印室"
+        },
+        {
+          "source": "物品-生物样本室.md",
+          "title_contains": "生物样本室"
+        },
+        {
+          "source": "物品-监狱服务器房.md",
+          "title_contains": "监狱服务器房"
+        },
+        {
+          "source": "物品-食堂洗碗间.md",
+          "title_contains": "食堂洗碗间"
+        }
+      ]
+    },
+    {
+      "id": "R031",
+      "query": "地下通道钥匙是哪张图哪个房间的",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "地下通道钥匙",
+      "top_k": [
+        {
+          "source": "物品-地下通道钥匙.md",
+          "title": "地下通道钥匙",
+          "score": 0.754
+        },
+        {
+          "source": "物品-铁路通道钥匙.md",
+          "title": "铁路通道钥匙",
+          "score": 0.661
+        },
+        {
+          "source": "物品-员工通道.md",
+          "title": "员工通道",
+          "score": 0.654
+        },
+        {
+          "source": "物品-地下金库储藏间.md",
+          "title": "地下金库储藏间",
+          "score": 0.648
+        },
+        {
+          "source": "物品-典狱长收藏室.md",
+          "title": "典狱长收藏室",
+          "score": 0.626
+        },
+        {
+          "source": "物品-酒店黑桃房.md",
+          "title": "酒店黑桃房",
+          "score": 0.626
+        },
+        {
+          "source": "物品-汽轮机控制室.md",
+          "title": "汽轮机控制室",
+          "score": 0.62
+        },
+        {
+          "source": "物品-中心贵宾室.md",
+          "title": "中心贵宾室",
+          "score": 0.618
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-地下通道钥匙.md",
+          "title_contains": "地下通道钥匙"
+        }
+      ]
+    },
+    {
+      "id": "R032",
+      "query": "监狱的门禁卡分几个等级",
+      "category": "item",
+      "qtype": "paraphrase",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "一级监狱权限卡",
+      "top_k": [
+        {
+          "source": "物品-一级监狱权限卡.md",
+          "title": "一级监狱权限卡",
+          "score": 0.633
+        },
+        {
+          "source": "物品-二级监狱权限卡.md",
+          "title": "二级监狱权限卡",
+          "score": 0.622
+        },
+        {
+          "source": "物品-高级门禁卡30天权限卡.md",
+          "title": "高级门禁卡30天权限卡",
+          "score": 0.616
+        },
+        {
+          "source": "物品-三级监狱权限卡.md",
+          "title": "三级监狱权限卡",
+          "score": 0.61
+        },
+        {
+          "source": "物品-顶级门禁卡30天权限卡.md",
+          "title": "顶级门禁卡30天权限卡",
+          "score": 0.609
+        },
+        {
+          "source": "物品-工牌.md",
+          "title": "工牌",
+          "score": 0.573
+        },
+        {
+          "source": "物品-监狱体检室.md",
+          "title": "监狱体检室",
+          "score": 0.568
+        },
+        {
+          "source": "物品-监狱服务器房.md",
+          "title": "监狱服务器房",
+          "score": 0.566
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-一级监狱权限卡.md",
+          "title_contains": "一级监狱权限卡"
+        },
+        {
+          "source": "物品-二级监狱权限卡.md",
+          "title_contains": "二级监狱权限卡"
+        },
+        {
+          "source": "物品-三级监狱权限卡.md",
+          "title_contains": "三级监狱权限卡"
+        }
+      ]
+    },
+    {
+      "id": "R033",
+      "query": "长弓溪谷实验楼相关的钥匙有哪几把",
+      "category": "item",
+      "qtype": "attr_lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "实验楼办公室",
+      "top_k": [
+        {
+          "source": "物品-实验楼办公室.md",
+          "title": "实验楼办公室",
+          "score": 0.646
+        },
+        {
+          "source": "物品-实验楼资料室.md",
+          "title": "实验楼资料室",
+          "score": 0.633
+        },
+        {
+          "source": "物品-组装车间二楼实验室.md",
+          "title": "组装车间二楼实验室",
+          "score": 0.569
+        },
+        {
+          "source": "物品-长弓溪谷普通钥匙自选包.md",
+          "title": "长弓溪谷普通钥匙自选包",
+          "score": 0.552
+        },
+        {
+          "source": "物品-长弓溪谷稀有钥匙自选包.md",
+          "title": "长弓溪谷稀有钥匙自选包",
+          "score": 0.551
+        },
+        {
+          "source": "物品-雷达站数据中心.md",
+          "title": "雷达站数据中心",
+          "score": 0.549
+        },
+        {
+          "source": "物品-长弓溪谷进阶钥匙自选包.md",
+          "title": "长弓溪谷进阶钥匙自选包",
+          "score": 0.548
+        },
+        {
+          "source": "物品-雷达站控制室.md",
+          "title": "雷达站控制室",
+          "score": 0.544
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-实验楼资料室.md",
+          "title_contains": "实验楼资料室"
+        },
+        {
+          "source": "物品-实验楼办公室.md",
+          "title_contains": "实验楼办公室"
+        }
+      ]
+    },
+    {
+      "id": "R034",
+      "query": "GTO重型战术包能装多少东西",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "GTO重型战术包",
+      "top_k": [
+        {
+          "source": "物品-GTO重型战术包.md",
+          "title": "GTO重型战术包",
+          "score": 0.793
+        },
+        {
+          "source": "物品-G01战术弹挂.md",
+          "title": "G01战术弹挂",
+          "score": 0.667
+        },
+        {
+          "source": "物品-重型登山包.md",
+          "title": "重型登山包",
+          "score": 0.664
+        },
+        {
+          "source": "物品-G.T.I武器箱.md",
+          "title": "G.T.I武器箱",
+          "score": 0.66
+        },
+        {
+          "source": "物品-G.T.I装备箱.md",
+          "title": "G.T.I装备箱",
+          "score": 0.657
+        },
+        {
+          "source": "物品-G.T.I物品箱.md",
+          "title": "G.T.I物品箱",
+          "score": 0.646
+        },
+        {
+          "source": "物品-HLS-2重型背包.md",
+          "title": "HLS-2重型背包",
+          "score": 0.646
+        },
+        {
+          "source": "物品-GA野战背包.md",
+          "title": "GA野战背包",
+          "score": 0.639
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-GTO重型战术包.md",
+          "title_contains": "GTO重型战术包"
+        }
+      ]
+    },
+    {
+      "id": "R035",
+      "query": "玩烽火想多带点战利品出来，有什么大容量背包推荐",
+      "category": "item",
+      "qtype": "paraphrase",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 3,
+      "hit_title": "重型登山包",
+      "top_k": [
+        {
+          "source": "物品-大型登山包.md",
+          "title": "大型登山包",
+          "score": 0.651
+        },
+        {
+          "source": "物品-野战徒步背包.md",
+          "title": "野战徒步背包",
+          "score": 0.645
+        },
+        {
+          "source": "物品-重型登山包.md",
+          "title": "重型登山包",
+          "score": 0.641
+        },
+        {
+          "source": "物品-生存战术背包.md",
+          "title": "生存战术背包",
+          "score": 0.64
+        },
+        {
+          "source": "物品-HLS-2重型背包.md",
+          "title": "HLS-2重型背包",
+          "score": 0.639
+        },
+        {
+          "source": "物品-旅行背包.md",
+          "title": "旅行背包",
+          "score": 0.637
+        },
+        {
+          "source": "物品-GT5野战背包.md",
+          "title": "GT5野战背包",
+          "score": 0.636
+        },
+        {
+          "source": "物品-突袭战术背包.md",
+          "title": "突袭战术背包",
+          "score": 0.633
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-GTO重型战术包.md",
+          "title_contains": "GTO重型战术包"
+        },
+        {
+          "source": "物品-HLS-2重型背包.md",
+          "title_contains": "HLS-2重型背包"
+        },
+        {
+          "source": "物品-重型登山包.md",
+          "title_contains": "重型登山包"
+        }
+      ]
+    },
+    {
+      "id": "R036",
+      "query": "D2和D3战术登山包有什么区别",
+      "category": "item",
+      "qtype": "compare",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "D3战术登山包",
+      "top_k": [
+        {
+          "source": "物品-D3战术登山包.md",
+          "title": "D3战术登山包",
+          "score": 0.74
+        },
+        {
+          "source": "物品-D2战术登山包.md",
+          "title": "D2战术登山包",
+          "score": 0.728
+        },
+        {
+          "source": "物品-D7战术背包.md",
+          "title": "D7战术背包",
+          "score": 0.652
+        },
+        {
+          "source": "物品-DASH战术背包.md",
+          "title": "DASH战术背包",
+          "score": 0.638
+        },
+        {
+          "source": "物品-3H战术背包.md",
+          "title": "3H战术背包",
+          "score": 0.619
+        },
+        {
+          "source": "物品-战术快拆背包.md",
+          "title": "战术快拆背包",
+          "score": 0.615
+        },
+        {
+          "source": "物品-大型登山包.md",
+          "title": "大型登山包",
+          "score": 0.599
+        },
+        {
+          "source": "物品-DSA战术胸挂.md",
+          "title": "DSA战术胸挂",
+          "score": 0.593
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-D2战术登山包.md",
+          "title_contains": "D2战术登山包"
+        },
+        {
+          "source": "物品-D3战术登山包.md",
+          "title_contains": "D3战术登山包"
+        }
+      ]
+    },
+    {
+      "id": "R037",
+      "query": "长弓溪谷酒店的房卡钥匙都有哪几种",
+      "category": "item",
+      "qtype": "attr_lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "酒店方片房",
+      "top_k": [
+        {
+          "source": "物品-酒店方片房.md",
+          "title": "酒店方片房",
+          "score": 0.629
+        },
+        {
+          "source": "物品-酒店国王房.md",
+          "title": "酒店国王房",
+          "score": 0.617
+        },
+        {
+          "source": "物品-酒店黑桃房.md",
+          "title": "酒店黑桃房",
+          "score": 0.605
+        },
+        {
+          "source": "物品-酒店将军房.md",
+          "title": "酒店将军房",
+          "score": 0.598
+        },
+        {
+          "source": "物品-酒店王子房.md",
+          "title": "酒店王子房",
+          "score": 0.584
+        },
+        {
+          "source": "物品-长弓溪谷稀有钥匙自选包.md",
+          "title": "长弓溪谷稀有钥匙自选包",
+          "score": 0.574
+        },
+        {
+          "source": "物品-长弓溪谷普通钥匙自选包.md",
+          "title": "长弓溪谷普通钥匙自选包",
+          "score": 0.574
+        },
+        {
+          "source": "物品-长弓溪谷进阶钥匙自选包.md",
+          "title": "长弓溪谷进阶钥匙自选包",
+          "score": 0.564
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-酒店国王房.md",
+          "title_contains": "酒店国王房"
+        },
+        {
+          "source": "物品-酒店将军房.md",
+          "title_contains": "酒店将军房"
+        },
+        {
+          "source": "物品-酒店方片房.md",
+          "title_contains": "酒店方片房"
+        },
+        {
+          "source": "物品-酒店王子房.md",
+          "title_contains": "酒店王子房"
+        },
+        {
+          "source": "物品-酒店黑桃房.md",
+          "title_contains": "酒店黑桃房"
+        }
+      ]
+    },
+    {
+      "id": "R038",
+      "query": "海盗金币银币铜币都在哪张图刷，哪个值钱",
+      "category": "item",
+      "qtype": "compare",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "古怪的海盗银币",
+      "top_k": [
+        {
+          "source": "物品-古怪的海盗银币.md",
+          "title": "古怪的海盗银币",
+          "score": 0.628
+        },
+        {
+          "source": "物品-锈迹斑斑的海盗铜币.md",
+          "title": "锈迹斑斑的海盗铜币",
+          "score": 0.618
+        },
+        {
+          "source": "物品-亮闪闪的海盗金币.md",
+          "title": "亮闪闪的海盗金币",
+          "score": 0.613
+        },
+        {
+          "source": "物品-海盗弯刀.md",
+          "title": "海盗弯刀",
+          "score": 0.521
+        },
+        {
+          "source": "物品-古老的海盗望远镜.md",
+          "title": "古老的海盗望远镜",
+          "score": 0.507
+        },
+        {
+          "source": "物品-AZ3藏宝图4号.md",
+          "title": "AZ3藏宝图4号",
+          "score": 0.489
+        },
+        {
+          "source": "物品-巴克什藏宝图4号.md",
+          "title": "巴克什藏宝图4号",
+          "score": 0.488
+        },
+        {
+          "source": "物品-巴克什藏宝图3号.md",
+          "title": "巴克什藏宝图3号",
+          "score": 0.486
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-亮闪闪的海盗金币.md",
+          "title_contains": "亮闪闪的海盗金币"
+        },
+        {
+          "source": "物品-古怪的海盗银币.md",
+          "title_contains": "古怪的海盗银币"
+        },
+        {
+          "source": "物品-锈迹斑斑的海盗铜币.md",
+          "title_contains": "锈迹斑斑的海盗铜币"
+        }
+      ]
+    },
+    {
+      "id": "R039",
+      "query": "曼德尔超算单元在哪里能刷到",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "曼德尔超算单元",
+      "top_k": [
+        {
+          "source": "物品-曼德尔超算单元.md",
+          "title": "曼德尔超算单元",
+          "score": 0.694
+        },
+        {
+          "source": "官方公告-20241030-10月31日更新公告丨平衡性调整\u0026周末福利上新.md",
+          "title": "10月31日更新公告丨平衡性调整\u0026周末福利上新 \u003e 玩法调优 \u003e 曼德尔砖系统更新预告",
+          "score": 0.561
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 曼德尔砖-疾光魅影",
+          "score": 0.559
+        },
+        {
+          "source": "官方公告-20240924-《三角洲行动》开服活动福利一览.md",
+          "title": "《三角洲行动》开服活动福利一览 \u003e 曼德尔砖概率UP!",
+          "score": 0.554
+        },
+        {
+          "source": "官方公告-20250928-9月29日更新公告丨洲年活动第三弹开启.md",
+          "title": "9月29日更新公告丨洲年活动第三弹开启 \u003e 曼德尔砖累计扫描奖励",
+          "score": 0.553
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 新活动 \u003e 曼德尔砖-悬赏令",
+          "score": 0.55
+        },
+        {
+          "source": "官方公告-20250910-9月11日更新公告丨赛季末冲刺即将开启！.md",
+          "title": "9月11日更新公告丨赛季末冲刺即将开启！ \u003e 曼德尔砖更新预告",
+          "score": 0.545
+        },
+        {
+          "source": "官方公告-20260807-【幸运鸟窝】开启公告.md",
+          "title": "【幸运鸟窝】开启公告",
+          "score": 0.545
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-曼德尔超算单元.md",
+          "title_contains": "曼德尔超算单元"
+        }
+      ]
+    },
+    {
+      "id": "R040",
+      "query": "烽火世界杯纪念奖杯怎么获得",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "烽火世界杯纪念奖杯",
+      "top_k": [
+        {
+          "source": "物品-烽火世界杯纪念奖杯.md",
+          "title": "烽火世界杯纪念奖杯",
+          "score": 0.732
+        },
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title": "2026烽火职业联赛夏季赛赛事手册 \u003e 2026烽火世界杯积分",
+          "score": 0.668
+        },
+        {
+          "source": "官方公告-20260513-5月14日更新公告丨烽火春决庆典即将开启！.md",
+          "title": "5月14日更新公告丨烽火春决庆典即将开启！ \u003e 新活动 \u003e 战队巡礼（烽火地带）",
+          "score": 0.648
+        },
+        {
+          "source": "官方公告-20260602-6月3日更新公告丨阿萨拉绿茵盛会！.md",
+          "title": "6月3日更新公告丨阿萨拉绿茵盛会！ \u003e 新活动 \u003e 射门大师挑战（烽火地带）",
+          "score": 0.618
+        },
+        {
+          "source": "官方公告-20260701-7月2日更新公告丨烽火挑战即将开启\u0026问题修复.md",
+          "title": "7月2日更新公告丨烽火挑战即将开启\u0026问题修复 \u003e 新活动 \u003e 足球大师挑战（烽火地带）",
+          "score": 0.615
+        },
+        {
+          "source": "官方公告-20260617-6月18日更新公告丨端午安康＆赛季末冲刺开启！.md",
+          "title": "6月18日更新公告丨端午安康＆赛季末冲刺开启！ \u003e 新活动 \u003e 控球大师挑战（烽火地带）",
+          "score": 0.602
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 烽火地带新模式——烽火挑战 \u003e 奖励规则",
+          "score": 0.599
+        },
+        {
+          "source": "官方公告-20260318-3月19日更新公告丨烽火职业联赛来临！.md",
+          "title": "3月19日更新公告丨烽火职业联赛来临！ \u003e 新活动 \u003e 神奇工具柜（烽火地带）",
+          "score": 0.597
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-烽火世界杯纪念奖杯.md",
+          "title_contains": "烽火世界杯纪念奖杯"
+        }
+      ]
+    },
+    {
+      "id": "R041",
+      "query": "黄金鳄鱼头雕像是什么品质的收集品",
+      "category": "item",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "黄金鳄鱼头雕像",
+      "top_k": [
+        {
+          "source": "物品-黄金鳄鱼头雕像.md",
+          "title": "黄金鳄鱼头雕像",
+          "score": 0.737
+        },
+        {
+          "source": "物品-黄金瞪羚.md",
+          "title": "黄金瞪羚",
+          "score": 0.62
+        },
+        {
+          "source": "物品-黄金饰章.md",
+          "title": "黄金饰章",
+          "score": 0.617
+        },
+        {
+          "source": "物品-鳄鱼蛋.md",
+          "title": "鳄鱼蛋",
+          "score": 0.614
+        },
+        {
+          "source": "物品-金枝桂冠.md",
+          "title": "金枝桂冠",
+          "score": 0.614
+        },
+        {
+          "source": "物品-鳄鱼血样.md",
+          "title": "鳄鱼血样",
+          "score": 0.614
+        },
+        {
+          "source": "物品-珠宝头冠.md",
+          "title": "珠宝头冠",
+          "score": 0.611
+        },
+        {
+          "source": "物品-克劳迪乌斯半身像.md",
+          "title": "克劳迪乌斯半身像",
+          "score": 0.61
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "物品-黄金鳄鱼头雕像.md",
+          "title_contains": "黄金鳄鱼头雕像"
+        }
+      ]
+    },
+    {
+      "id": "R042",
+      "query": "蝶变时刻赛季具体是几月几号上线的",
+      "category": "announce",
+      "qtype": "date_lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 4,
+      "hit_title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！",
+      "top_k": [
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 新活动 \u003e 赛季通行证-蝶变时刻",
+          "score": 0.647
+        },
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 烽火地带",
+          "score": 0.633
+        },
+        {
+          "source": "官方公告-20260121-1月22日更新公告丨蝶变时刻将至，赛季末冲刺开启！.md",
+          "title": "1月22日更新公告丨蝶变时刻将至，赛季末冲刺开启！",
+          "score": 0.632
+        },
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！",
+          "score": 0.622
+        },
+        {
+          "source": "官方公告-20260121-1月22日更新公告丨蝶变时刻将至，赛季末冲刺开启！.md",
+          "title": "1月22日更新公告丨蝶变时刻将至，赛季末冲刺开启！ \u003e 新活动 \u003e 蝶变时刻将至（双模式）",
+          "score": 0.619
+        },
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 蝶变行动（全面战场）",
+          "score": 0.616
+        },
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 蝶变时刻（双模式）",
+          "score": 0.613
+        },
+        {
+          "source": "官方公告-20260921-9月22日更新公告 _ 洲年庆典开启！.md",
+          "title": "9月22日更新公告 | 洲年庆典开启！ \u003e 新活动 \u003e 破茧成蝶（全模式）",
+          "score": 0.61
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title_exact": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！"
+        }
+      ]
+    },
+    {
+      "id": "R043",
+      "query": "烈火冲天赛季新出了哪些武器",
+      "category": "announce",
+      "qtype": "entity_agg",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 5,
+      "hit_title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 玩法更新 \u003e 新武器——MK47突击步枪、MARLIN杠杆步枪",
+      "top_k": [
+        {
+          "source": "官方公告-20250910-9月11日更新公告丨赛季末冲刺即将开启！.md",
+          "title": "9月11日更新公告丨赛季末冲刺即将开启！ \u003e 新活动 \u003e 烈火将至（双模式）",
+          "score": 0.669
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 烈火熊熊（烽火地带）",
+          "score": 0.664
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 新增夺取行动机制",
+          "score": 0.659
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 新事件——长弓溪谷山火",
+          "score": 0.657
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 玩法更新 \u003e 新武器——MK47突击步枪、MARLIN杠杆步枪",
+          "score": 0.654
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 炫彩兰小登传说（烽火地带）",
+          "score": 0.646
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 新枪解锁-MK47突击步枪",
+          "score": 0.645
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 高价值物品检视",
+          "score": 0.644
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title_contains": "新武器——MK47突击步枪、MARLIN杠杆步枪"
+        }
+      ]
+    },
+    {
+      "id": "R044",
+      "query": "阿萨拉赛季的新干员叫什么，是哪个职业",
+      "category": "announce",
+      "qtype": "entity_agg",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 2,
+      "hit_title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 玩法更新 \u003e 新工程干员：拉希德.拉哈尔，代号比特",
+      "top_k": [
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 新活动 \u003e 赛季通行证-阿萨拉",
+          "score": 0.626
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 玩法更新 \u003e 新工程干员：拉希德.拉哈尔，代号比特",
+          "score": 0.621
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 其他干员功能优化",
+          "score": 0.618
+        },
+        {
+          "source": "官方公告-20251126-11月27日更新公告丨阿萨拉之役开启！.md",
+          "title": "11月27日更新公告丨阿萨拉之役开启！",
+          "score": 0.614
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 干员平衡性调整 \u003e 特战干员-骇爪 \u003e 双模式",
+          "score": 0.612
+        },
+        {
+          "source": "官方公告-20260506-5月7日更新公告丨阿萨拉疯狂星期四来袭！.md",
+          "title": "5月7日更新公告丨阿萨拉疯狂星期四来袭！",
+          "score": 0.608
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 干员平衡性调整 \u003e 赤枭亲卫 - 喷火兵",
+          "score": 0.593
+        },
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！",
+          "score": 0.588
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title_contains": "新工程干员：拉希德.拉哈尔，代号比特"
+        }
+      ]
+    },
+    {
+      "id": "R045",
+      "query": "代号银翼的侦察干员是什么时候实装的",
+      "category": "announce",
+      "qtype": "multi_hop",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 玩法更新 \u003e 新侦察干员：兰登.哈里森，代号银翼",
+      "top_k": [
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 玩法更新 \u003e 新侦察干员：兰登.哈里森，代号银翼",
+          "score": 0.632
+        },
+        {
+          "source": "官方公告-20260714-7月15日更新公告丨干员研究：乌鲁鲁-狂怒即将上线！.md",
+          "title": "7月15日更新公告丨干员研究：乌鲁鲁-狂怒即将上线！ \u003e 干员平衡性调整 \u003e 侦察干员-银翼",
+          "score": 0.631
+        },
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！ \u003e 干员平衡性调整 \u003e 特战干员 - 银翼 \u003e 烽火地带",
+          "score": 0.624
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 特战干员-银翼 \u003e 双模式",
+          "score": 0.614
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 特战干员-银翼 \u003e 烽火地带",
+          "score": 0.613
+        },
+        {
+          "source": "官方公告-20260714-7月15日更新公告丨干员研究：乌鲁鲁-狂怒即将上线！.md",
+          "title": "7月15日更新公告丨干员研究：乌鲁鲁-狂怒即将上线！ \u003e 干员平衡性调整 \u003e 开发者的话",
+          "score": 0.604
+        },
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！ \u003e 干员平衡性调整 \u003e 特战干员 - 银翼 \u003e 全面战场",
+          "score": 0.603
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 干员平衡性调整 \u003e 特战干员-银翼",
+          "score": 0.602
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title_contains": "新侦察干员：兰登.哈里森，代号银翼"
+        }
+      ]
+    },
+    {
+      "id": "R046",
+      "query": "代号旅人的干员全名叫什么",
+      "category": "announce",
+      "qtype": "multi_hop",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 2,
+      "hit_title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 玩法更新 \u003e 新支援干员：罗温·沃尔什，代号旅人",
+      "top_k": [
+        {
+          "source": "官方公告-20240518-《三角洲行动》代号双子双端测试招募已开启！.md",
+          "title": "《三角洲行动》代号双子双端测试招募已开启！ \u003e 主要测试内容 \u003e 特战干员",
+          "score": 0.615
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 玩法更新 \u003e 新支援干员：罗温·沃尔什，代号旅人",
+          "score": 0.568
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 干员准入认证（双模式）",
+          "score": 0.563
+        },
+        {
+          "source": "官方公告-20260916-9月17日更新公告丨洲年空投活动开启＆干员平衡性调整！.md",
+          "title": "9月17日更新公告丨洲年空投活动开启＆干员平衡性调整！ \u003e 干员平衡性调整 \u003e 支援干员-旅人",
+          "score": 0.559
+        },
+        {
+          "source": "官方公告-20250821-账号共享风险提醒＆透视作弊专项打击公示.md",
+          "title": "账号共享风险提醒＆透视作弊专项打击公示 \u003e 账号共享风险提醒",
+          "score": 0.53
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 张姐大招声音传播距离测试",
+          "score": 0.529
+        },
+        {
+          "source": "官方公告-20260212-安全对抗不打烊，提前祝干员朋友们新年快乐！.md",
+          "title": "安全对抗不打烊，提前祝干员朋友们新年快乐！",
+          "score": 0.527
+        },
+        {
+          "source": "官方公告-20260916-9月17日更新公告丨洲年空投活动开启＆干员平衡性调整！.md",
+          "title": "9月17日更新公告丨洲年空投活动开启＆干员平衡性调整！ \u003e 干员平衡性调整 \u003e 支援干员-旅人 \u003e 全面战场",
+          "score": 0.526
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title_contains": "新支援干员：罗温·沃尔什，代号旅人"
+        }
+      ]
+    },
+    {
+      "id": "R047",
+      "query": "裂变赛季新增的直升机叫什么名字",
+      "category": "announce",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 新载具——CSV-35运输直升机",
+      "top_k": [
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 新载具——CSV-35运输直升机",
+          "score": 0.672
+        },
+        {
+          "source": "官方公告-20260707-7月8日更新公告丨彩虹六号_围攻联动开启！.md",
+          "title": "7月8日更新公告丨彩虹六号:围攻联动开启！ \u003e 新活动 \u003e 裂变行动：区域控制（全面战场）",
+          "score": 0.585
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 玩法更新 \u003e 新首领——脑机特工-H1000（AZ3）",
+          "score": 0.583
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 裂变赛季战场指南（全面战场）",
+          "score": 0.581
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 新活动 \u003e 赛季通行证-西部往事",
+          "score": 0.575
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 首领黑卡（烽火地带）",
+          "score": 0.574
+        },
+        {
+          "source": "官方公告-20260617-6月18日更新公告丨端午安康＆赛季末冲刺开启！.md",
+          "title": "6月18日更新公告丨端午安康＆赛季末冲刺开启！ \u003e 新活动 \u003e 裂变赛季将至（双模式）",
+          "score": 0.574
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 玩法调优 \u003e 局内战斗\u0026关卡优化 \u003e 全面战场",
+          "score": 0.571
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title_contains": "新载具——CSV-35运输直升机"
+        }
+      ]
+    },
+    {
+      "id": "R048",
+      "query": "听说群星赛季长弓溪谷地图翻新了，具体改了什么",
+      "category": "announce",
+      "qtype": "colloquial",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 2,
+      "hit_title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 玩法更新 \u003e 烽火地带地图焕新—长弓溪谷",
+      "top_k": [
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 破浪行动（烽火地带）",
+          "score": 0.687
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 玩法更新 \u003e 烽火地带地图焕新—长弓溪谷",
+          "score": 0.684
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 烽火地带新玩法—钓鱼 \u003e 可垂钓地图",
+          "score": 0.667
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 烽火地带新玩法—钓鱼 \u003e 解锁条件",
+          "score": 0.646
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 新事件——长弓溪谷山火",
+          "score": 0.645
+        },
+        {
+          "source": "官方公告-20250611-6月12日更新公告丨巅峰对决再临，首领齐聚长弓溪谷！.md",
+          "title": "6月12日更新公告丨巅峰对决再临，首领齐聚长弓溪谷！",
+          "score": 0.63
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 全面战场新地图—摩格旧城区",
+          "score": 0.618
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 新增哈夫克军工限时武器改件 \u003e 93R HVK鼬鼠冲锋枪套件",
+          "score": 0.616
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title_contains": "烽火地带地图焕新—长弓溪谷"
+        }
+      ]
+    },
+    {
+      "id": "R049",
+      "query": "烽火挑战模式怎么获得门票",
+      "category": "announce",
+      "qtype": "paraphrase",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 烽火地带新模式——烽火挑战 \u003e 门票获取方式",
+      "top_k": [
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 烽火地带新模式——烽火挑战 \u003e 门票获取方式",
+          "score": 0.74
+        },
+        {
+          "source": "官方公告-20260805-8月6日更新公告丨宝藏月开启\u0026烽火挑战新赛段！.md",
+          "title": "8月6日更新公告丨宝藏月开启\u0026烽火挑战新赛段！ \u003e 新活动 \u003e 烽火挑战补给（烽火地带）",
+          "score": 0.649
+        },
+        {
+          "source": "官方公告-20260701-7月2日更新公告丨烽火挑战即将开启\u0026问题修复.md",
+          "title": "7月2日更新公告丨烽火挑战即将开启\u0026问题修复 \u003e 新活动 \u003e 烽火挑战补给（烽火地带）",
+          "score": 0.646
+        },
+        {
+          "source": "官方公告-20260527-5月28日更新公告丨烽火挑战再临！.md",
+          "title": "5月28日更新公告丨烽火挑战再临！ \u003e 新活动 \u003e 烽火挑战补给（烽火地带）",
+          "score": 0.644
+        },
+        {
+          "source": "官方公告-20260427-4月28日更新公告丨猛攻节开启 烽火挑战玩法及2600限时三角券即将到来！.md",
+          "title": "4月28日更新公告丨猛攻节开启 烽火挑战玩法及2600限时三角券即将到来！ \u003e 新活动 \u003e 烽火挑战补给（烽火地带）",
+          "score": 0.643
+        },
+        {
+          "source": "官方公告-20260701-7月2日更新公告丨烽火挑战即将开启\u0026问题修复.md",
+          "title": "7月2日更新公告丨烽火挑战即将开启\u0026问题修复 \u003e 烽火挑战开启 \u003e 门票调整",
+          "score": 0.639
+        },
+        {
+          "source": "官方公告-20260701-7月2日更新公告丨烽火挑战即将开启\u0026问题修复.md",
+          "title": "7月2日更新公告丨烽火挑战即将开启\u0026问题修复 \u003e 烽火挑战开启",
+          "score": 0.633
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 烽火地带新模式——烽火挑战 \u003e 赛制规则",
+          "score": 0.621
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title_contains": "烽火地带新模式——烽火挑战 \u003e 门票获取方式"
+        }
+      ]
+    },
+    {
+      "id": "R050",
+      "query": "破壁赛季的图灵砖阿萨拉幻想活动怎么玩",
+      "category": "announce",
+      "qtype": "lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "7月3日更新公告丨新赛季【破壁】即将开启！ \u003e 新活动 \u003e 图灵砖-阿萨拉幻想",
+      "top_k": [
+        {
+          "source": "官方公告-20250630-7月3日更新公告丨新赛季【破壁】即将开启！.md",
+          "title": "7月3日更新公告丨新赛季【破壁】即将开启！ \u003e 新活动 \u003e 图灵砖-阿萨拉幻想",
+          "score": 0.755
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 新活动 \u003e 图灵砖-丛林派对",
+          "score": 0.702
+        },
+        {
+          "source": "官方公告-20250903-9月4日更新公告丨乌鲁鲁神秘补给＆赛季通行证加速即将开启.md",
+          "title": "9月4日更新公告丨乌鲁鲁神秘补给＆赛季通行证加速即将开启 \u003e 图灵砖更新预告",
+          "score": 0.669
+        },
+        {
+          "source": "官方公告-20251029-10月30日更新公告丨赛季通行证等级加速即将开启！.md",
+          "title": "10月30日更新公告丨赛季通行证等级加速即将开启！ \u003e 图灵砖更新预告",
+          "score": 0.663
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 阿萨拉时刻（双模式）",
+          "score": 0.663
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 新活动 \u003e 图灵砖-塔罗牌",
+          "score": 0.66
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 破浪行动（烽火地带）",
+          "score": 0.653
+        },
+        {
+          "source": "官方公告-20250409-4月10日更新公告丨活动上新\u0026新赛季倒计时！.md",
+          "title": "4月10日更新公告丨活动上新\u0026新赛季倒计时！ \u003e 新活动 \u003e 赛季冲刺（双模式）",
+          "score": 0.653
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20250630-7月3日更新公告丨新赛季【破壁】即将开启！.md",
+          "title_contains": "图灵砖-阿萨拉幻想"
+        }
+      ]
+    },
+    {
+      "id": "R051",
+      "query": "8月14日的武器平衡性调整具体改了哪些枪",
+      "category": "announce",
+      "qtype": "date_lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "8月14日更新公告丨武器平衡性调整 \u003e 玩法调整",
+      "top_k": [
+        {
+          "source": "官方公告-20240813-8月14日更新公告丨武器平衡性调整.md",
+          "title": "8月14日更新公告丨武器平衡性调整 \u003e 玩法调整",
+          "score": 0.748
+        },
+        {
+          "source": "官方公告-20240821-8月22日更新公告丨武器平衡性调整.md",
+          "title": "8月22日更新公告丨武器平衡性调整 \u003e 玩法调整",
+          "score": 0.732
+        },
+        {
+          "source": "官方公告-20240718-7月18日更新公告丨平衡性调整\u0026限时单排预告.md",
+          "title": "7月18日更新公告丨平衡性调整\u0026限时单排预告",
+          "score": 0.72
+        },
+        {
+          "source": "官方公告-20240813-8月14日更新公告丨武器平衡性调整.md",
+          "title": "8月14日更新公告丨武器平衡性调整 \u003e 玩法调整",
+          "score": 0.716
+        },
+        {
+          "source": "官方公告-20240813-8月14日更新公告丨武器平衡性调整.md",
+          "title": "8月14日更新公告丨武器平衡性调整",
+          "score": 0.715
+        },
+        {
+          "source": "官方公告-20250806-8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！.md",
+          "title": "8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！ \u003e 武器平衡性调整与优化 \u003e 烽火地带",
+          "score": 0.709
+        },
+        {
+          "source": "官方公告-20240718-7月18日更新公告丨平衡性调整\u0026限时单排预告.md",
+          "title": "7月18日更新公告丨平衡性调整\u0026限时单排预告",
+          "score": 0.708
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 武器平衡性调整与优化 \u003e 烽火地带 \u003e M14精确射手步枪",
+          "score": 0.704
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20240813-8月14日更新公告丨武器平衡性调整.md",
+          "title_contains": "8月14日更新公告丨武器平衡性调整"
+        }
+      ]
+    },
+    {
+      "id": "R052",
+      "query": "12月18日的季中平衡性调整都调整了什么",
+      "category": "announce",
+      "qtype": "date_lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！ \u003e 武器平衡性调整 \u003e 双模式 \u003e KC17突击步枪",
+      "top_k": [
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！ \u003e 武器平衡性调整 \u003e 双模式 \u003e KC17突击步枪",
+          "score": 0.697
+        },
+        {
+          "source": "官方公告-20240718-7月18日更新公告丨平衡性调整\u0026限时单排预告.md",
+          "title": "7月18日更新公告丨平衡性调整\u0026限时单排预告",
+          "score": 0.681
+        },
+        {
+          "source": "官方公告-20240718-7月18日更新公告丨平衡性调整\u0026限时单排预告.md",
+          "title": "7月18日更新公告丨平衡性调整\u0026限时单排预告",
+          "score": 0.679
+        },
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！ \u003e 武器平衡性调整 \u003e 烽火地带 \u003e KC17突击步枪",
+          "score": 0.675
+        },
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！ \u003e 武器平衡性调整 \u003e 烽火地带 \u003e QCQ171冲锋枪",
+          "score": 0.674
+        },
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！ \u003e 武器平衡性调整 \u003e 烽火地带 \u003e SVD狙击步枪",
+          "score": 0.673
+        },
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！",
+          "score": 0.669
+        },
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！ \u003e 武器平衡性调整 \u003e 双模式 \u003e MK4冲锋枪",
+          "score": 0.668
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title_contains": "12月18日更新公告"
+        }
+      ]
+    },
+    {
+      "id": "R053",
+      "query": "4月16日和4月17日分别发了什么公告，不是一个赛季吗",
+      "category": "announce",
+      "qtype": "confusable",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 0,
+      "top_k": [
+        {
+          "source": "官方公告-20260408-4月9日更新公告丨赛季末冲刺即将开启！.md",
+          "title": "4月9日更新公告丨赛季末冲刺即将开启！",
+          "score": 0.623
+        },
+        {
+          "source": "官方公告-20260408-4月9日更新公告丨赛季末冲刺即将开启！.md",
+          "title": "4月9日更新公告丨赛季末冲刺即将开启！ \u003e 新活动 \u003e 赛季冲刺（双模式）",
+          "score": 0.622
+        },
+        {
+          "source": "官方公告-20260701-7月2日更新公告丨烽火挑战即将开启\u0026问题修复.md",
+          "title": "7月2日更新公告丨烽火挑战即将开启\u0026问题修复 \u003e 烽火挑战开启",
+          "score": 0.619
+        },
+        {
+          "source": "官方公告-20250403-4月3日更新公告丨赛季末冲刺！通行证\u0026排位赛加速即将开启！.md",
+          "title": "4月3日更新公告丨赛季末冲刺！通行证\u0026排位赛加速即将开启！ \u003e 新活动 \u003e 赛季通行证限时等级加速",
+          "score": 0.616
+        },
+        {
+          "source": "官方公告-20250403-4月3日更新公告丨赛季末冲刺！通行证\u0026排位赛加速即将开启！.md",
+          "title": "4月3日更新公告丨赛季末冲刺！通行证\u0026排位赛加速即将开启！",
+          "score": 0.615
+        },
+        {
+          "source": "官方公告-20250925-《赛季任务短周期补偿公告》.md",
+          "title": "《赛季任务短周期补偿公告》",
+          "score": 0.614
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 炫彩乌小蛋传说（烽火地带）",
+          "score": 0.613
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 回声时刻（双模式 ）",
+          "score": 0.611
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title_exact": "4月16日更新公告丨新赛季【回声】即将开启！"
+        },
+        {
+          "source": "官方公告-20250417-4月17日更新公告丨新赛季【黑夜之子】即将开启！.md",
+          "title_exact": "4月17日更新公告丨新赛季【黑夜之子】即将开启！"
+        }
+      ]
+    },
+    {
+      "id": "R054",
+      "query": "2月13日的深蓝平衡性调整内容",
+      "category": "announce",
+      "qtype": "date_lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "2月13日更新公告丨深蓝平衡性调整\u0026活动上新！ \u003e 问题修复",
+      "top_k": [
+        {
+          "source": "官方公告-20250212-2月13日更新公告丨深蓝平衡性调整\u0026活动上新！.md",
+          "title": "2月13日更新公告丨深蓝平衡性调整\u0026活动上新！ \u003e 问题修复",
+          "score": 0.828
+        },
+        {
+          "source": "官方公告-20250212-2月13日更新公告丨深蓝平衡性调整\u0026活动上新！.md",
+          "title": "2月13日更新公告丨深蓝平衡性调整\u0026活动上新！",
+          "score": 0.813
+        },
+        {
+          "source": "官方公告-20250212-2月13日更新公告丨深蓝平衡性调整\u0026活动上新！.md",
+          "title": "2月13日更新公告丨深蓝平衡性调整\u0026活动上新！ \u003e 特战干员深蓝平衡性调整",
+          "score": 0.774
+        },
+        {
+          "source": "官方公告-20250212-2月13日更新公告丨深蓝平衡性调整\u0026活动上新！.md",
+          "title": "2月13日更新公告丨深蓝平衡性调整\u0026活动上新！ \u003e 特战干员深蓝平衡性调整 \u003e 多功能钩抓枪（烽火地带）",
+          "score": 0.767
+        },
+        {
+          "source": "官方公告-20250212-2月13日更新公告丨深蓝平衡性调整\u0026活动上新！.md",
+          "title": "2月13日更新公告丨深蓝平衡性调整\u0026活动上新！ \u003e 特战干员深蓝平衡性调整 \u003e 刀片刺网手雷（双模式）",
+          "score": 0.755
+        },
+        {
+          "source": "官方公告-20250212-2月13日更新公告丨深蓝平衡性调整\u0026活动上新！.md",
+          "title": "2月13日更新公告丨深蓝平衡性调整\u0026活动上新！ \u003e 特战干员深蓝平衡性调整 \u003e 防爆套装调整（烽火地带）",
+          "score": 0.726
+        },
+        {
+          "source": "官方公告-20250212-2月13日更新公告丨深蓝平衡性调整\u0026活动上新！.md",
+          "title": "2月13日更新公告丨深蓝平衡性调整\u0026活动上新！ \u003e 问题修复",
+          "score": 0.71
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 干员平衡性调整 \u003e 特战干员-深蓝",
+          "score": 0.698
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20250212-2月13日更新公告丨深蓝平衡性调整\u0026活动上新！.md",
+          "title_contains": "2月13日更新公告"
+        }
+      ]
+    },
+    {
+      "id": "R055",
+      "query": "12月6日全面战场的干员平衡性调整动了哪些干员",
+      "category": "announce",
+      "qtype": "date_lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "12月6日更新公告丨全面战场干员平衡性调整",
+      "top_k": [
+        {
+          "source": "官方公告-20241205-12月6日更新公告丨全面战场干员平衡性调整.md",
+          "title": "12月6日更新公告丨全面战场干员平衡性调整",
+          "score": 0.772
+        },
+        {
+          "source": "官方公告-20241205-12月6日更新公告丨全面战场干员平衡性调整.md",
+          "title": "12月6日更新公告丨全面战场干员平衡性调整 \u003e 烽火地带干员平衡性调整 \u003e 特战干员-骇爪",
+          "score": 0.73
+        },
+        {
+          "source": "官方公告-20241225-12月26日更新公告丨全面战场平衡性调整\u0026活动上新！.md",
+          "title": "12月26日更新公告丨全面战场平衡性调整\u0026活动上新！",
+          "score": 0.715
+        },
+        {
+          "source": "官方公告-20241205-12月6日更新公告丨全面战场干员平衡性调整.md",
+          "title": "12月6日更新公告丨全面战场干员平衡性调整 \u003e 全面战场干员平衡性调整 \u003e 特战干员-骇爪",
+          "score": 0.706
+        },
+        {
+          "source": "官方公告-20241205-12月6日更新公告丨全面战场干员平衡性调整.md",
+          "title": "12月6日更新公告丨全面战场干员平衡性调整 \u003e 全面战场干员平衡性调整 \u003e 特战干员-红狼",
+          "score": 0.702
+        },
+        {
+          "source": "官方公告-20241205-12月6日更新公告丨全面战场干员平衡性调整.md",
+          "title": "12月6日更新公告丨全面战场干员平衡性调整 \u003e 全面战场干员平衡性调整 \u003e 特战干员-蜂医",
+          "score": 0.7
+        },
+        {
+          "source": "官方公告-20241125-11月26日更新公告丨平衡性调整及问题修复.md",
+          "title": "11月26日更新公告丨平衡性调整及问题修复",
+          "score": 0.695
+        },
+        {
+          "source": "官方公告-20241211-12月12日更新公告丨平衡性调整\u0026庇护者行动开启!.md",
+          "title": "12月12日更新公告丨平衡性调整\u0026庇护者行动开启!",
+          "score": 0.693
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20241205-12月6日更新公告丨全面战场干员平衡性调整.md",
+          "title_contains": "12月6日更新公告"
+        }
+      ]
+    },
+    {
+      "id": "R056",
+      "query": "电锯惊魂联动那次季中平衡性调整改了什么",
+      "category": "announce",
+      "qtype": "paraphrase",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！",
+      "top_k": [
+        {
+          "source": "官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md",
+          "title": "10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！",
+          "score": 0.725
+        },
+        {
+          "source": "官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md",
+          "title": "10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！ \u003e 干员平衡性调整 \u003e 特战干员-疾风",
+          "score": 0.674
+        },
+        {
+          "source": "官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md",
+          "title": "10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！ \u003e 干员平衡性调整 \u003e 特战干员-露娜",
+          "score": 0.664
+        },
+        {
+          "source": "官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md",
+          "title": "10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！ \u003e 武器平衡性调整 \u003e 全面战场",
+          "score": 0.662
+        },
+        {
+          "source": "官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md",
+          "title": "10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！ \u003e 干员平衡性调整 \u003e 特战干员-银翼",
+          "score": 0.66
+        },
+        {
+          "source": "官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md",
+          "title": "10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！ \u003e 载具平衡性调整 \u003e 冲锋艇",
+          "score": 0.655
+        },
+        {
+          "source": "官方公告-20240718-7月18日更新公告丨平衡性调整\u0026限时单排预告.md",
+          "title": "7月18日更新公告丨平衡性调整\u0026限时单排预告",
+          "score": 0.641
+        },
+        {
+          "source": "官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md",
+          "title": "10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！ \u003e 全面战场断层平衡性调整 \u003e 断层-攻防\u0026胜者为王",
+          "score": 0.64
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md",
+          "title_contains": "10月23日更新公告"
+        }
+      ]
+    },
+    {
+      "id": "R057",
+      "query": "10月10日的更新公告内容是什么",
+      "category": "announce",
+      "qtype": "confusable",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "10月10日更新公告丨新干员乌鲁鲁报道\u0026绝密行动即将开启！ \u003e **【异常问题修复】** \u003e **本次主要更新内容如上，感谢各位干员的关注与支持，祝大家游戏愉快！**",
+      "top_k": [
+        {
+          "source": "官方公告-20241009-10月10日更新公告丨新干员乌鲁鲁报道\u0026绝密行动即将开启！.md",
+          "title": "10月10日更新公告丨新干员乌鲁鲁报道\u0026绝密行动即将开启！ \u003e **【异常问题修复】** \u003e **本次主要更新内容如上，感谢各位干员的关注与支持，祝大家游戏愉快！**",
+          "score": 0.731
+        },
+        {
+          "source": "官方公告-20261009-10月10日更新公告丨季中平衡性调整＆极星守望即将上线！.md",
+          "title": "10月10日更新公告丨季中平衡性调整＆极星守望即将上线！",
+          "score": 0.703
+        },
+        {
+          "source": "官方公告-20241009-10月10日更新公告丨新干员乌鲁鲁报道\u0026绝密行动即将开启！.md",
+          "title": "10月10日更新公告丨新干员乌鲁鲁报道\u0026绝密行动即将开启！",
+          "score": 0.697
+        },
+        {
+          "source": "官方公告-20250910-9月11日更新公告丨赛季末冲刺即将开启！.md",
+          "title": "9月11日更新公告丨赛季末冲刺即将开启！",
+          "score": 0.681
+        },
+        {
+          "source": "官方公告-20260909-9月10日更新公告丨彦祖回归＆咱俩练练玩法上线！.md",
+          "title": "9月10日更新公告丨彦祖回归＆咱俩练练玩法上线！ \u003e 问题修复与优化",
+          "score": 0.679
+        },
+        {
+          "source": "官方公告-20241030-10月31日更新公告丨平衡性调整\u0026周末福利上新.md",
+          "title": "10月31日更新公告丨平衡性调整\u0026周末福利上新",
+          "score": 0.678
+        },
+        {
+          "source": "官方公告-20241016-10月17日更新公告丨全面战场闪击玩法限时开启.md",
+          "title": "10月17日更新公告丨全面战场闪击玩法限时开启",
+          "score": 0.669
+        },
+        {
+          "source": "官方公告-20250711-7月11日更新公告丨异常问题修复.md",
+          "title": "7月11日更新公告丨异常问题修复",
+          "score": 0.668
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20241009-10月10日更新公告丨新干员乌鲁鲁报道\u0026绝密行动即将开启！.md",
+          "title_contains": "10月10日更新公告"
+        },
+        {
+          "source": "官方公告-20261009-10月10日更新公告丨季中平衡性调整＆极星守望即将上线！.md",
+          "title_contains": "10月10日更新公告"
+        }
+      ]
+    },
+    {
+      "id": "R058",
+      "query": "阿萨拉疯狂星期四是什么活动，有什么奖励",
+      "category": "announce",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "5月7日更新公告丨阿萨拉疯狂星期四来袭！ \u003e 新活动 \u003e 洲末畅玩（全面战场）",
+      "top_k": [
+        {
+          "source": "官方公告-20260506-5月7日更新公告丨阿萨拉疯狂星期四来袭！.md",
+          "title": "5月7日更新公告丨阿萨拉疯狂星期四来袭！ \u003e 新活动 \u003e 洲末畅玩（全面战场）",
+          "score": 0.64
+        },
+        {
+          "source": "官方公告-20260506-5月7日更新公告丨阿萨拉疯狂星期四来袭！.md",
+          "title": "5月7日更新公告丨阿萨拉疯狂星期四来袭！",
+          "score": 0.636
+        },
+        {
+          "source": "官方公告-20260506-5月7日更新公告丨阿萨拉疯狂星期四来袭！.md",
+          "title": "5月7日更新公告丨阿萨拉疯狂星期四来袭！ \u003e 新活动 \u003e 洲末有米（烽火地带）",
+          "score": 0.635
+        },
+        {
+          "source": "官方公告-20260506-5月7日更新公告丨阿萨拉疯狂星期四来袭！.md",
+          "title": "5月7日更新公告丨阿萨拉疯狂星期四来袭！ \u003e 新活动 \u003e 洲末上分（全面战场）",
+          "score": 0.625
+        },
+        {
+          "source": "官方公告-20260506-5月7日更新公告丨阿萨拉疯狂星期四来袭！.md",
+          "title": "5月7日更新公告丨阿萨拉疯狂星期四来袭！ \u003e 新活动 \u003e 寻找肯小桶（烽火地带）",
+          "score": 0.616
+        },
+        {
+          "source": "官方公告-20260506-5月7日更新公告丨阿萨拉疯狂星期四来袭！.md",
+          "title": "5月7日更新公告丨阿萨拉疯狂星期四来袭！ \u003e 新活动 \u003e 红运当头（烽火地带）",
+          "score": 0.613
+        },
+        {
+          "source": "官方公告-20251105-11月6日更新公告丨赛季末冲刺开启！.md",
+          "title": "11月6日更新公告丨赛季末冲刺开启！ \u003e 新活动 \u003e 阿萨拉邀约（双模式）",
+          "score": 0.607
+        },
+        {
+          "source": "官方公告-20240812-8月12日更新公告丨救援时间调整\u0026阿萨拉巡逻队活动预告.md",
+          "title": "8月12日更新公告丨救援时间调整\u0026阿萨拉巡逻队活动预告 \u003e 新活动",
+          "score": 0.605
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260506-5月7日更新公告丨阿萨拉疯狂星期四来袭！.md",
+          "title_contains": "阿萨拉疯狂星期四"
+        }
+      ]
+    },
+    {
+      "id": "R059",
+      "query": "宝藏月系列活动都有哪些内容",
+      "category": "announce",
+      "qtype": "entity_agg",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "8月9日更新公告丨宝藏月全新活动开启！ \u003e 宝藏月新活动 \u003e 宝藏月礼遇",
+      "top_k": [
+        {
+          "source": "官方公告-20260809-8月9日更新公告丨宝藏月全新活动开启！.md",
+          "title": "8月9日更新公告丨宝藏月全新活动开启！ \u003e 宝藏月新活动 \u003e 宝藏月礼遇",
+          "score": 0.705
+        },
+        {
+          "source": "官方公告-20260809-8月9日更新公告丨宝藏月全新活动开启！.md",
+          "title": "8月9日更新公告丨宝藏月全新活动开启！",
+          "score": 0.666
+        },
+        {
+          "source": "官方公告-20260729-7月30日更新公告丨2600限时三角券＆宝藏月捆绑包免费送！.md",
+          "title": "7月30日更新公告丨2600限时三角券＆宝藏月捆绑包免费送！ \u003e 新活动 \u003e 宝藏月序章（烽火地带）",
+          "score": 0.666
+        },
+        {
+          "source": "官方公告-20250806-8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！.md",
+          "title": "8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！ \u003e 宝藏月特别活动 \u003e 神奇弹药箱（烽火地带）",
+          "score": 0.656
+        },
+        {
+          "source": "官方公告-20250820-8月21日更新公告丨宝藏月捆绑包、AW联动外观免费领 ！.md",
+          "title": "8月21日更新公告丨宝藏月捆绑包、AW联动外观免费领 ！ \u003e 新活动 \u003e 泼天富贵（烽火地带）",
+          "score": 0.655
+        },
+        {
+          "source": "官方公告-20250820-8月21日更新公告丨宝藏月捆绑包、AW联动外观免费领 ！.md",
+          "title": "8月21日更新公告丨宝藏月捆绑包、AW联动外观免费领 ！ \u003e 新活动 \u003e 巴克什秘宝寻踪任务刷新",
+          "score": 0.652
+        },
+        {
+          "source": "官方公告-20250806-8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！.md",
+          "title": "8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！ \u003e 宝藏月特别活动",
+          "score": 0.649
+        },
+        {
+          "source": "官方公告-20250806-8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！.md",
+          "title": "8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！ \u003e 宝藏月特别活动 \u003e 大坝秘宝寻踪（烽火地带）",
+          "score": 0.649
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260805-8月6日更新公告丨宝藏月开启\u0026烽火挑战新赛段！.md",
+          "title_contains": "宝藏月"
+        },
+        {
+          "source": "官方公告-20260809-8月9日更新公告丨宝藏月全新活动开启！.md",
+          "title_contains": "宝藏月"
+        },
+        {
+          "source": "官方公告-20260812-8月13日更新公告丨宝藏月加码\u0026火箭鼠鼠送宝！.md",
+          "title_contains": "宝藏月"
+        },
+        {
+          "source": "官方公告-20250806-8月7日更新公告丨季中平衡调整，宝藏月捆绑包三选二免费拿！.md",
+          "title_contains": "宝藏月"
+        },
+        {
+          "source": "官方公告-20250820-8月21日更新公告丨宝藏月捆绑包、AW联动外观免费领 ！.md",
+          "title_contains": "宝藏月"
+        },
+        {
+          "source": "官方公告-20260729-7月30日更新公告丨2600限时三角券＆宝藏月捆绑包免费送！.md",
+          "title_contains": "宝藏月"
+        }
+      ]
+    },
+    {
+      "id": "R060",
+      "query": "麦小蛋什么时候返场回归",
+      "category": "announce",
+      "qtype": "paraphrase",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "6月19日更新公告丨麦小蛋限时回归\u0026赛季末冲刺即将开启！ \u003e 新活动 \u003e 麦小蛋返场（烽火地带）",
+      "top_k": [
+        {
+          "source": "官方公告-20250618-6月19日更新公告丨麦小蛋限时回归\u0026赛季末冲刺即将开启！.md",
+          "title": "6月19日更新公告丨麦小蛋限时回归\u0026赛季末冲刺即将开启！ \u003e 新活动 \u003e 麦小蛋返场（烽火地带）",
+          "score": 0.728
+        },
+        {
+          "source": "官方公告-20250618-6月19日更新公告丨麦小蛋限时回归\u0026赛季末冲刺即将开启！.md",
+          "title": "6月19日更新公告丨麦小蛋限时回归\u0026赛季末冲刺即将开启！",
+          "score": 0.658
+        },
+        {
+          "source": "物品-麦小蛋.md",
+          "title": "麦小蛋",
+          "score": 0.647
+        },
+        {
+          "source": "官方公告-20260610-6月11日更新公告丨赛季通行证等级加速即将开启！.md",
+          "title": "6月11日更新公告丨赛季通行证等级加速即将开启！ \u003e 新活动 \u003e 乌小蛋返场（烽火地带）",
+          "score": 0.616
+        },
+        {
+          "source": "官方公告-20250618-6月19日更新公告丨麦小蛋限时回归\u0026赛季末冲刺即将开启！.md",
+          "title": "6月19日更新公告丨麦小蛋限时回归\u0026赛季末冲刺即将开启！ \u003e 新活动 \u003e 赛季通行证限时等级加速",
+          "score": 0.614
+        },
+        {
+          "source": "物品-炫彩麦小蛋.md",
+          "title": "炫彩麦小蛋",
+          "score": 0.613
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 寻找乌小蛋（烽火地带）",
+          "score": 0.607
+        },
+        {
+          "source": "官方公告-20251231-1月1日更新公告丨幸运鸟窝活动开启＆元旦外观累登即送！.md",
+          "title": "1月1日更新公告丨幸运鸟窝活动开启＆元旦外观累登即送！ \u003e 新活动 \u003e 幸运鸟窝即将开启",
+          "score": 0.594
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20250618-6月19日更新公告丨麦小蛋限时回归\u0026赛季末冲刺即将开启！.md",
+          "title_contains": "麦小蛋限时回归"
+        }
+      ]
+    },
+    {
+      "id": "R061",
+      "query": "彩虹六号联动和明日方舟联动分别是什么时候开的",
+      "category": "announce",
+      "qtype": "confusable",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "7月8日更新公告丨彩虹六号:围攻联动开启！",
+      "top_k": [
+        {
+          "source": "官方公告-20260707-7月8日更新公告丨彩虹六号_围攻联动开启！.md",
+          "title": "7月8日更新公告丨彩虹六号:围攻联动开启！",
+          "score": 0.57
+        },
+        {
+          "source": "官方公告-20260707-7月8日更新公告丨彩虹六号_围攻联动开启！.md",
+          "title": "7月8日更新公告丨彩虹六号:围攻联动开启！ \u003e 彩虹六号:围攻联动捆绑包 \u003e 无名-守夜人干员捆绑包（传说）",
+          "score": 0.567
+        },
+        {
+          "source": "官方公告-20260707-7月8日更新公告丨彩虹六号_围攻联动开启！.md",
+          "title": "7月8日更新公告丨彩虹六号:围攻联动开启！ \u003e 新活动 \u003e 搜寻无人机（烽火地带）",
+          "score": 0.567
+        },
+        {
+          "source": "官方公告-20260714-7月15日更新公告丨干员研究：乌鲁鲁-狂怒即将上线！.md",
+          "title": "7月15日更新公告丨干员研究：乌鲁鲁-狂怒即将上线！ \u003e 彩虹六号联动活动进行中 \u003e 搜寻无人机（烽火地带）",
+          "score": 0.562
+        },
+        {
+          "source": "官方公告-20260707-7月8日更新公告丨彩虹六号_围攻联动开启！.md",
+          "title": "7月8日更新公告丨彩虹六号:围攻联动开启！ \u003e 彩虹六号:围攻联动捆绑包 \u003e 蜂医-医生干员捆绑包（传说）",
+          "score": 0.554
+        },
+        {
+          "source": "官方公告-20260714-7月15日更新公告丨干员研究：乌鲁鲁-狂怒即将上线！.md",
+          "title": "7月15日更新公告丨干员研究：乌鲁鲁-狂怒即将上线！ \u003e 彩虹六号联动活动进行中 \u003e 联动福利，登录送墨冰MP5（双模式）",
+          "score": 0.544
+        },
+        {
+          "source": "官方公告-20250710-7月11日更新公告丨方舟联动\u0026赠礼活动即将开启！.md",
+          "title": "7月11日更新公告丨方舟联动\u0026赠礼活动即将开启！ \u003e 新活动 \u003e 罗德岛特殊补给箱（烽火地带）",
+          "score": 0.544
+        },
+        {
+          "source": "官方公告-20260707-7月8日更新公告丨彩虹六号_围攻联动开启！.md",
+          "title": "7月8日更新公告丨彩虹六号:围攻联动开启！ \u003e 彩虹六号:围攻联动捆绑包 \u003e 墨冰|武器捆绑包（传说）",
+          "score": 0.542
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260707-7月8日更新公告丨彩虹六号_围攻联动开启！.md",
+          "title_contains": "彩虹六号"
+        },
+        {
+          "source": "官方公告-20250710-7月11日更新公告丨方舟联动\u0026赠礼活动即将开启！.md",
+          "title_contains": "方舟联动"
+        },
+        {
+          "source": "官方公告-20250628-方舟联动特别赠礼活动预告.md",
+          "title_contains": "方舟联动"
+        }
+      ]
+    },
+    {
+      "id": "R062",
+      "query": "设备锁功能在哪里开启，有什么用",
+      "category": "announce",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 设备锁功能上线，保障账号安全！",
+      "top_k": [
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 设备锁功能上线，保障账号安全！",
+          "score": 0.675
+        },
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 设备锁功能上线，保障账号安全！ \u003e 设备展示说明",
+          "score": 0.668
+        },
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title": "设备锁功能上线\u0026鼠标宏打击策略升级",
+          "score": 0.631
+        },
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 设备锁功能上线，保障账号安全！ \u003e 设置信任设备提醒",
+          "score": 0.614
+        },
+        {
+          "source": "官方公告-20241204-PC端游账号保护开启\u0026被盗申诉指引.md",
+          "title": "PC端游账号保护开启\u0026被盗申诉指引",
+          "score": 0.614
+        },
+        {
+          "source": "官方公告-20241204-PC端游账号保护开启\u0026被盗申诉指引.md",
+          "title": "PC端游账号保护开启\u0026被盗申诉指引 \u003e 新增账号保护",
+          "score": 0.61
+        },
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 设备锁功能上线，保障账号安全！ \u003e 登录设备（近30天）",
+          "score": 0.602
+        },
+        {
+          "source": "官方公告-20250710-反作弊升级｜CPU虚拟化功能上线.md",
+          "title": "反作弊升级｜CPU虚拟化功能上线 \u003e 功能说明及开启指引",
+          "score": 0.601
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title_contains": "设备锁功能上线"
+        }
+      ]
+    },
+    {
+      "id": "R063",
+      "query": "用连点器或者鼠标宏会被封号吗",
+      "category": "announce",
+      "qtype": "paraphrase",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 鼠标宏打击策略升级",
+      "top_k": [
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 鼠标宏打击策略升级",
+          "score": 0.693
+        },
+        {
+          "source": "官方公告-20240925-禁止_不建议使用的软硬件列表.md",
+          "title": "禁止/不建议使用的软硬件列表 \u003e 某些设备自带影响平衡性的软件",
+          "score": 0.677
+        },
+        {
+          "source": "官方公告-20240925-禁止_不建议使用的软硬件列表.md",
+          "title": "禁止/不建议使用的软硬件列表 \u003e **【模拟类脚本】**",
+          "score": 0.643
+        },
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 违规行为处罚公告（2025/12/1~2025/12/7）",
+          "score": 0.628
+        },
+        {
+          "source": "官方公告-20241018-《三角洲行动》针对“坐挂车”、“使用连点器”违规行为打击公告.md",
+          "title": "《三角洲行动》针对“坐挂车”、“使用连点器”违规行为打击公告",
+          "score": 0.627
+        },
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 违规行为处罚公告（2025/12/1~2025/12/7）",
+          "score": 0.627
+        },
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 违规行为处罚公告（2025/12/1~2025/12/7）",
+          "score": 0.62
+        },
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title": "设备锁功能上线\u0026鼠标宏打击策略升级 \u003e 违规行为处罚公告（2025/12/1~2025/12/7）",
+          "score": 0.619
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20241018-《三角洲行动》针对“坐挂车”、“使用连点器”违规行为打击公告.md",
+          "title_contains": "连点器"
+        },
+        {
+          "source": "官方公告-20251211-设备锁功能上线\u0026鼠标宏打击策略升级.md",
+          "title_contains": "鼠标宏"
+        }
+      ]
+    },
+    {
+      "id": "R064",
+      "query": "在网吧玩三角洲怎么防止账号被盗",
+      "category": "announce",
+      "qtype": "colloquial",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "网吧辨别真假游戏客户端，谨防账号被盗！ \u003e **高度关注账号安全状态**",
+      "top_k": [
+        {
+          "source": "官方公告-20250730-网吧辨别真假游戏客户端，谨防账号被盗！.md",
+          "title": "网吧辨别真假游戏客户端，谨防账号被盗！ \u003e **高度关注账号安全状态**",
+          "score": 0.671
+        },
+        {
+          "source": "官方公告-20250730-网吧辨别真假游戏客户端，谨防账号被盗！.md",
+          "title": "网吧辨别真假游戏客户端，谨防账号被盗！",
+          "score": 0.599
+        },
+        {
+          "source": "官方公告-20241204-PC端游账号保护开启\u0026被盗申诉指引.md",
+          "title": "PC端游账号保护开启\u0026被盗申诉指引 \u003e 其他保护账号安全小提醒",
+          "score": 0.571
+        },
+        {
+          "source": "官方公告-20260402-账号安全提醒及被盗申诉指引.md",
+          "title": "账号安全提醒及被盗申诉指引 \u003e 加强账号保护指引",
+          "score": 0.545
+        },
+        {
+          "source": "官方公告-20241221-反作弊预启动功能现已上线《三角洲行动》.md",
+          "title": "反作弊预启动功能现已上线《三角洲行动》 \u003e 重视玩家隐私保护，全程严谨相关法规",
+          "score": 0.541
+        },
+        {
+          "source": "官方公告-20241204-PC端游账号保护开启\u0026被盗申诉指引.md",
+          "title": "PC端游账号保护开启\u0026被盗申诉指引 \u003e 被盗账号道具找回与处罚申诉",
+          "score": 0.536
+        },
+        {
+          "source": "官方公告-20250730-网吧辨别真假游戏客户端，谨防账号被盗！.md",
+          "title": "网吧辨别真假游戏客户端，谨防账号被盗！ \u003e **如何识别WeGame真假客户端？** \u003e 1. **检查客户端有无签名**",
+          "score": 0.532
+        },
+        {
+          "source": "官方公告-20260413-关于NVIDIA部分显卡驱动兼容性风险提醒.md",
+          "title": "关于NVIDIA部分显卡驱动兼容性风险提醒 \u003e ** 小贴士**",
+          "score": 0.53
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20250730-网吧辨别真假游戏客户端，谨防账号被盗！.md",
+          "title_contains": "网吧辨别真假游戏客户端"
+        }
+      ]
+    },
+    {
+      "id": "R065",
+      "query": "官方对AI视觉吸附类外挂的打击进展怎么样了",
+      "category": "announce",
+      "qtype": "entity_agg",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "\"AI视觉吸附\"类外挂专项打击公告 \u003e 举报",
+      "top_k": [
+        {
+          "source": "官方公告-20260518-_AI视觉吸附_类外挂专项打击公告.md",
+          "title": "\"AI视觉吸附\"类外挂专项打击公告 \u003e 举报",
+          "score": 0.798
+        },
+        {
+          "source": "官方公告-20260518-_AI视觉吸附_类外挂专项打击公告.md",
+          "title": "\"AI视觉吸附\"类外挂专项打击公告 \u003e 刑事打击",
+          "score": 0.798
+        },
+        {
+          "source": "官方公告-20260605-AI 视觉吸附类外挂打击声明.md",
+          "title": "AI 视觉吸附类外挂打击声明 \u003e 外挂黑产链条夸大宣传 别被相关视频欺骗",
+          "score": 0.793
+        },
+        {
+          "source": "官方公告-20260605-AI 视觉吸附类外挂打击声明.md",
+          "title": "AI 视觉吸附类外挂打击声明 \u003e 端手游AI吸附外挂打击进展 双端均已覆盖，打击压制有效",
+          "score": 0.79
+        },
+        {
+          "source": "官方公告-20260605-AI 视觉吸附类外挂打击声明.md",
+          "title": "AI 视觉吸附类外挂打击声明 \u003e 端手游AI吸附外挂打击进展 双端均已覆盖，打击压制有效 \u003e 效果数据",
+          "score": 0.784
+        },
+        {
+          "source": "官方公告-20260518-_AI视觉吸附_类外挂专项打击公告.md",
+          "title": "\"AI视觉吸附\"类外挂专项打击公告 \u003e 打击进展",
+          "score": 0.772
+        },
+        {
+          "source": "官方公告-20260518-_AI视觉吸附_类外挂专项打击公告.md",
+          "title": "\"AI视觉吸附\"类外挂专项打击公告 \u003e 作弊原理",
+          "score": 0.77
+        },
+        {
+          "source": "官方公告-20260528-PC\u0026移动双端“AI吸附”外挂打击进展公告.md",
+          "title": "PC\u0026移动双端“AI吸附”外挂打击进展公告",
+          "score": 0.763
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260518-_AI视觉吸附_类外挂专项打击公告.md",
+          "title_contains": "AI视觉吸附"
+        },
+        {
+          "source": "官方公告-20260528-PC\u0026移动双端“AI吸附”外挂打击进展公告.md",
+          "title_contains": "AI吸附"
+        },
+        {
+          "source": "官方公告-20260605-AI 视觉吸附类外挂打击声明.md",
+          "title_contains": "AI 视觉吸附"
+        }
+      ]
+    },
+    {
+      "id": "R066",
+      "query": "三角洲现在日活大概有多少",
+      "category": "announce",
+      "qtype": "colloquial",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "《三角洲行动》7月平均日活跃用户数突破2000万！",
+      "top_k": [
+        {
+          "source": "官方公告-20250813-《三角洲行动》7月平均日活跃用户数突破2000万！.md",
+          "title": "《三角洲行动》7月平均日活跃用户数突破2000万！",
+          "score": 0.66
+        },
+        {
+          "source": "官方公告-20241221-反作弊预启动功能现已上线《三角洲行动》.md",
+          "title": "反作弊预启动功能现已上线《三角洲行动》 \u003e 重视玩家隐私保护，全程严谨相关法规",
+          "score": 0.622
+        },
+        {
+          "source": "官方公告-20240804-《三角洲行动》定档9月正式上线！.md",
+          "title": "《三角洲行动》定档9月正式上线！",
+          "score": 0.6
+        },
+        {
+          "source": "官方公告-20240925-《三角洲行动》新兵攻略教学指引.md",
+          "title": "《三角洲行动》新兵攻略教学指引",
+          "score": 0.598
+        },
+        {
+          "source": "官方公告-20240924-《三角洲行动》开服活动福利一览.md",
+          "title": "《三角洲行动》开服活动福利一览",
+          "score": 0.597
+        },
+        {
+          "source": "官方公告-20240328-《三角洲行动》3月28日更新公告.md",
+          "title": "《三角洲行动》3月28日更新公告 \u003e 1、部署高tick服务器",
+          "score": 0.596
+        },
+        {
+          "source": "官方公告-20250527-“DMA”外挂及“雷达”外挂打击声明.md",
+          "title": "“DMA”外挂及“雷达”外挂打击声明 \u003e 感谢热心玩家线索、感谢正义玩家朋友们！",
+          "score": 0.594
+        },
+        {
+          "source": "官方公告-20240924-《三角洲行动》开服活动福利一览.md",
+          "title": "《三角洲行动》开服活动福利一览 \u003e 新兵报到",
+          "score": 0.592
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20250813-《三角洲行动》7月平均日活跃用户数突破2000万！.md",
+          "title_contains": "平均日活跃用户数"
+        }
+      ]
+    },
+    {
+      "id": "R067",
+      "query": "高校特权的新生认证和武器外观体验是一个东西吗",
+      "category": "announce",
+      "qtype": "confusable",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "《三角洲行动》高校特权3月武器外观体验刷新 \u003e **枪械外观体验条件**",
+      "top_k": [
+        {
+          "source": "官方公告-20260320-《三角洲行动》高校特权3月武器外观体验刷新.md",
+          "title": "《三角洲行动》高校特权3月武器外观体验刷新 \u003e **枪械外观体验条件**",
+          "score": 0.691
+        },
+        {
+          "source": "官方公告-20260320-《三角洲行动》高校特权3月武器外观体验刷新.md",
+          "title": "《三角洲行动》高校特权3月武器外观体验刷新 \u003e **常见问题**",
+          "score": 0.685
+        },
+        {
+          "source": "官方公告-20260320-《三角洲行动》高校特权3月武器外观体验刷新.md",
+          "title": "《三角洲行动》高校特权3月武器外观体验刷新",
+          "score": 0.655
+        },
+        {
+          "source": "官方公告-20260320-高校特权「新生认证」3月31日到期提醒！.md",
+          "title": "高校特权「新生认证」3月31日到期提醒！",
+          "score": 0.648
+        },
+        {
+          "source": "官方公告-20240930-全体PC玩家注意丨福利指南请查收！.md",
+          "title": "全体PC玩家注意丨福利指南请查收！ \u003e PC福利速览 \u003e 高校认证",
+          "score": 0.602
+        },
+        {
+          "source": "官方公告-20260320-《三角洲行动》高校特权3月武器外观体验刷新.md",
+          "title": "《三角洲行动》高校特权3月武器外观体验刷新 \u003e **本月轮换外观：**",
+          "score": 0.596
+        },
+        {
+          "source": "官方公告-20251231-1月1日更新公告丨幸运鸟窝活动开启＆元旦外观累登即送！.md",
+          "title": "1月1日更新公告丨幸运鸟窝活动开启＆元旦外观累登即送！ \u003e 新活动 \u003e 幸运鸟窝即将开启",
+          "score": 0.544
+        },
+        {
+          "source": "官方公告-20250113-1月15日更新公告丨新赛季“焰火”即将开启！.md",
+          "title": "1月15日更新公告丨新赛季“焰火”即将开启！ \u003e 赛季通行证 \u003e 三角洲豪华版",
+          "score": 0.54
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260320-高校特权「新生认证」3月31日到期提醒！.md",
+          "title_contains": "新生认证"
+        },
+        {
+          "source": "官方公告-20260320-《三角洲行动》高校特权3月武器外观体验刷新.md",
+          "title_contains": "高校特权3月武器外观体验"
+        }
+      ]
+    },
+    {
+      "id": "R068",
+      "query": "NVIDIA显卡驱动兼容性问题官方怎么说",
+      "category": "announce",
+      "qtype": "lookup",
+      "difficulty": "easy",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "关于NVIDIA部分显卡驱动兼容性风险提醒 \u003e ** 技术支持**",
+      "top_k": [
+        {
+          "source": "官方公告-20260413-关于NVIDIA部分显卡驱动兼容性风险提醒.md",
+          "title": "关于NVIDIA部分显卡驱动兼容性风险提醒 \u003e ** 技术支持**",
+          "score": 0.726
+        },
+        {
+          "source": "官方公告-20260413-关于NVIDIA部分显卡驱动兼容性风险提醒.md",
+          "title": "关于NVIDIA部分显卡驱动兼容性风险提醒",
+          "score": 0.679
+        },
+        {
+          "source": "官方公告-20260413-关于NVIDIA部分显卡驱动兼容性风险提醒.md",
+          "title": "关于NVIDIA部分显卡驱动兼容性风险提醒 \u003e ** 注意事项**",
+          "score": 0.676
+        },
+        {
+          "source": "官方公告-20260413-关于NVIDIA部分显卡驱动兼容性风险提醒.md",
+          "title": "关于NVIDIA部分显卡驱动兼容性风险提醒 \u003e ** 小贴士**",
+          "score": 0.663
+        },
+        {
+          "source": "官方公告-20260413-关于NVIDIA部分显卡驱动兼容性风险提醒.md",
+          "title": "关于NVIDIA部分显卡驱动兼容性风险提醒 \u003e ** 如何升级显卡驱动** \u003e **通过 NVIDIA App 检查和更新（推荐），访问：下载面向游戏玩家和创作者的 NVIDIA App | NVIDIA**",
+          "score": 0.657
+        },
+        {
+          "source": "官方公告-20260413-关于NVIDIA部分显卡驱动兼容性风险提醒.md",
+          "title": "关于NVIDIA部分显卡驱动兼容性风险提醒 \u003e ** 如何检查您的显卡驱动版本** \u003e **方法二：通过设备管理器检查**",
+          "score": 0.654
+        },
+        {
+          "source": "官方公告-20260413-关于NVIDIA部分显卡驱动兼容性风险提醒.md",
+          "title": "关于NVIDIA部分显卡驱动兼容性风险提醒 \u003e ** 如何检查您的显卡驱动版本** \u003e **方法一：通过系统设置检查**",
+          "score": 0.635
+        },
+        {
+          "source": "官方公告-20240925-禁止_不建议使用的软硬件列表.md",
+          "title": "禁止/不建议使用的软硬件列表 \u003e 截帧工具",
+          "score": 0.564
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260413-关于NVIDIA部分显卡驱动兼容性风险提醒.md",
+          "title_contains": "NVIDIA"
+        }
+      ]
+    },
+    {
+      "id": "R069",
+      "query": "2026烽火职业联赛夏季赛的赛制规则",
+      "category": "announce",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "2026烽火职业联赛夏季赛赛事手册",
+      "top_k": [
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title": "2026烽火职业联赛夏季赛赛事手册",
+          "score": 0.819
+        },
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title": "2026烽火职业联赛夏季赛赛事手册 \u003e 常规赛排名、积分规则",
+          "score": 0.793
+        },
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title": "2026烽火职业联赛夏季赛赛事手册 \u003e 目录",
+          "score": 0.789
+        },
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title": "2026烽火职业联赛夏季赛赛事手册 \u003e 烽火职业联赛夏季赛排名规则",
+          "score": 0.788
+        },
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title": "2026烽火职业联赛夏季赛赛事手册 \u003e 2026烽火世界杯积分",
+          "score": 0.785
+        },
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title": "2026烽火职业联赛夏季赛赛事手册 \u003e 比赛介绍",
+          "score": 0.774
+        },
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title": "2026烽火职业联赛夏季赛赛事手册 \u003e 周排名规则",
+          "score": 0.773
+        },
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title": "2026烽火职业联赛夏季赛赛事手册 \u003e 赛事地图配置",
+          "score": 0.77
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title_contains": "赛事手册"
+        }
+      ]
+    },
+    {
+      "id": "R070",
+      "query": "把账号借给别人用有什么风险",
+      "category": "announce",
+      "qtype": "paraphrase",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 2,
+      "hit_title": "账号共享风险提醒＆透视作弊专项打击公示 \u003e 账号共享风险提醒",
+      "top_k": [
+        {
+          "source": "官方公告-20241204-PC端游账号保护开启\u0026被盗申诉指引.md",
+          "title": "PC端游账号保护开启\u0026被盗申诉指引 \u003e 其他保护账号安全小提醒",
+          "score": 0.562
+        },
+        {
+          "source": "官方公告-20250821-账号共享风险提醒＆透视作弊专项打击公示.md",
+          "title": "账号共享风险提醒＆透视作弊专项打击公示 \u003e 账号共享风险提醒",
+          "score": 0.562
+        },
+        {
+          "source": "官方公告-20250723-警惕账号共享，共同守护账号安全!.md",
+          "title": "警惕账号共享，共同守护账号安全! \u003e 账号安全温馨提醒",
+          "score": 0.557
+        },
+        {
+          "source": "官方公告-20260402-账号安全提醒及被盗申诉指引.md",
+          "title": "账号安全提醒及被盗申诉指引 \u003e 被盗申诉指引",
+          "score": 0.556
+        },
+        {
+          "source": "官方公告-20250723-警惕账号共享，共同守护账号安全!.md",
+          "title": "警惕账号共享，共同守护账号安全!",
+          "score": 0.544
+        },
+        {
+          "source": "官方公告-20241204-PC端游账号保护开启\u0026被盗申诉指引.md",
+          "title": "PC端游账号保护开启\u0026被盗申诉指引",
+          "score": 0.517
+        },
+        {
+          "source": "官方公告-20250821-账号共享风险提醒＆透视作弊专项打击公示.md",
+          "title": "账号共享风险提醒＆透视作弊专项打击公示",
+          "score": 0.512
+        },
+        {
+          "source": "官方公告-20250723-警惕账号共享，共同守护账号安全!.md",
+          "title": "警惕账号共享，共同守护账号安全! \u003e 举报操作指引 \u003e 游戏外举报方式",
+          "score": 0.51
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20250723-警惕账号共享，共同守护账号安全!.md",
+          "title_contains": "账号共享"
+        },
+        {
+          "source": "官方公告-20250821-账号共享风险提醒＆透视作弊专项打击公示.md",
+          "title_contains": "账号共享"
+        }
+      ]
+    },
+    {
+      "id": "R071",
+      "query": "从高楼跳下来快落地的时候喷一下喷气背包能不能免摔伤",
+      "category": "mechanism",
+      "qtype": "colloquial",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "三角洲流言害死人！【流言终结者1】 \u003e 视频内容为三角洲行动干员指南，辟谣游戏流言 \u003e 干员威龙无伤落地流言鉴定",
+      "top_k": [
+        {
+          "source": "视频-BV1kBfVYhEAs-三角洲流言害死人！【流言终结者1】.md",
+          "title": "三角洲流言害死人！【流言终结者1】 \u003e 视频内容为三角洲行动干员指南，辟谣游戏流言 \u003e 干员威龙无伤落地流言鉴定",
+          "score": 0.714
+        },
+        {
+          "source": "视频-BV1in8g6eENp-别笑，三角洲的bug在救你的命【三角洲流言终结者13】.md",
+          "title": "别笑，三角洲的bug在救你的命【三角洲流言终结者13】 \u003e 液氮技巧与鲨鱼防术解析 \u003e 干员坠落致死机制鉴定",
+          "score": 0.653
+        },
+        {
+          "source": "视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md",
+          "title": "如何用你的队友当肉盾（）【三角洲流言终结者11】 \u003e 队友可挡弹并反制张姐开大 \u003e 巴别塔塔顶电梯井坠落返回方法鉴定",
+          "score": 0.646
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水面是否存在坠落伤害",
+          "score": 0.641
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：疾风高处落地翻滚是否可减伤、避免骨折",
+          "score": 0.637
+        },
+        {
+          "source": "视频-BV1kBfVYhEAs-三角洲流言害死人！【流言终结者1】.md",
+          "title": "三角洲流言害死人！【流言终结者1】 \u003e 流言终结，干员技能测试 \u003e 乌鲁鲁骨折抗性流言鉴定",
+          "score": 0.624
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 三角洲操作与装备性能测试分析 \u003e 风衣高处坠落打针减伤流言鉴定",
+          "score": 0.62
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 液氮技能实测与流言破解 \u003e 威龙无伤跳大坝机制鉴定",
+          "score": 0.62
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1kBfVYhEAs-三角洲流言害死人！【流言终结者1】.md",
+          "title_contains": "干员威龙无伤落地流言鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R072",
+      "query": "为什么我扛着队友的盒子跑反而更快，是bug吗",
+      "category": "mechanism",
+      "qtype": "colloquial",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员机制与新bug解析 \u003e 背人加速bug测试",
+      "top_k": [
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员机制与新bug解析 \u003e 背人加速bug测试",
+          "score": 0.677
+        },
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员机制与新bug解析 \u003e 干员盒子挡子弹测试",
+          "score": 0.66
+        },
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员机制与新bug解析 \u003e 节目开场",
+          "score": 0.645
+        },
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】",
+          "score": 0.634
+        },
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员机制与新bug解析 \u003e 专属皮肤小游戏可见性测试",
+          "score": 0.625
+        },
+        {
+          "source": "视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md",
+          "title": "如何用你的队友当肉盾（）【三角洲流言终结者11】 \u003e 队友尸体可挡子弹助战 \u003e 队友尸体挡子弹及护送玩法测试",
+          "score": 0.623
+        },
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员机制与新bug解析 \u003e 趴下救人提示音延迟测试",
+          "score": 0.621
+        },
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员机制与新bug解析 \u003e 蝶的医疗粉尘透视测试",
+          "score": 0.614
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title_contains": "背人加速bug测试"
+        }
+      ]
+    },
+    {
+      "id": "R073",
+      "query": "铁丝网能不能直接跳过去",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 铁丝网跳跃机制测试",
+      "top_k": [
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 铁丝网跳跃机制测试",
+          "score": 0.616
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 三角洲操作与装备性能测试分析 \u003e 负重对跳跃的影响",
+          "score": 0.551
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 液氮技能实测与流言破解 \u003e 威龙无伤跳大坝机制鉴定",
+          "score": 0.526
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 麦晓雯数据线可攀爬流言鉴定",
+          "score": 0.524
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 脚挂栏杆跳落是否会骨折",
+          "score": 0.504
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水面是否存在坠落伤害",
+          "score": 0.503
+        },
+        {
+          "source": "视频-BV1in8g6eENp-别笑，三角洲的bug在救你的命【三角洲流言终结者13】.md",
+          "title": "别笑，三角洲的bug在救你的命【三角洲流言终结者13】 \u003e 手游声纹判定与端游差异分析 \u003e 比特网住张姐后拉回机制测试",
+          "score": 0.501
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 蝶的ADS无人机效果鉴定",
+          "score": 0.5
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title_contains": "铁丝网跳跃机制测试"
+        }
+      ]
+    },
+    {
+      "id": "R074",
+      "query": "张姐开大的声音能传多远",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 张姐大招声音传播距离测试",
+      "top_k": [
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 张姐大招声音传播距离测试",
+          "score": 0.742
+        },
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员技能解析与优化测试 \u003e 张姐大招滑索打断测试",
+          "score": 0.66
+        },
+        {
+          "source": "视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md",
+          "title": "如何用你的队友当肉盾（）【三角洲流言终结者11】 \u003e 队友可挡弹并反制张姐开大 \u003e 回响大招开麦暴露信息流言鉴定",
+          "score": 0.658
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 张姐翻滚灭火效果鉴定",
+          "score": 0.631
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 密码门触发预警机制鉴定",
+          "score": 0.627
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 三角洲流言真相解析 \u003e 张姐相关流言鉴定",
+          "score": 0.626
+        },
+        {
+          "source": "视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md",
+          "title": "如何用你的队友当肉盾（）【三角洲流言终结者11】 \u003e 队友可挡弹并反制张姐开大 \u003e 深蓝教官钩爪反制张姐大招流言鉴定",
+          "score": 0.625
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 张姐+无名+银翼战术组合",
+          "score": 0.619
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title_contains": "张姐大招声音传播距离测试"
+        }
+      ]
+    },
+    {
+      "id": "R075",
+      "query": "盾狗开大的时候减伤到底有多少",
+      "category": "mechanism",
+      "qtype": "paraphrase",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "别再用电箭瞄头打了【流言终结者2】 \u003e 电箭瞄头无效，飞刀可打断大招 \u003e 盾狗开大减伤效果测试",
+      "top_k": [
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title": "别再用电箭瞄头打了【流言终结者2】 \u003e 电箭瞄头无效，飞刀可打断大招 \u003e 盾狗开大减伤效果测试",
+          "score": 0.674
+        },
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title": "别再用电箭瞄头打了【流言终结者2】 \u003e 电箭瞄头无效，飞刀可打断大招 \u003e 趴下攻击盾狗脚部流言鉴定",
+          "score": 0.574
+        },
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 特战干员重制——深蓝 \u003e 防爆套装",
+          "score": 0.57
+        },
+        {
+          "source": "视频-BV1b62HBtELi-P1-别再这么藏激光了【三角洲流言终结者6】.md",
+          "title": "别再这么藏激光了【三角洲流言终结者6】 \u003e 激光视角差异与回放漏洞测试 \u003e 无名开大减伤效果鉴定",
+          "score": 0.57
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：疾风高处落地翻滚是否可减伤、避免骨折",
+          "score": 0.561
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 三角洲操作与装备性能测试分析 \u003e 蝶大招是否可被老黑大招打断测试",
+          "score": 0.556
+        },
+        {
+          "source": "视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md",
+          "title": "如何用你的队友当肉盾（）【三角洲流言终结者11】 \u003e 队友可挡弹并反制张姐开大 \u003e 深蓝教官快速解除侧盾技巧",
+          "score": 0.554
+        },
+        {
+          "source": "视频-BV1b62HBtELi-P1-别再这么藏激光了【三角洲流言终结者6】.md",
+          "title": "别再这么藏激光了【三角洲流言终结者6】 \u003e 激光减伤机制与干员技能解析 \u003e 减伤干员机制实测",
+          "score": 0.553
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title_contains": "盾狗开大减伤效果测试"
+        }
+      ]
+    },
+    {
+      "id": "R076",
+      "query": "手臂骨折了舔包速度会不会变慢",
+      "category": "mechanism",
+      "qtype": "colloquial",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 2,
+      "hit_title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 手臂骨折对搜索时间的影响",
+      "top_k": [
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e C4黏附与骨折影响详细测试 \u003e 四肢骨折效果测试",
+          "score": 0.691
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 手臂骨折对搜索时间的影响",
+          "score": 0.676
+        },
+        {
+          "source": "视频-BV1kBfVYhEAs-三角洲流言害死人！【流言终结者1】.md",
+          "title": "三角洲流言害死人！【流言终结者1】 \u003e 流言终结，干员技能测试 \u003e 乌鲁鲁骨折抗性流言鉴定",
+          "score": 0.629
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 三角洲干员技能与战术解析 \u003e 舔包时敌方被救起交互规则鉴定",
+          "score": 0.619
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e C4黏附与骨折影响详细测试 \u003e 血包耐久消耗规则测试",
+          "score": 0.585
+        },
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员机制与新bug解析 \u003e 趴下救人提示音延迟测试",
+          "score": 0.576
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 三角洲干员技能与战术解析 \u003e 倒地流血速度影响因素鉴定",
+          "score": 0.575
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 骨折状态掉血测试",
+          "score": 0.574
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title_contains": "手臂骨折对搜索时间的影响"
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title_contains": "双击F搜索速度测试"
+        }
+      ]
+    },
+    {
+      "id": "R077",
+      "query": "人在水里是不是没法把雷扔上岸",
+      "category": "mechanism",
+      "qtype": "colloquial",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水下投掷物是否无法扔到岸上",
+      "top_k": [
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水下投掷物是否无法扔到岸上",
+          "score": 0.591
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水下是否可以封烟",
+          "score": 0.541
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水下敌人是否无法被发现",
+          "score": 0.525
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：干员骨在水下是否无法释放任何技能",
+          "score": 0.524
+        },
+        {
+          "source": "官方公告-20250630-7月3日更新公告丨新赛季【破壁】即将开启！.md",
+          "title": "7月3日更新公告丨新赛季【破壁】即将开启！ \u003e 新动作——游泳",
+          "score": 0.507
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：威龙是否可在水下喷气加速",
+          "score": 0.504
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 水域基础机制",
+          "score": 0.498
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水面是否存在坠落伤害",
+          "score": 0.496
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title_contains": "流言：水下投掷物是否无法扔到岸上"
+        }
+      ]
+    },
+    {
+      "id": "R078",
+      "query": "潜到水底对面是不是就发现不了我了",
+      "category": "mechanism",
+      "qtype": "colloquial",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水下敌人是否无法被发现",
+      "top_k": [
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水下敌人是否无法被发现",
+          "score": 0.658
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：无露娜时是否可永久藏匿水下",
+          "score": 0.64
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 水域基础机制",
+          "score": 0.632
+        },
+        {
+          "source": "官方公告-20250630-7月3日更新公告丨新赛季【破壁】即将开启！.md",
+          "title": "7月3日更新公告丨新赛季【破壁】即将开启！ \u003e 新动作——游泳",
+          "score": 0.63
+        },
+        {
+          "source": "视频-BV1in8g6eENp-别笑，三角洲的bug在救你的命【三角洲流言终结者13】.md",
+          "title": "别笑，三角洲的bug在救你的命【三角洲流言终结者13】 \u003e 液氮技巧与鲨鱼防术解析 \u003e 贴底游泳躲避鲨鱼攻击验证",
+          "score": 0.625
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 三角洲干员技能与战术解析 \u003e 无名开大效果鉴定",
+          "score": 0.619
+        },
+        {
+          "source": "视频-BV1in8g6eENp-别笑，三角洲的bug在救你的命【三角洲流言终结者13】.md",
+          "title": "别笑，三角洲的bug在救你的命【三角洲流言终结者13】 \u003e 液氮技巧与鲨鱼防术解析 \u003e 节目开场",
+          "score": 0.611
+        },
+        {
+          "source": "视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md",
+          "title": "如何用你的队友当肉盾（）【三角洲流言终结者11】 \u003e 队友尸体可挡子弹助战 \u003e 角色声音侦测规则测试",
+          "score": 0.607
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title_contains": "流言：水下敌人是否无法被发现"
+        }
+      ]
+    },
+    {
+      "id": "R079",
+      "query": "露娜的电箭和探测箭能被击落吗",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "小碎步原来是这么用的【三角洲流言终结者4】 \u003e 视频正文 \u003e 露娜电箭、探测箭可否被击落鉴定",
+      "top_k": [
+        {
+          "source": "视频-BV1o1YszeExj-小碎步原来是这么用的【三角洲流言终结者4】.md",
+          "title": "小碎步原来是这么用的【三角洲流言终结者4】 \u003e 视频正文 \u003e 露娜电箭、探测箭可否被击落鉴定",
+          "score": 0.722
+        },
+        {
+          "source": "视频-BV1o1YszeExj-小碎步原来是这么用的【三角洲流言终结者4】.md",
+          "title": "小碎步原来是这么用的【三角洲流言终结者4】 \u003e 视频正文 \u003e 烟雾对露娜探测效果的影响",
+          "score": 0.653
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 三角洲干员技能与战术解析 \u003e 露娜电剑蓄力伤害鉴定",
+          "score": 0.631
+        },
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title": "别再用电箭瞄头打了【流言终结者2】 \u003e 流言测试，真相揭晓 \u003e 露娜电箭相关流言鉴定",
+          "score": 0.63
+        },
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title": "别再用电箭瞄头打了【流言终结者2】 \u003e 流言测试，真相揭晓 \u003e 节目开篇说明",
+          "score": 0.626
+        },
+        {
+          "source": "官方公告-20241106-11月7日更新公告丨特战干员\u0026战场道具平衡性调整.md",
+          "title": "11月7日更新公告丨特战干员\u0026战场道具平衡性调整 \u003e 特战干员平衡性调整 \u003e 露娜 \u003e 烽火地带",
+          "score": 0.618
+        },
+        {
+          "source": "官方公告-20251022-10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！.md",
+          "title": "10月23日更新公告丨电锯惊魂联动活动开启＆季中平衡性调整！ \u003e 干员平衡性调整 \u003e 特战干员-露娜",
+          "score": 0.616
+        },
+        {
+          "source": "官方公告-20251217-12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！.md",
+          "title": "12月18日更新公告丨季中平衡性调整＆阿萨拉暖冬季来临！ \u003e 干员平衡性调整 \u003e 特战干员 - 露娜 \u003e 双模式",
+          "score": 0.614
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1o1YszeExj-小碎步原来是这么用的【三角洲流言终结者4】.md",
+          "title_contains": "露娜电箭、探测箭可否被击落鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R080",
+      "query": "牧羊人的小面包飞得越远伤害越低吗",
+      "category": "mechanism",
+      "qtype": "paraphrase",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "别再用电箭瞄头打了【流言终结者2】 \u003e 电箭瞄头无效，飞刀可打断大招 \u003e 牧羊人小面包伤害衰减流言鉴定",
+      "top_k": [
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title": "别再用电箭瞄头打了【流言终结者2】 \u003e 电箭瞄头无效，飞刀可打断大招 \u003e 牧羊人小面包伤害衰减流言鉴定",
+          "score": 0.662
+        },
+        {
+          "source": "官方公告-20250313-3月13日更新公告丨干员平衡性调整\u0026活动上新！.md",
+          "title": "3月13日更新公告丨干员平衡性调整\u0026活动上新！ \u003e 干员平衡性调整 \u003e 特战干员-牧羊人",
+          "score": 0.565
+        },
+        {
+          "source": "官方公告-20241106-11月7日更新公告丨特战干员\u0026战场道具平衡性调整.md",
+          "title": "11月7日更新公告丨特战干员\u0026战场道具平衡性调整 \u003e 特战干员平衡性调整 \u003e 牧羊人",
+          "score": 0.561
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 干员平衡性调整 \u003e 特战干员-牧羊人",
+          "score": 0.539
+        },
+        {
+          "source": "官方公告-20250521-5月22日更新公告丨平衡性调整\u0026活动上新！.md",
+          "title": "5月22日更新公告丨平衡性调整\u0026活动上新！ \u003e 干员平衡性调整 \u003e 牧羊人",
+          "score": 0.529
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 干员相关问题修复与优化",
+          "score": 0.528
+        },
+        {
+          "source": "视频-BV1o1YszeExj-小碎步原来是这么用的【三角洲流言终结者4】.md",
+          "title": "小碎步原来是这么用的【三角洲流言终结者4】 \u003e 视频正文 \u003e 乌鲁鲁巡飞弹没电后伤害鉴定",
+          "score": 0.526
+        },
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title": "别再用电箭瞄头打了【流言终结者2】 \u003e 电箭瞄头无效，飞刀可打断大招 \u003e 女医生打药加速被动距离限制鉴定",
+          "score": 0.522
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title_contains": "牧羊人小面包伤害衰减流言鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R081",
+      "query": "骇爪无人机的闪光最远多少米还能生效",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 三角洲操作与装备性能测试分析 \u003e 骇爪无人机闪光生效最远距离测试",
+      "top_k": [
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 三角洲操作与装备性能测试分析 \u003e 骇爪无人机闪光生效最远距离测试",
+          "score": 0.724
+        },
+        {
+          "source": "官方公告-20241205-12月6日更新公告丨全面战场干员平衡性调整.md",
+          "title": "12月6日更新公告丨全面战场干员平衡性调整 \u003e 全面战场干员平衡性调整 \u003e 特战干员-骇爪",
+          "score": 0.69
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 张姐大招声音传播距离测试",
+          "score": 0.657
+        },
+        {
+          "source": "官方公告-20241106-11月7日更新公告丨特战干员\u0026战场道具平衡性调整.md",
+          "title": "11月7日更新公告丨特战干员\u0026战场道具平衡性调整 \u003e 特战干员平衡性调整 \u003e 骇爪 \u003e 全面战场",
+          "score": 0.657
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 密码门触发预警机制鉴定",
+          "score": 0.656
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】",
+          "score": 0.641
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 曼德尔砖预警机制鉴定",
+          "score": 0.636
+        },
+        {
+          "source": "官方公告-20241106-11月7日更新公告丨特战干员\u0026战场道具平衡性调整.md",
+          "title": "11月7日更新公告丨特战干员\u0026战场道具平衡性调整 \u003e 特战干员平衡性调整 \u003e 骇爪 \u003e 烽火地带",
+          "score": 0.635
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title_contains": "骇爪无人机闪光生效最远距离测试"
+        }
+      ]
+    },
+    {
+      "id": "R082",
+      "query": "无名开大的时候对面能听到什么声音",
+      "category": "mechanism",
+      "qtype": "colloquial",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 2,
+      "hit_title": "别再用电箭瞄头打了【流言终结者2】 \u003e 流言测试，真相揭晓 \u003e 无名大招声音流言鉴定",
+      "top_k": [
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 三角洲干员技能与战术解析 \u003e 无名开大效果鉴定",
+          "score": 0.652
+        },
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title": "别再用电箭瞄头打了【流言终结者2】 \u003e 流言测试，真相揭晓 \u003e 无名大招声音流言鉴定",
+          "score": 0.645
+        },
+        {
+          "source": "视频-BV1in8g6eENp-别笑，三角洲的bug在救你的命【三角洲流言终结者13】.md",
+          "title": "别笑，三角洲的bug在救你的命【三角洲流言终结者13】 \u003e 手游声纹判定与端游差异分析 \u003e 观战无名大招声纹异常修复实测",
+          "score": 0.631
+        },
+        {
+          "source": "视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md",
+          "title": "如何用你的队友当肉盾（）【三角洲流言终结者11】 \u003e 队友尸体可挡子弹助战 \u003e 角色声音侦测规则测试",
+          "score": 0.621
+        },
+        {
+          "source": "视频-BV1b62HBtELi-P1-别再这么藏激光了【三角洲流言终结者6】.md",
+          "title": "别再这么藏激光了【三角洲流言终结者6】 \u003e 激光减伤机制与干员技能解析 \u003e 无名开大套用敌方代码流言鉴定",
+          "score": 0.598
+        },
+        {
+          "source": "官方公告-20250417-4月17日更新公告丨新赛季【黑夜之子】即将开启！.md",
+          "title": "4月17日更新公告丨新赛季【黑夜之子】即将开启！ \u003e 玩法更新 \u003e 新突击干员：埃利.德.蒙贝尔，代号无名",
+          "score": 0.597
+        },
+        {
+          "source": "视频-BV1Ug4mzNEDF-原来蜂医才是三角洲最强的猛攻干员【流言终结者5】.md",
+          "title": "原来蜂医才是三角洲最强的猛攻干员【流言终结者5】 \u003e 银翼隐藏机制与干员技能解析 \u003e 无名对抗麦晓雯机制实测",
+          "score": 0.596
+        },
+        {
+          "source": "视频-BV1b62HBtELi-P1-别再这么藏激光了【三角洲流言终结者6】.md",
+          "title": "别再这么藏激光了【三角洲流言终结者6】 \u003e 激光视角差异与回放漏洞测试 \u003e 无名开大减伤效果鉴定",
+          "score": 0.592
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title_contains": "无名大招声音流言鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R083",
+      "query": "医疗粉针和治疗针能一起叠加用吗",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 医疗粉针与治疗针叠加效果鉴定",
+      "top_k": [
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 医疗粉针与治疗针叠加效果鉴定",
+          "score": 0.681
+        },
+        {
+          "source": "物品-体能激活针.md",
+          "title": "体能激活针",
+          "score": 0.531
+        },
+        {
+          "source": "官方公告-20250310-3月10日更新公告丨“特饮调制”活动平衡性调整.md",
+          "title": "3月10日更新公告丨“特饮调制”活动平衡性调整",
+          "score": 0.5
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 三角洲干员技能与战术解析 \u003e 古的肾上腺素叠层效果鉴定",
+          "score": 0.497
+        },
+        {
+          "source": "物品-强效注射器.md",
+          "title": "强效注射器",
+          "score": 0.496
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 三角洲新机制与干员技能解析 \u003e 四叶主技能器物针剂效果及流言鉴定",
+          "score": 0.491
+        },
+        {
+          "source": "物品-瓶装抗生素.md",
+          "title": "瓶装抗生素",
+          "score": 0.49
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 三角洲新机制与干员技能解析 \u003e 四叶主技能器物针剂效果及流言鉴定",
+          "score": 0.49
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title_contains": "医疗粉针与治疗针叠加效果鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R084",
+      "query": "倒地以后在地上爬会一直掉血吗",
+      "category": "mechanism",
+      "qtype": "colloquial",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 倒地移动掉血流言测试",
+      "top_k": [
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 倒地移动掉血流言测试",
+          "score": 0.613
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 三角洲干员技能与战术解析 \u003e 倒地流血速度影响因素鉴定",
+          "score": 0.561
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 三角洲新机制与干员技能解析 \u003e 四叶被动技能效果",
+          "score": 0.528
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 骨折状态掉血测试",
+          "score": 0.527
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e C4黏附与骨折影响详细测试 \u003e 四肢骨折效果测试",
+          "score": 0.511
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 烽火地带",
+          "score": 0.508
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 坠落伤害相关流言测试",
+          "score": 0.508
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e C4黏附与骨折影响详细测试 \u003e 血包耐久消耗规则测试",
+          "score": 0.505
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title_contains": "倒地移动掉血流言测试"
+        }
+      ]
+    },
+    {
+      "id": "R085",
+      "query": "听力加成的道具堆叠起来有没有上限",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 2,
+      "hit_title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 听力加成上限流言测试",
+      "top_k": [
+        {
+          "source": "物品-感知强化剂.md",
+          "title": "感知强化剂",
+          "score": 0.598
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 听力加成上限流言测试",
+          "score": 0.587
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 液氮技能实测与流言破解 \u003e 听力加成计算机制鉴定",
+          "score": 0.582
+        },
+        {
+          "source": "物品-感知激活针.md",
+          "title": "感知激活针",
+          "score": 0.56
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 银翼无人机听力范围影响验证",
+          "score": 0.523
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 三角洲干员技能与战术解析 \u003e 古的肾上腺素叠层效果鉴定",
+          "score": 0.523
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 医疗粉针与治疗针叠加效果鉴定",
+          "score": 0.518
+        },
+        {
+          "source": "物品-音频播放器.md",
+          "title": "音频播放器",
+          "score": 0.512
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title_contains": "听力加成上限流言测试"
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title_contains": "听力加成计算机制鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R086",
+      "query": "背的东西太重是不是就跳不高了",
+      "category": "mechanism",
+      "qtype": "colloquial",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 三角洲操作与装备性能测试分析 \u003e 负重对跳跃的影响",
+      "top_k": [
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 三角洲操作与装备性能测试分析 \u003e 负重对跳跃的影响",
+          "score": 0.656
+        },
+        {
+          "source": "物品-重型登山包.md",
+          "title": "重型登山包",
+          "score": 0.568
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 坠落伤害相关流言测试",
+          "score": 0.56
+        },
+        {
+          "source": "物品-HLS-2重型背包.md",
+          "title": "HLS-2重型背包",
+          "score": 0.559
+        },
+        {
+          "source": "官方公告-20250630-7月3日更新公告丨新赛季【破壁】即将开启！.md",
+          "title": "7月3日更新公告丨新赛季【破壁】即将开启！ \u003e 烽火地带",
+          "score": 0.555
+        },
+        {
+          "source": "物品-M2肌肉注射剂.md",
+          "title": "M2肌肉注射剂",
+          "score": 0.555
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水面是否存在坠落伤害",
+          "score": 0.552
+        },
+        {
+          "source": "物品-大型登山包.md",
+          "title": "大型登山包",
+          "score": 0.551
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title_contains": "负重对跳跃的影响"
+        }
+      ]
+    },
+    {
+      "id": "R087",
+      "query": "乌鲁鲁的燃烧弹能不能烧掉对面放的道具",
+      "category": "mechanism",
+      "qtype": "colloquial",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员技能解析与优化测试 \u003e 乌鲁鲁燃烧弹道具破坏效果鉴定",
+      "top_k": [
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员技能解析与优化测试 \u003e 乌鲁鲁燃烧弹道具破坏效果鉴定",
+          "score": 0.646
+        },
+        {
+          "source": "官方公告-20241106-11月7日更新公告丨特战干员\u0026战场道具平衡性调整.md",
+          "title": "11月7日更新公告丨特战干员\u0026战场道具平衡性调整 \u003e 特战干员平衡性调整 \u003e 乌鲁鲁 \u003e 烽火地带",
+          "score": 0.642
+        },
+        {
+          "source": "官方公告-20241106-11月7日更新公告丨特战干员\u0026战场道具平衡性调整.md",
+          "title": "11月7日更新公告丨特战干员\u0026战场道具平衡性调整 \u003e 特战干员平衡性调整 \u003e 乌鲁鲁 \u003e 全模式",
+          "score": 0.61
+        },
+        {
+          "source": "官方公告-20241106-11月7日更新公告丨特战干员\u0026战场道具平衡性调整.md",
+          "title": "11月7日更新公告丨特战干员\u0026战场道具平衡性调整 \u003e 特战干员平衡性调整 \u003e 乌鲁鲁",
+          "score": 0.607
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 特战干员-乌鲁鲁",
+          "score": 0.598
+        },
+        {
+          "source": "官方公告-20250630-7月3日更新公告丨新赛季【破壁】即将开启！.md",
+          "title": "7月3日更新公告丨新赛季【破壁】即将开启！ \u003e 干员平衡性调整 \u003e 特战干员-乌鲁鲁",
+          "score": 0.596
+        },
+        {
+          "source": "官方公告-20250113-1月15日更新公告丨新赛季“焰火”即将开启！.md",
+          "title": "1月15日更新公告丨新赛季“焰火”即将开启！ \u003e 干员平衡性调整 \u003e 特战干员-乌鲁鲁",
+          "score": 0.593
+        },
+        {
+          "source": "官方公告-20250113-1月15日更新公告丨新赛季“焰火”即将开启！.md",
+          "title": "1月15日更新公告丨新赛季“焰火”即将开启！ \u003e 局内得分调整（全面战场） \u003e 乌鲁鲁",
+          "score": 0.59
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title_contains": "乌鲁鲁燃烧弹道具破坏效果鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R088",
+      "query": "液氮能不能冻死水里的敌人",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 液氮冷罐可冻死水下敌人流言鉴定",
+      "top_k": [
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 液氮冷罐可冻死水下敌人流言鉴定",
+          "score": 0.726
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 液氮技能实测与流言破解 \u003e 液氮冷罐与乌鲁鲁火互动鉴定",
+          "score": 0.654
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 液氮技能实测与流言破解 \u003e 低血量致命伤害判定鉴定",
+          "score": 0.635
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 玩法更新 \u003e 新工程干员：加布里埃尔·默里尔，代号液氮",
+          "score": 0.634
+        },
+        {
+          "source": "视频-BV1in8g6eENp-别笑，三角洲的bug在救你的命【三角洲流言终结者13】.md",
+          "title": "别笑，三角洲的bug在救你的命【三角洲流言终结者13】 \u003e 液氮技巧与鲨鱼防术解析 \u003e 液氮相关流言鉴定",
+          "score": 0.628
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 液氮冰冻可免疫其他控制流言鉴定",
+          "score": 0.626
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 干员平衡性调整 \u003e 工程干员-液氮 \u003e 全模式",
+          "score": 0.624
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 液氮技能实测与流言破解 \u003e 单敌人多狗牌掉落机制鉴定",
+          "score": 0.621
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title_contains": "液氮冷罐可冻死水下敌人流言鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R089",
+      "query": "热成像瞄具能看穿水面看到水底的人吗",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 热成像瞄具透视水下流言鉴定",
+      "top_k": [
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 热成像瞄具透视水下流言鉴定",
+          "score": 0.702
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 液氮冷罐可冻死水下敌人流言鉴定",
+          "score": 0.674
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 敌方比特共享烟雾弹透视流言鉴定",
+          "score": 0.647
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水下敌人是否无法被发现",
+          "score": 0.629
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e AG326UZD2电竞显示器推荐",
+          "score": 0.621
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 无名闪光弹可被击落流言鉴定",
+          "score": 0.618
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 银翼大招挡子弹流言鉴定",
+          "score": 0.611
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水下是否可以封烟",
+          "score": 0.607
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title_contains": "热成像瞄具透视水下流言鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R090",
+      "query": "脚挂在栏杆上再跳下来会不会摔骨折",
+      "category": "mechanism",
+      "qtype": "colloquial",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 脚挂栏杆跳落是否会骨折",
+      "top_k": [
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 脚挂栏杆跳落是否会骨折",
+          "score": 0.707
+        },
+        {
+          "source": "视频-BV1kBfVYhEAs-三角洲流言害死人！【流言终结者1】.md",
+          "title": "三角洲流言害死人！【流言终结者1】 \u003e 流言终结，干员技能测试 \u003e 乌鲁鲁骨折抗性流言鉴定",
+          "score": 0.606
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 骨折状态掉血测试",
+          "score": 0.596
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e C4黏附与骨折影响详细测试 \u003e 四肢骨折效果测试",
+          "score": 0.586
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水面是否存在坠落伤害",
+          "score": 0.559
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 铁丝网跳跃机制测试",
+          "score": 0.55
+        },
+        {
+          "source": "视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md",
+          "title": "如何用你的队友当肉盾（）【三角洲流言终结者11】 \u003e 队友可挡弹并反制张姐开大 \u003e 巴别塔塔顶电梯井坠落返回方法鉴定",
+          "score": 0.547
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：疾风高处落地翻滚是否可减伤、避免骨折",
+          "score": 0.542
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title_contains": "脚挂栏杆跳落是否会骨折"
+        }
+      ]
+    },
+    {
+      "id": "R091",
+      "query": "银翼的EMP能打断哪些技能和道具",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 银翼EMP可打断的技能与道具",
+      "top_k": [
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 银翼EMP可打断的技能与道具",
+          "score": 0.742
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 银翼EMP打断自身大招效果验证",
+          "score": 0.699
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 银翼EMP能否打断张姐自拉",
+          "score": 0.676
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 银翼电子手雷能否打断蛊的技能",
+          "score": 0.676
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 蝶的ADS无人机效果鉴定",
+          "score": 0.642
+        },
+        {
+          "source": "视频-BV1tWY16FEvj-不要再这么趴着蹲人了【三角洲流言终结者14】.md",
+          "title": "不要再这么趴着蹲人了【三角洲流言终结者14】 \u003e 热成像透水下为游戏漏洞 \u003e 银翼大招挡子弹流言鉴定",
+          "score": 0.609
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 张姐电刺缴械与技能交互鉴定",
+          "score": 0.605
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 银翼无人机受蛊大招影响验证",
+          "score": 0.605
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title_contains": "银翼EMP可打断的技能与道具"
+        }
+      ]
+    },
+    {
+      "id": "R092",
+      "query": "张姐的电刺到底能不能把教官的盾缴下来",
+      "category": "mechanism",
+      "qtype": "confusable",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 张姐电刺对教官盾效果测试",
+      "top_k": [
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 张姐电刺对教官盾效果测试",
+          "score": 0.832
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 张姐电刺反制方式测试",
+          "score": 0.784
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 节目开场介绍",
+          "score": 0.761
+        },
+        {
+          "source": "视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md",
+          "title": "如何用你的队友当肉盾（）【三角洲流言终结者11】 \u003e 队友可挡弹并反制张姐开大 \u003e 深蓝教官免疫张姐电刺流言鉴定",
+          "score": 0.749
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 内容摘要",
+          "score": 0.748
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】",
+          "score": 0.742
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 张姐自救与队友拉人时长测试",
+          "score": 0.731
+        },
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title": "所以张姐真能把教官的盾缴了？【三角洲流言终结者10】 \u003e 张姐电刺缴械教官测试 \u003e 玻璃相关流言测试",
+          "score": 0.73
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1QeDABWE7w-所以张姐真能把教官的盾缴了？【三角洲流言终结者10】.md",
+          "title_contains": "张姐电刺对教官盾效果测试"
+        },
+        {
+          "source": "视频-BV1sUEM67ELZ-如何用你的队友当肉盾（）【三角洲流言终结者11】.md",
+          "title_contains": "深蓝教官免疫张姐电刺流言鉴定"
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title_contains": "流言：疾风钻墙电刺是否可缴械深蓝的盾牌"
+        }
+      ]
+    },
+    {
+      "id": "R093",
+      "query": "乌鲁鲁从高处跳下来到底会不会骨折",
+      "category": "mechanism",
+      "qtype": "confusable",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "三角洲流言害死人！【流言终结者1】 \u003e 流言终结，干员技能测试 \u003e 乌鲁鲁骨折抗性流言鉴定",
+      "top_k": [
+        {
+          "source": "视频-BV1kBfVYhEAs-三角洲流言害死人！【流言终结者1】.md",
+          "title": "三角洲流言害死人！【流言终结者1】 \u003e 流言终结，干员技能测试 \u003e 乌鲁鲁骨折抗性流言鉴定",
+          "score": 0.752
+        },
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title": "别再用电箭瞄头打了【流言终结者2】 \u003e 电箭瞄头无效，飞刀可打断大招 \u003e 乌鲁鲁摔骨折被动生效规则鉴定",
+          "score": 0.689
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 乌鲁鲁摔落骨折被动验证",
+          "score": 0.689
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 特战干员-乌鲁鲁",
+          "score": 0.606
+        },
+        {
+          "source": "官方公告-20241009-10月10日更新公告丨新干员乌鲁鲁报道\u0026绝密行动即将开启！.md",
+          "title": "10月10日更新公告丨新干员乌鲁鲁报道\u0026绝密行动即将开启！ \u003e **【新内容】** \u003e **3、大兵乌鲁鲁**",
+          "score": 0.602
+        },
+        {
+          "source": "视频-BV1o1YszeExj-小碎步原来是这么用的【三角洲流言终结者4】.md",
+          "title": "小碎步原来是这么用的【三角洲流言终结者4】 \u003e 视频正文 \u003e 乌鲁鲁巡飞弹没电后伤害鉴定",
+          "score": 0.599
+        },
+        {
+          "source": "视频-BV1CEcDzKEWK-别再这样背人扛盒子了【三角洲流言终结者9】.md",
+          "title": "别再这样背人扛盒子了【三角洲流言终结者9】 \u003e 三角洲干员技能解析与优化测试 \u003e 乌鲁鲁燃烧弹道具破坏效果鉴定",
+          "score": 0.595
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e C4黏附与骨折影响详细测试 \u003e 四肢骨折效果测试",
+          "score": 0.593
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1kBfVYhEAs-三角洲流言害死人！【流言终结者1】.md",
+          "title_contains": "乌鲁鲁骨折抗性流言鉴定"
+        },
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title_contains": "乌鲁鲁摔骨折被动生效规则鉴定"
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title_contains": "乌鲁鲁摔落骨折被动验证"
+        }
+      ]
+    },
+    {
+      "id": "R094",
+      "query": "威龙从零号大坝顶上直接跳下来为什么没事",
+      "category": "mechanism",
+      "qtype": "confusable",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 液氮技能实测与流言破解 \u003e 威龙无伤跳大坝机制鉴定",
+      "top_k": [
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 液氮技能实测与流言破解 \u003e 威龙无伤跳大坝机制鉴定",
+          "score": 0.741
+        },
+        {
+          "source": "视频-BV1kBfVYhEAs-三角洲流言害死人！【流言终结者1】.md",
+          "title": "三角洲流言害死人！【流言终结者1】 \u003e 视频内容为三角洲行动干员指南，辟谣游戏流言 \u003e 干员威龙无伤落地流言鉴定",
+          "score": 0.663
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：水面是否存在坠落伤害",
+          "score": 0.649
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：疾风高处落地翻滚是否可减伤、避免骨折",
+          "score": 0.615
+        },
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 烽火地带",
+          "score": 0.611
+        },
+        {
+          "source": "视频-BV1h6KfzQEqz-会玩的深蓝在水下无敌了？【三角洲流言终结者3】.md",
+          "title": "会玩的深蓝在水下无敌了？【三角洲流言终结者3】 \u003e 视频正文 \u003e 流言：威龙是否可在水下喷气加速",
+          "score": 0.61
+        },
+        {
+          "source": "视频-BV1b62HBtELi-P1-别再这么藏激光了【三角洲流言终结者6】.md",
+          "title": "别再这么藏激光了【三角洲流言终结者6】 \u003e 激光视角差异与回放漏洞测试 \u003e 无名开大减伤效果鉴定",
+          "score": 0.608
+        },
+        {
+          "source": "官方公告-20240828-8月28日更新公告丨干员平衡性调整\u0026航天基地、零号大坝问题修复.md",
+          "title": "8月28日更新公告丨干员平衡性调整\u0026航天基地、零号大坝问题修复",
+          "score": 0.608
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title_contains": "威龙无伤跳大坝机制鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R095",
+      "query": "烟雾弹扔脚下到底能不能把自己身上的火灭掉",
+      "category": "mechanism",
+      "qtype": "confusable",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 三角洲流言真相解析 \u003e 余生烟雾弹灭火相关流言",
+      "top_k": [
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 三角洲流言真相解析 \u003e 余生烟雾弹灭火相关流言",
+          "score": 0.655
+        },
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title": "别再用电箭瞄头打了【流言终结者2】 \u003e 电箭瞄头无效，飞刀可打断大招 \u003e 烟雾弹灭火效果流言鉴定",
+          "score": 0.588
+        },
+        {
+          "source": "视频-BV16HFMzgEMf-原来我们一直用错了骇爪大招【三角洲流言终结者8】.md",
+          "title": "原来我们一直用错了骇爪大招【三角洲流言终结者8】 \u003e 三角洲干员技能解析与实战测试 \u003e 张姐翻滚灭火效果鉴定",
+          "score": 0.588
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 三角洲流言真相解析 \u003e 虚假求助骗取钱财相关提示",
+          "score": 0.584
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】",
+          "score": 0.582
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 内容摘要",
+          "score": 0.575
+        },
+        {
+          "source": "视频-BV1c2TC6jEiy-液氮原来是这么用的【三角洲流言终结者12】.md",
+          "title": "液氮原来是这么用的【三角洲流言终结者12】 \u003e 三角洲干员技能与战术解析 \u003e 烟雾覆盖规则鉴定",
+          "score": 0.571
+        },
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title": "三角洲的烟其实不能灭火【三角洲流言终结者7】 \u003e 张姐战术组合实战解析 \u003e 银翼EMP可打断的技能与道具",
+          "score": 0.569
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "视频-BV1eRqHB1E5D-三角洲的烟其实不能灭火【三角洲流言终结者7】.md",
+          "title_contains": "余生烟雾弹灭火相关流言"
+        },
+        {
+          "source": "视频-BV1zTjqzcEmc-别再用电箭瞄头打了【流言终结者2】.md",
+          "title_contains": "烟雾弹灭火效果流言鉴定"
+        }
+      ]
+    },
+    {
+      "id": "R096",
+      "query": "烈火冲天的战利品归属者机制是什么规则",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 新系统——战利品归属者机制",
+      "top_k": [
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 新系统——战利品归属者机制",
+          "score": 0.723
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 新增夺取行动机制",
+          "score": 0.676
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 团队死斗（全面战场）",
+          "score": 0.608
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 烈火熊熊（烽火地带）",
+          "score": 0.6
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 胜者为王 \u003e 新增战前部署阶段",
+          "score": 0.598
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 烈火时刻（双模式）",
+          "score": 0.587
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 胜者为王 \u003e 接入信誉等级",
+          "score": 0.585
+        },
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title": "9月17日更新公告丨新赛季【烈火冲天】现已开启！ \u003e 新事件——长弓溪谷山火",
+          "score": 0.581
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20250915-9月17日更新公告丨新赛季【烈火冲天】现已开启！.md",
+          "title_contains": "新系统——战利品归属者机制"
+        }
+      ]
+    },
+    {
+      "id": "R097",
+      "query": "钓鱼玩法需要什么条件才能解锁",
+      "category": "mechanism",
+      "qtype": "paraphrase",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 烽火地带新玩法—钓鱼 \u003e 解锁条件",
+      "top_k": [
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 烽火地带新玩法—钓鱼 \u003e 解锁条件",
+          "score": 0.687
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 烽火地带新玩法—钓鱼",
+          "score": 0.631
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 烽火地带新玩法—钓鱼 \u003e 钓鱼等级与水平",
+          "score": 0.617
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 烽火地带新玩法—钓鱼 \u003e 可垂钓地图",
+          "score": 0.612
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 烽火地带新玩法—钓鱼 \u003e 图鉴纪录",
+          "score": 0.605
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 烽火地带新玩法—钓鱼 \u003e 垂钓玩法介绍",
+          "score": 0.591
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 烽火地带新玩法—钓鱼 \u003e 钓鱼专属扩容箱",
+          "score": 0.554
+        },
+        {
+          "source": "物品-黄金鲤.md",
+          "title": "黄金鲤",
+          "score": 0.551
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title_contains": "烽火地带新玩法—钓鱼 \u003e 解锁条件"
+        }
+      ]
+    },
+    {
+      "id": "R098",
+      "query": "赤枭巡猎玩法能选什么难度和行动",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 6,
+      "hit_title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 可选择行动及难度",
+      "top_k": [
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 玩法介绍",
+          "score": 0.654
+        },
+        {
+          "source": "官方公告-20260610-6月11日更新公告丨赛季通行证等级加速即将开启！.md",
+          "title": "6月11日更新公告丨赛季通行证等级加速即将开启！ \u003e 赤枭巡猎下架提醒",
+          "score": 0.625
+        },
+        {
+          "source": "官方公告-20260617-6月18日更新公告丨端午安康＆赛季末冲刺开启！.md",
+          "title": "6月18日更新公告丨端午安康＆赛季末冲刺开启！ \u003e 赤枭巡猎下架提醒",
+          "score": 0.623
+        },
+        {
+          "source": "物品-赤小枭.md",
+          "title": "赤小枭",
+          "score": 0.605
+        },
+        {
+          "source": "物品-赤枭档案.md",
+          "title": "赤枭档案",
+          "score": 0.597
+        },
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 可选择行动及难度",
+          "score": 0.58
+        },
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 玩法更新 \u003e 烽火地带新玩法—赤枭巡猎",
+          "score": 0.58
+        },
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title": "1月29日更新公告丨新赛季【蝶变时刻】即将开启！ \u003e 前置与局外任务",
+          "score": 0.575
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20260126-1月29日更新公告丨新赛季【蝶变时刻】即将开启！.md",
+          "title_contains": "可选择行动及难度"
+        }
+      ]
+    },
+    {
+      "id": "R099",
+      "query": "破壁赛季的曼德尔砖气象感应活动怎么参与",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "hard",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "7月3日更新公告丨新赛季【破壁】即将开启！ \u003e 新活动 \u003e 曼德尔砖-气象感应",
+      "top_k": [
+        {
+          "source": "官方公告-20250630-7月3日更新公告丨新赛季【破壁】即将开启！.md",
+          "title": "7月3日更新公告丨新赛季【破壁】即将开启！ \u003e 新活动 \u003e 曼德尔砖-气象感应",
+          "score": 0.678
+        },
+        {
+          "source": "官方公告-20250910-9月11日更新公告丨赛季末冲刺即将开启！.md",
+          "title": "9月11日更新公告丨赛季末冲刺即将开启！ \u003e 曼德尔砖更新预告",
+          "score": 0.633
+        },
+        {
+          "source": "官方公告-20260902-9月4日更新公告丨新赛季【群星】即将开启！.md",
+          "title": "9月4日更新公告丨新赛季【群星】即将开启！ \u003e 曼德尔砖-疾光魅影",
+          "score": 0.626
+        },
+        {
+          "source": "官方公告-20241030-10月31日更新公告丨平衡性调整\u0026周末福利上新.md",
+          "title": "10月31日更新公告丨平衡性调整\u0026周末福利上新 \u003e 玩法调优 \u003e 曼德尔砖系统更新预告",
+          "score": 0.614
+        },
+        {
+          "source": "官方公告-20260623-6月26日更新公告丨新赛季【裂变】即将开启！.md",
+          "title": "6月26日更新公告丨新赛季【裂变】即将开启！ \u003e 新活动 \u003e 曼德尔砖-群星",
+          "score": 0.612
+        },
+        {
+          "source": "官方公告-20260804-2026烽火职业联赛夏季赛赛事手册.md",
+          "title": "2026烽火职业联赛夏季赛赛事手册 \u003e 赛事曼德尔砖规则",
+          "score": 0.607
+        },
+        {
+          "source": "官方公告-20240924-《三角洲行动》开服活动福利一览.md",
+          "title": "《三角洲行动》开服活动福利一览 \u003e 曼德尔砖概率UP!",
+          "score": 0.604
+        },
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 新活动 \u003e 曼德尔砖-悬赏令",
+          "score": 0.597
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20250630-7月3日更新公告丨新赛季【破壁】即将开启！.md",
+          "title_contains": "曼德尔砖-气象感应"
+        }
+      ]
+    },
+    {
+      "id": "R100",
+      "query": "超感追查是个什么玩法",
+      "category": "mechanism",
+      "qtype": "lookup",
+      "difficulty": "medium",
+      "granularity": "chunk",
+      "rank": 1,
+      "hit_title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 新限时玩法——超感追查",
+      "top_k": [
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title": "11月13日更新公告丨新赛季【阿萨拉】即将开启！ \u003e 新限时玩法——超感追查",
+          "score": 0.686
+        },
+        {
+          "source": "物品-哈夫克脑机液-“超体”.md",
+          "title": "哈夫克脑机液-“超体”",
+          "score": 0.56
+        },
+        {
+          "source": "官方公告-20260413-4月16日更新公告丨新赛季【回声】即将开启！.md",
+          "title": "4月16日更新公告丨新赛季【回声】即将开启！ \u003e 烽火地带限时新玩法——阿萨拉传说：大师遗踪",
+          "score": 0.554
+        },
+        {
+          "source": "官方公告-20241023-10月24日更新公告丨新活动黑鹰补给\u0026战场闪击限时开启.md",
+          "title": "10月24日更新公告丨新活动黑鹰补给\u0026战场闪击限时开启 \u003e 新内容 \u003e 重建档案",
+          "score": 0.534
+        },
+        {
+          "source": "官方公告-20241120-11月21日更新公告丨新赛季聚变即将开启！.md",
+          "title": "11月21日更新公告丨新赛季聚变即将开启！ \u003e 玩法更新 \u003e 烽火地带新模式：合作行动-衔尾蛇",
+          "score": 0.534
+        },
+        {
+          "source": "官方公告-20241023-10月24日更新公告丨新活动黑鹰补给\u0026战场闪击限时开启.md",
+          "title": "10月24日更新公告丨新活动黑鹰补给\u0026战场闪击限时开启 \u003e 新内容 \u003e 机密行动限时单排",
+          "score": 0.531
+        },
+        {
+          "source": "官方公告-20250320-追溯行动重拳出击！作弊必被封！.md",
+          "title": "追溯行动重拳出击！作弊必被封！ \u003e 处罚查询方式",
+          "score": 0.528
+        },
+        {
+          "source": "官方公告-20241221-反作弊预启动功能现已上线《三角洲行动》.md",
+          "title": "反作弊预启动功能现已上线《三角洲行动》 \u003e 重视玩家隐私保护，全程严谨相关法规",
+          "score": 0.525
+        }
+      ],
+      "expected_chunks": [
+        {
+          "source": "官方公告-20251110-11月13日更新公告丨新赛季【阿萨拉】即将开启！.md",
+          "title_contains": "新限时玩法——超感追查"
+        }
+      ]
+    }
+  ]
+}
