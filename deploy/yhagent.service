@@ -1,0 +1,44 @@
+[Unit]
+# YHagent 三角洲行动 AI 助手服务端
+# 由 deploy/install.sh 安装到 /etc/systemd/system/yhagent.service
+Description=YHagent Game Assistant Server (SSE)
+Documentation=https://www.volcengine.com/docs (ARK)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yhagent
+Group=yhagent
+
+# .env 与补充知识库 data/kb-extra 都相对于此目录解析
+WorkingDirectory=/opt/yhagent
+# 与应用内 godotenv.Load() 双保险；systemd 直接读 KEY=value（支持 # 注释，值不要加引号）
+EnvironmentFile=/opt/yhagent/.env
+
+ExecStart=/opt/yhagent/yhagent-server
+
+# 崩溃自动拉起
+Restart=always
+RestartSec=3
+
+# SSE 长连接 + 高并发需要较多文件描述符
+LimitNOFILE=65535
+
+# ---- 安全加固 ----
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+# 注意：不使用 RestrictSUIDSGID（systemd 244+ 才有，CentOS 8 等旧系统会启动失败）
+# ProtectSystem=full 仅保护 /usr /boot /etc，/opt/yhagent/data 仍可由本服务写入
+
+# 日志交给 journald：journalctl -u yhagent -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yhagent
+
+[Install]
+WantedBy=multi-user.target

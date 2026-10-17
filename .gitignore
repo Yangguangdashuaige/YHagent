@@ -19,6 +19,13 @@ vendor/
 # 交叉编译出的 Linux 服务端产物
 yhagent-server
 
+# deploy/build.ps1 的打包暂存与产物
+deploy/yhagent-deploy/
+deploy/*.tar.gz
+
+# 数据帝全物品接口原始响应缓存（20点资源/次，避免重复拉取）
+server/.cache/
+
 # ==================== Wails构建产物（客户端位于 client/ 子目录） ====================
 **/build/bin/
 
