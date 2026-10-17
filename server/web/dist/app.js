@@ -5,6 +5,7 @@
 // 手动解析 SSE（按 \n\n 切分事件块，: 开头的行是服务端心跳，直接忽略）。
 
 const TOKEN_KEY = "yh_token";
+const ADMIN_TOKEN_KEY = "yh_admin_token";
 const SESSION_KEY = "yh_session_id";
 
 // ---------- DOM ----------
@@ -212,8 +213,9 @@ async function verifyToken(token) {
   return resp.ok;
 }
 
-// 流式提问：images 为可选的 data URL 数组；onChunk 每收到一段回答文本被回调；出错时 throw Error（中文信息）
-async function streamChat(sessionId, text, images, onChunk) {
+// 流式提问：images 为可选的 data URL 数组；onChunk 每收到一段回答文本被回调；
+// onCandidate 在模型联网搜索时收到候选知识卡片；出错时 throw Error（中文信息）
+async function streamChat(sessionId, text, images, onChunk, onCandidate) {
   let resp;
   try {
     resp = await fetch("/v1/chat", {
@@ -259,6 +261,7 @@ async function streamChat(sessionId, text, images, onChunk) {
     if (!event) return;
     const payload = data ? JSON.parse(data) : "";
     if (event === "chunk") onChunk(payload || "");
+    else if (event === "candidate" && onCandidate && payload) onCandidate(payload);
     else if (event === "error") errMsg = payload || "服务异常，请稍后再试";
   };
 
@@ -288,6 +291,506 @@ async function resetSession() {
   } catch (e) {
     /* 清空本地上下文即可，重置失败不阻塞界面 */
   }
+}
+
+// ---------- 联网知识候选卡片 ----------
+
+// 构造一张"待确认知识卡片"：展示搜索词、来源，管理员可采纳入库或忽略
+function buildCandidateCard(cand) {
+  const card = document.createElement("div");
+  card.className = "kb-card";
+
+  const head = document.createElement("div");
+  head.className = "kb-card-head";
+  head.textContent = "🔎 联网知识 · 待确认入库";
+  card.appendChild(head);
+
+  if (cand.query) {
+    const q = document.createElement("div");
+    q.className = "kb-card-query";
+    q.textContent = "搜索词：" + cand.query;
+    card.appendChild(q);
+  }
+
+  const sources = Array.isArray(cand.sources) ? cand.sources : [];
+  if (sources.length) {
+    const list = document.createElement("ul");
+    list.className = "kb-card-sources";
+    sources.slice(0, 6).forEach((s) => {
+      const li = document.createElement("li");
+      if (s.url) {
+        const a = document.createElement("a");
+        a.href = s.url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = s.title || s.url;
+        li.appendChild(a);
+      } else {
+        li.textContent = s.title || "";
+      }
+      list.appendChild(li);
+    });
+    card.appendChild(list);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "kb-card-actions";
+
+  const adoptBtn = document.createElement("button");
+  adoptBtn.type = "button";
+  adoptBtn.className = "kb-btn kb-btn-primary";
+  adoptBtn.textContent = "采纳入库";
+
+  const dismissBtn = document.createElement("button");
+  dismissBtn.type = "button";
+  dismissBtn.className = "kb-btn";
+  dismissBtn.textContent = "仅本次参考";
+
+  // 内联管理员口令输入区（不用 window.prompt：手机浏览器/内嵌 webview 兼容性差）
+  const adminRow = document.createElement("div");
+  adminRow.className = "kb-admin-row";
+  const adminInput = document.createElement("input");
+  adminInput.type = "password";
+  adminInput.className = "kb-admin-input";
+  adminInput.placeholder = "管理员口令";
+  // new-password 比 off 更能阻止浏览器密码管理器串填
+  adminInput.autocomplete = "new-password";
+  adminInput.setAttribute("data-lpignore", "true");
+  const adminOkBtn = document.createElement("button");
+  adminOkBtn.type = "button";
+  adminOkBtn.className = "kb-btn kb-btn-primary";
+  adminOkBtn.textContent = "确认入库";
+  const adminCancelBtn = document.createElement("button");
+  adminCancelBtn.type = "button";
+  adminCancelBtn.className = "kb-btn";
+  adminCancelBtn.textContent = "取消";
+  adminRow.appendChild(adminInput);
+  adminRow.appendChild(adminOkBtn);
+  adminRow.appendChild(adminCancelBtn);
+  adminRow.style.display = "none";
+
+  // 口令错误等内联提示（就在输入框下方，红色，避免“对错无提示”）
+  const adminErr = document.createElement("div");
+  adminErr.className = "kb-admin-error";
+
+  // 入库进度面板（SSE 驱动：口令校验 → AI 撰写 → 切片向量化 → 落盘）
+  const panel = buildIngestPanel();
+  panel.el.style.display = "none";
+
+  const ui = {
+    actions,
+    adminRow,
+    adminInput,
+    adminErr,
+    adoptBtn,
+    panel,
+  };
+
+  const submitAdmin = () => {
+    const token = adminInput.value.trim();
+    if (!token) {
+      adminInput.focus();
+      return;
+    }
+    adoptCandidate(card, cand, token, ui);
+  };
+
+  actions.appendChild(adoptBtn);
+  actions.appendChild(dismissBtn);
+  card.appendChild(actions);
+  card.appendChild(adminRow);
+  card.appendChild(adminErr);
+  card.appendChild(panel.el);
+
+  adoptBtn.addEventListener("click", () => {
+    // 已缓存过口令则直接提交；否则展开内联输入框
+    if (getAdminToken()) {
+      adoptCandidate(card, cand, getAdminToken(), ui);
+      return;
+    }
+    adminErr.textContent = "";
+    actions.style.display = "none";
+    adminRow.style.display = "flex";
+    adminInput.focus();
+  });
+  adminOkBtn.addEventListener("click", submitAdmin);
+  adminCancelBtn.addEventListener("click", () => {
+    adminInput.value = "";
+    adminErr.textContent = "";
+    adminRow.style.display = "none";
+    actions.style.display = "flex";
+  });
+  adminInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") submitAdmin();
+  });
+  dismissBtn.addEventListener("click", () => card.remove());
+
+  return card;
+}
+
+// ---------- 入库进度面板 ----------
+
+function getAdminToken() {
+  return localStorage.getItem(ADMIN_TOKEN_KEY) || "";
+}
+
+// 阶段 key → 中文文案
+const INGEST_STAGES = [
+  ["auth", "管理员口令校验"],
+  ["organize", "AI 整理攻略文档"],
+  ["embed", "切片并向量化"],
+  ["save", "写入知识库"],
+];
+
+// 构造进度面板；返回控制器，供 adoptCandidate 驱动
+function buildIngestPanel() {
+  const el = document.createElement("div");
+  el.className = "kb-progress";
+
+  const head = document.createElement("div");
+  head.className = "kb-progress-head";
+  const title = document.createElement("span");
+  title.textContent = "入库进度";
+  const hint = document.createElement("span");
+  hint.className = "kb-progress-hint";
+  hint.textContent = "AI 整理约需 1-3 分钟，可继续提问";
+  const timer = document.createElement("span");
+  timer.className = "kb-timer";
+  timer.textContent = "00:00";
+  head.appendChild(title);
+  head.appendChild(hint);
+  head.appendChild(timer);
+
+  const bar = document.createElement("div");
+  bar.className = "kb-bar";
+  const barFill = document.createElement("div");
+  barFill.className = "kb-bar-fill";
+  bar.appendChild(barFill);
+
+  const stageList = document.createElement("ul");
+  stageList.className = "kb-stages";
+  const stages = {};
+  INGEST_STAGES.forEach(([key, label]) => {
+    const li = document.createElement("li");
+    li.className = "kb-stage";
+    li.dataset.stage = key;
+    const dot = document.createElement("span");
+    dot.className = "kb-stage-dot";
+    const text = document.createElement("span");
+    text.className = "kb-stage-label";
+    text.textContent = label;
+    const sub = document.createElement("em");
+    sub.className = "kb-stage-sub";
+    li.appendChild(dot);
+    li.appendChild(text);
+    li.appendChild(sub);
+    stageList.appendChild(li);
+    stages[key] = { li, sub };
+  });
+
+  // AI 撰写的实时预览（原始 Markdown 文本逐块追加）
+  const docWrap = document.createElement("details");
+  docWrap.className = "kb-doc";
+  docWrap.open = true;
+  const docSummary = document.createElement("summary");
+  docSummary.textContent = "AI 正在撰写的攻略（实时预览）";
+  const docBody = document.createElement("div");
+  docBody.className = "kb-doc-body";
+  docWrap.appendChild(docSummary);
+  docWrap.appendChild(docBody);
+
+  const errBox = document.createElement("div");
+  errBox.className = "kb-progress-error";
+
+  const retryBtn = document.createElement("button");
+  retryBtn.type = "button";
+  retryBtn.className = "kb-btn kb-btn-primary kb-retry";
+  retryBtn.textContent = "重试";
+  retryBtn.style.display = "none";
+
+  el.appendChild(head);
+  el.appendChild(bar);
+  el.appendChild(stageList);
+  el.appendChild(docWrap);
+  el.appendChild(errBox);
+  el.appendChild(retryBtn);
+
+  let timerId = null;
+  let startTs = 0;
+  let activeStage = "";
+
+  const fmt = (sec) => {
+    const m = String(Math.floor(sec / 60)).padStart(2, "0");
+    const s = String(sec % 60).padStart(2, "0");
+    return m + ":" + s;
+  };
+
+  const startTimer = () => {
+    startTs = Date.now();
+    timer.textContent = "00:00";
+    timerId = setInterval(() => {
+      timer.textContent = fmt(Math.floor((Date.now() - startTs) / 1000));
+    }, 1000);
+  };
+  const stopTimer = () => {
+    if (timerId) clearInterval(timerId);
+    timerId = null;
+  };
+
+  const setStage = (key, state, subText) => {
+    const item = stages[key];
+    if (!item) return;
+    item.li.classList.remove("active", "done", "fail");
+    if (state) item.li.classList.add(state);
+    item.sub.textContent = subText || "";
+    if (state === "active") activeStage = key;
+  };
+
+  const reset = () => {
+    stopTimer();
+    timer.textContent = "00:00";
+    errBox.textContent = "";
+    retryBtn.style.display = "none";
+    docBody.textContent = "";
+    docWrap.style.display = "";
+    barFill.className = "kb-bar-fill";
+    barFill.style.width = "";
+    Object.keys(stages).forEach((k) => {
+      stages[k].li.classList.remove("active", "done", "fail");
+      stages[k].sub.textContent = "";
+    });
+    activeStage = "";
+  };
+
+  const setIndeterminate = () => {
+    barFill.className = "kb-bar-fill kb-bar-indeterminate";
+    barFill.style.width = "";
+  };
+  const setPercent = (pct) => {
+    barFill.className = "kb-bar-fill";
+    barFill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+  };
+
+  const appendDoc = (delta) => {
+    // 防御性截断：预览只用于看进度，不保留超长 DOM
+    if (docBody.textContent.length > 12000) return;
+    docBody.appendChild(document.createTextNode(delta));
+    docBody.scrollTop = docBody.scrollHeight;
+  };
+
+  const failStage = (msg, withRetry) => {
+    stopTimer();
+    if (activeStage) stages[activeStage].li.classList.add("fail");
+    errBox.textContent = msg;
+    if (withRetry) retryBtn.style.display = "";
+  };
+
+  return {
+    el,
+    retryBtn,
+    reset,
+    startTimer,
+    stopTimer,
+    setStage,
+    setIndeterminate,
+    setPercent,
+    appendDoc,
+    failStage,
+  };
+}
+
+// 采纳入库：口令对错通过 SSE 的 ready/403 即时反馈，全程展示真实入库阶段进度。
+// 仅在 ready 后才把口令缓存到 localStorage。
+async function adoptCandidate(card, cand, adminToken, ui) {
+  if (!adminToken) return;
+  const { actions, adminRow, adminInput, adminErr, adoptBtn, panel } = ui;
+
+  adoptBtn.disabled = true;
+  adminErr.textContent = "";
+  actions.style.display = "none";
+  adminRow.style.display = "none";
+
+  // 打开进度面板并复位
+  panel.el.style.display = "";
+  panel.reset();
+  panel.startTimer();
+  panel.setStage("auth", "active", "正在校验…");
+  panel.setIndeterminate();
+
+  // 403 等 SSE 建立前的失败：回到口令输入态（或按钮态），让用户立刻知道对错
+  const recoverInput = (msg) => {
+    panel.stopTimer();
+    panel.el.style.display = "none";
+    adoptBtn.disabled = false;
+    adminInput.value = "";
+    adminErr.textContent = msg;
+    adminRow.style.display = "flex";
+    adminInput.focus();
+  };
+  const recoverActions = (msg) => {
+    panel.stopTimer();
+    panel.el.style.display = "none";
+    adoptBtn.disabled = false;
+    actions.style.display = "flex";
+    panel.failStage(msg, false);
+    // 面板被隐藏时把错误直接显示在按钮旁
+    adminErr.textContent = msg;
+  };
+
+  let resp;
+  try {
+    resp = await fetch("/v1/knowledge/ingest", {
+      method: "POST",
+      headers: authHeaders({
+        "Content-Type": "application/json",
+        "X-Admin-Token": adminToken,
+      }),
+      body: JSON.stringify({
+        query: cand.query || "",
+        summary: cand.summary || "",
+        sources: cand.sources || [],
+      }),
+    });
+  } catch (e) {
+    recoverActions("网络异常，无法连接服务器，请稍后重试");
+    return;
+  }
+
+  // 鉴权/参数类错误仍以 JSON 返回（SSE 头尚未建立）
+  if (resp.status === 403 || !resp.ok || !resp.body) {
+    let msg = "入库失败，请稍后再试";
+    try {
+      const j = await resp.json();
+      if (j.error) msg = j.error;
+    } catch (_) {}
+    if (resp.status === 403) {
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      recoverInput("管理员口令错误，请重新输入");
+    } else if (resp.status === 503) {
+      recoverActions("服务端未开启入库（未配置 ADMIN_TOKEN）");
+    } else {
+      recoverActions(msg);
+    }
+    return;
+  }
+
+  // ---- 口令正确：进入 SSE 进度流 ----
+  panel.setStage("auth", "done");
+  panel.setStage("organize", "active", "等待 AI 响应…");
+  localStorage.setItem(ADMIN_TOKEN_KEY, adminToken);
+
+  // “重试”复用当前卡片与候选，重新走一遍（已缓存口令则免输入）
+  panel.retryBtn.onclick = () =>
+    adoptCandidate(card, cand, getAdminToken() || adminToken, ui);
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let errMsg = "";
+  let result = null;
+
+  const handleBlock = (block) => {
+    let event = "";
+    let data = "";
+    for (const line of block.split("\n")) {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      else if (line.startsWith("data:")) data = line.slice(5).trim();
+    }
+    if (!event) return;
+    let p = null;
+    try {
+      p = data ? JSON.parse(data) : {};
+    } catch (_) {
+      return;
+    }
+    if (event === "ready") {
+      // 已在收到响应头时处理
+    } else if (event === "doc") {
+      if (p.delta) panel.appendDoc(p.delta);
+    } else if (event === "progress") {
+      switch (p.stage) {
+        case "organizing":
+          panel.setStage("organize", "active", "正在整理资料…");
+          break;
+        case "writing":
+          if (p.delta) panel.appendDoc(p.delta);
+          break;
+        case "chunking":
+          panel.setStage("organize", "done");
+          panel.setStage("embed", "active", "正在切片…");
+          break;
+        case "embedding": {
+          panel.setStage("organize", "done");
+          panel.setStage("embed", "active");
+          if (p.total > 0) {
+            panel.setPercent(Math.round((p.done / p.total) * 100));
+            stagesSetEmbed(panel, p.done, p.total);
+            if (p.done >= p.total) {
+              panel.setStage("embed", "done");
+              panel.setStage("save", "active", "正在落盘…");
+            }
+          }
+          break;
+        }
+      }
+    } else if (event === "done") {
+      result = p;
+    } else if (event === "error") {
+      errMsg = p.error || "入库失败，请稍后再试";
+    }
+  };
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let sep;
+      while ((sep = buffer.indexOf("\n\n")) >= 0) {
+        handleBlock(buffer.slice(0, sep));
+        buffer = buffer.slice(sep + 2);
+      }
+    }
+    if (buffer.trim()) handleBlock(buffer);
+  } catch (e) {
+    panel.failStage("网络中断，入库结果未知，请稍后重试", true);
+    return;
+  }
+
+  if (errMsg) {
+    panel.failStage(errMsg, true);
+    return;
+  }
+  if (!result) {
+    panel.failStage("服务器未返回结果，请重试", true);
+    return;
+  }
+
+  // ---- 成功：卡片替换为已收录状态 ----
+  panel.setStage("save", "done");
+  panel.setPercent(100);
+  panel.stopTimer();
+  const source = result.source || "新文档";
+  const chunks = result.chunks != null ? result.chunks : 0;
+  // 让用户看清“写入知识库 ✓”后再切绿
+  setTimeout(() => {
+    card.classList.add("kb-card-done");
+    card.innerHTML = "";
+    const ok = document.createElement("div");
+    ok.className = "kb-card-head";
+    ok.textContent = "✅ 已确认收录到知识库";
+    const meta = document.createElement("div");
+    meta.className = "kb-card-query";
+    meta.textContent = source + "（" + chunks + " 个切片），之后提问即可直接检索到";
+    card.appendChild(ok);
+    card.appendChild(meta);
+    scrollToBottom();
+  }, 500);
+}
+
+// 更新向量化阶段副标题（小工具，保持 handleBlock 可读）
+function stagesSetEmbed(panel, done, total) {
+  panel.setStage("embed", "active", "向量化 " + done + "/" + total);
 }
 
 // ---------- 交互 ----------
@@ -328,16 +831,34 @@ async function send() {
   currentBubble = addMessage("assistant", "");
   showTyping(currentBubble);
   answerText = "";
+  const candidates = [];
 
   try {
-    await streamChat(ensureSessionId(), text, images, (chunk) => {
-      answerText += chunk;
-      currentBubble.innerHTML = escapeHtml(answerText).replace(/\n/g, "<br>");
-      scrollToBottom();
-    });
+    await streamChat(
+      ensureSessionId(),
+      text,
+      images,
+      (chunk) => {
+        answerText += chunk;
+        currentBubble.innerHTML = escapeHtml(answerText).replace(/\n/g, "<br>");
+        scrollToBottom();
+      },
+      (cand) => {
+        // 同一次搜索可能重复推送，按 搜索词+摘要 去重
+        const dup = candidates.some(
+          (c) => c.query === cand.query && c.summary === cand.summary
+        );
+        if (!dup) candidates.push(cand);
+      }
+    );
     if (!answerText) {
       currentBubble.textContent = "（没有收到回复内容，请再试一次）";
     }
+    // 回答渲染完后再插入候选知识卡片，避免流式 innerHTML 重绘把卡片冲掉
+    candidates.forEach((cand) => {
+      currentBubble.appendChild(buildCandidateCard(cand));
+    });
+    if (candidates.length) scrollToBottom();
   } catch (e) {
     currentBubble.classList.add("error");
     currentBubble.textContent = "⚠️ " + (e && e.message ? e.message : String(e));

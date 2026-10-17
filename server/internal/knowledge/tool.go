@@ -26,17 +26,19 @@ const (
 )
 
 // RegisterTool 向工具注册中心注册知识库检索工具
-func RegisterTool(reg *ai.Registry, store *Store, embedder Embedder) {
+func RegisterTool(reg *ai.Registry, store Searcher, embedder Embedder) {
 	reg.Register(NewSearchTool(store, embedder))
 }
 
-// NewSearchTool 构造 search_knowledge 函数工具
-func NewSearchTool(store *Store, embedder Embedder) *ai.FunctionTool {
+// NewSearchTool 构造 search_knowledge 函数工具。store 可以是只读主索引 *Store，
+// 也可以是合并了运行时补充库的 *ExtraStore。
+func NewSearchTool(store Searcher, embedder Embedder) *ai.FunctionTool {
 	return ai.NewFunctionTool(
 		"search_knowledge",
 		"搜索《三角洲行动》静态攻略知识库，包含人工整理的玩法机制、武器使用技巧、"+
-			"地图攻略、配装推荐、任务流程、新手教程等资料。"+
-			"当用户询问怎么玩、技巧、机制、打法、配装、任务攻略等非实时问题时优先调用本工具；"+
+			"地图攻略、配装推荐、任务流程、新手教程以及管理员确认收录的联网资料。"+
+			"当用户询问某事物是什么、某道具/收藏品怎么获得、怎么玩、技巧、机制、打法、配装、任务攻略等问题时，"+
+			"必须先调用本工具核实，不要直接用现实世界常识回答游戏内名词；"+
 			"实时价格、市场行情、地图密码、库存等动态数据请使用 delta_* 工具。",
 		map[string]any{
 			"query": ai.StrProp("用户的问题或检索关键词，尽量保留原始语义，例如「M14怎么压枪」、「烽火地带带什么装备」"),
@@ -86,7 +88,8 @@ func NewSearchTool(store *Store, embedder Embedder) *ai.FunctionTool {
 			if len(results) == 0 {
 				return map[string]any{
 					"query": args.Query,
-					"提示":    "知识库中没有检索到相关资料，请基于你的常识谨慎回答并说明资料不足。",
+					"提示": "本地知识库没有检索到相关资料。若问题涉及近期活动、新版本内容或道具/收藏品获取，" +
+						"请调用 web_search 联网核实；否则如实说明资料不足，不要用现实世界常识替游戏内容下结论。",
 				}, nil
 			}
 			return map[string]any{

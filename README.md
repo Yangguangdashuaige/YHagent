@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎮 YHagent · 三角洲行动 AI 助手
+# YHagent · 三角洲行动 AI 助手
 
 **小小轩** —— 基于豆包大模型 Function Call 的《三角洲行动》游戏助手
 实时物价 · 战备配装 · 改枪推荐 · 截图识别 · 赛季任务 · 地图密码
@@ -21,15 +21,15 @@
 
 | 模块 | 能力 |
 | --- | --- |
-| 💬 智能对话 | 多轮上下文 + Function Call 自主决策工具，SSE 流式逐字输出 |
-| 📊 实时数据 | 接入三角洲数据帝开放平台 **24 个工具**：物品价格、假账排行、卡战备、钥匙卡、倒子弹、制造/兑换利润、赛季任务、今日密码、市集物品等 |
-| 🔫 智能改枪顾问 | 简称自动补全枪名（`K437` → `K437突击步枪`）、聚合最多 96 个社区方案、解析八维属性按「压枪 / 腰射 / 稳定 / 操控 / 射程 / 均衡 / 省钱 / 热度」排序，输出 Top5 可直接导入的改枪码 |
-| 🖼️ 截图识别（二期） | 网页版支持选择 / 粘贴游戏截图，多模态识别改枪界面、仓库、价格页，先确认识别结果再给建议 |
-| 🌐 双端形态 | Wails 桌面悬浮窗（Windows EXE）+ 浏览器网页版，共用同一套 SSE 接口 |
-| 🧠 静态知识库 | 内置 Markdown 切片 + 向量检索 RAG 框架（离线建库、索引编入二进制），支持热更新知识库内容 |
-| 🛡️ 工程化 | 全用户共享缓存（按上游更新频率分级 TTL + 5000 条 LRU 上限）、singleflight 防击穿、会话空闲自动清理、Bearer 令牌鉴权、零 CGO 单二进制部署 |
+|智能对话 | 多轮上下文 + Function Call 自主决策工具，SSE 流式逐字输出 |
+|实时数据 | 接入三角洲数据帝开放平台 **24 个工具**：物品价格、假账排行、卡战备、钥匙卡、倒子弹、制造/兑换利润、赛季任务、今日密码、市集物品等 |
+|智能改枪顾问 | 简称自动补全枪名（`K437` → `K437突击步枪`）、聚合最多 96 个社区方案、解析八维属性按「压枪 / 腰射 / 稳定 / 操控 / 射程 / 均衡 / 省钱 / 热度」排序，输出 Top5 可直接导入的改枪码 |
+|截图识别（二期） | 网页版支持选择 / 粘贴游戏截图，多模态识别改枪界面、仓库、价格页，先确认识别结果再给建议 |
+|双端形态 | Wails 桌面悬浮窗（Windows EXE）+ 浏览器网页版，共用同一套 SSE 接口 |
+|静态知识库 | 内置 Markdown 切片 + 向量检索 RAG 框架（离线建库、索引编入二进制），支持热更新知识库内容 |
+|工程化 | 全用户共享缓存（按上游更新频率分级 TTL + 5000 条 LRU 上限）、singleflight 防击穿、会话空闲自动清理、Bearer 令牌鉴权、零 CGO 单二进制部署 |
 
-## 🏗️ 整体架构
+## 整体架构
 
 ```text
 ┌──────────────────────┐        ┌──────────────────────┐
@@ -61,7 +61,7 @@
 - `client/`（module `yhagent-client`）：Wails 瘦客户端，不持有任何 API Key，只负责界面与事件转发
 - `server/`（module `yhagent-server`）：全部智能能力、密钥、缓存、知识库都收敛在服务端，十万客户端共享一份缓存
 
-## 📁 目录结构
+## 目录结构
 
 ```text
 YHagent/
@@ -87,7 +87,7 @@ YHagent/
     └── web/dist/               # 网页版（go:embed 编入二进制）
 ```
 
-## 🚀 快速开始
+## 快速开始
 
 ### 前置要求
 
@@ -130,7 +130,23 @@ go run ./cmd/server       # 重启后自动注册 search_knowledge 工具
 
 > ⚠️ Embedding 模型（默认 `doubao-embedding-vision-251215`）需先在[火山方舟控制台](https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement)开通。
 
-## ⚙️ 环境变量
+### 4. 同步 B 站视频到知识库（可选）
+
+`cmd/bilisync` 把游戏教学视频转成带时间戳锚点的 Markdown 知识文档：登录态拉取 B 站 AI 字幕（`ai-zh`，秒级时间轴）与官方 AI 大纲 → 碎片字幕按停顿合并自然段、按官方大纲分大节 → 豆包去口头语、修正 ASR 错字并按干员/流言主题切 `###` 小标题 → 写入 `knowledge/视频-{BV号}-{标题}.md`，再跑 indexer 增量入库。
+
+```bash
+cd server
+# .env 中配置 BILI_SESSDATA（浏览器登录B站后的 Cookie，AI字幕仅登录态可见）
+go run ./cmd/bilisync BV1kBfVYhEAs            # 支持视频链接，多P自动全量
+go run ./cmd/bilisync BVxxxx -raw             # 只分段不调豆包，零 API 费用
+go run ./cmd/indexer                          # 增量向量化新文档
+```
+
+- 正文中的 `[mm:ss]` 对应原片时间点，引用时可直接定位视频
+- 思考型模型首字延迟可能达数分钟，属正常现象；单节失败自动降级为原始分段稿，不阻断同步
+- 无任何中文字幕轨的视频需改走 ASR 路线（抽音频 + 录音文件识别），当前版本未包含
+
+## 环境变量
 
 ### 服务端 `server/.env`
 
@@ -144,6 +160,7 @@ go run ./cmd/server       # 重启后自动注册 search_knowledge 工具
 | `DELTA_API_BASE` | 否 | 默认 `https://orzice.com/workApi` |
 | `SERVER_ADDR` | 否 | 监听地址，默认 `:8080` |
 | `SERVER_TOKEN` | 是 | 客户端 / 网页版访问令牌，建议 `openssl rand -hex 32`，留空拒绝启动 |
+| `BILI_SESSDATA` | 否 | B 站 Cookie，仅 `cmd/bilisync` 同步视频时需要，AI 字幕必须登录态 |
 
 ### 客户端 `client/.env`
 
@@ -167,25 +184,44 @@ SSE 事件：`event: chunk`（JSON 编码文本片段）、`event: done`、`even
 
 ## 🐧 Linux 部署（交叉编译）
 
-在 Windows 上交叉编译零依赖二进制（已确认产物为 ELF x86-64）：
+在 Windows 开发机上一键交叉编译零依赖单二进制并打部署包（已验证产物为 ELF x86-64）：
 
 ```powershell
-cd server
-$env:CGO_ENABLED='0'; $env:GOOS='linux'; $env:GOARCH='amd64'
-go build -o yhagent-server ./cmd/server
+.\deploy\build.ps1               # 默认 linux/amd64；ARM 服务器加 -Arch arm64
 ```
 
-上传到服务器后：
+产物 `deploy/yhagent-deploy-linux-amd64.tar.gz`（约 27MB，含二进制、systemd unit、`install.sh`、`update.sh`、`.env.example`），SHA256 会打印在末尾。
+
+**首次部署**（上传到服务器后执行）：
 
 ```bash
-mv /root/yhagent-server /opt/yhagent/yhagent-server
-chmod +x /opt/yhagent/yhagent-server
-systemctl restart yhagent && systemctl status yhagent
+scp deploy/yhagent-deploy-linux-amd64.tar.gz root@<服务器IP>:/root/
+ssh root@<服务器IP>
+tar -xzf yhagent-deploy-linux-amd64.tar.gz
+cd yhagent-deploy
+sudo bash install.sh            # ① 创建 yhagent 用户、/opt/yhagent 目录，生成 .env 骨架后退出
+sudo vi /opt/yhagent/.env       # ② 填写 ARK_API_KEY / ARK_MODEL_ENDPOINT / DELTA_API_KEY / SERVER_TOKEN
+                                #    ADMIN_TOKEN 选填：联网知识入库口令（openssl rand -hex 32 生成）
+sudo bash install.sh            # ③ 再次运行：安装 systemd 服务并启动，自动健康检查
 ```
 
-建议使用 systemd 托管（`LimitNOFILE=65535`），Nginx 反向代理时设置 `proxy_buffering off;` 并调大 `client_max_body_size`（截图请求最大 12MB）。
+**后续更新**（只换二进制，`.env` 与 `data/kb-extra` 补充知识库原样保留；新版本启动失败自动回滚上一版，旧版保留最近 5 个）：
 
-## 🧰 技术栈
+```powershell
+# Windows 上重新打包
+.\deploy\build.ps1
+```
+
+```bash
+# 服务器上解压新包后
+cd yhagent-deploy && sudo bash update.sh
+```
+
+脚本约定：部署根目录 `/opt/yhagent`（二进制、`.env`、`releases/` 历史版本、`data/kb-extra/` 采纳的联网知识），systemd 服务名 `yhagent`，已配置 `WorkingDirectory`、`Restart=always`、`LimitNOFILE=65535` 与基础安全加固。常用运维命令：`systemctl status yhagent`、`journalctl -u yhagent -f`。
+
+Nginx 反向代理时设置 `proxy_buffering off;` 并调大 `client_max_body_size 16m;`（SSE 流式 + 截图请求最大 12MB）。如服务器开启了 firewalld/安全组，放行 SERVER_ADDR 对应端口（默认 8080）。
+
+## 技术栈
 
 - **语言 / 运行时**：Go（标准库 `net/http` + SSE，零 CGO，可交叉编译单二进制）
 - **AI**：火山方舟豆包（对话 + 视觉 + Embedding）、ark-runtime-go
@@ -194,7 +230,7 @@ systemctl restart yhagent && systemctl status yhagent
 - **检索**：本地余弦相似度 TopK（`float32` 向量 + gob 持久化），无外部数据库依赖
 - **稳定性**：singleflight 请求合并、分级 TTL 缓存、LRU 容量保险丝、panic 恢复、超时降级
 
-## 📌 说明
+## 说明
 
 - 所有游戏数据来自三角洲数据帝开放平台社区与公开接口，**数据仅供参考**；改枪码为社区玩家方案，实际手感因人而异
 - 缓存 TTL 严格按上游文档标注的更新频率分级：基础信息库 24h、改枪码 / 赛季任务 6h、每日更新类 2h、每分钟更新的行情类 60s

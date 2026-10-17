@@ -10,9 +10,13 @@
 //
 // 用法（在 server/ 目录下）：
 //
-//	go run ./cmd/indexer
+//	go run ./cmd/indexer            # 默认增量：只对新增/改动切片重新向量化
+//	go run ./cmd/indexer -full      # 全量：忽略旧索引，全部切片重新向量化
 //
 // 每次增删改 knowledge/ 下的文档后，重新跑一次再构建/部署服务端。
+// 增量模式以"来源文件名+切片原文"为键复用旧 index.gob 里的向量，
+// 只有没命中的切片（新文档、被编辑过的段落）才调用嵌入接口；
+// 更换嵌入模型或旧索引缺失/损坏时自动退回全量。
 package main
 
 import (
@@ -38,6 +42,7 @@ const embedBatchSize = 16
 func main() {
 	srcDir := flag.String("src", "knowledge", "Markdown 知识文档目录")
 	outPath := flag.String("out", "internal/knowledge/embedded/index.gob", "索引输出路径（go:embed 目录）")
+	fullRebuild := flag.Bool("full", false, "全量重建：忽略旧索引，重新向量化全部切片（默认增量）")
 	flag.Parse()
 
 	log.Println("[indexer] 加载配置...")
@@ -66,34 +71,50 @@ func main() {
 	}
 	log.Printf("[indexer] 共 %d 篇文档、%d 个切片", len(docs), len(chunks))
 
-	// 3. 批量向量化（空库跳过 API 调用，直接写占位索引）
+	// 3. 增量向量化：命中旧索引的切片直接复用原向量，未命中（新增/改动）的才调接口。
+	model := config.AppConfig.DoubaoEmbeddingModel
+	cache := map[string]knowledge.Vec32{}
+	if !*fullRebuild {
+		cache = loadVectorCache(*outPath, model)
+	}
+	vectors := make([]knowledge.Vec32, len(chunks))
+	var pendingIdx []int
+	var pendingText []string
+	for i, c := range chunks {
+		if v, ok := cache[c.Source+"\x00"+c.Content]; ok && len(v) > 0 {
+			vectors[i] = v
+			continue
+		}
+		pendingIdx = append(pendingIdx, i)
+		pendingText = append(pendingText, c.Content)
+	}
+	log.Printf("[indexer] 共 %d 切片：复用旧向量 %d 片，需新嵌入 %d 片",
+		len(chunks), len(chunks)-len(pendingText), len(pendingText))
+
+	// 仅对未命中切片批量调用嵌入接口（空库跳过 API 调用，直接写占位索引）
 	client := ai.NewSeedClient()
-	vectors := make([]knowledge.Vec32, 0, len(chunks))
-	if len(chunks) > 0 {
-		texts := make([]string, len(chunks))
-		for i, c := range chunks {
-			texts[i] = c.Content
+	for start := 0; start < len(pendingText); start += embedBatchSize {
+		end := start + embedBatchSize
+		if end > len(pendingText) {
+			end = len(pendingText)
 		}
-		for start := 0; start < len(texts); start += embedBatchSize {
-			end := start + embedBatchSize
-			if end > len(texts) {
-				end = len(texts)
-			}
-			batch := texts[start:end]
-			vecs, err := embedWithRetry(client, batch)
-			if err != nil {
-				log.Fatalf("第 %d-%d 片向量化失败: %v\n"+
-					"若是 ModelNotOpen 错误，请先到火山方舟控制台开通 %s",
-					start+1, end, err, config.AppConfig.DoubaoEmbeddingModel)
-			}
-			if len(vecs) != len(batch) {
-				log.Fatalf("向量数量不匹配：请求%d条，返回%d条", len(batch), len(vecs))
-			}
-			for _, v := range vecs {
-				vectors = append(vectors, knowledge.Vec32(v))
-			}
-			log.Printf("[indexer] 已向量化 %d/%d 片", end, len(texts))
+		batch := pendingText[start:end]
+		vecs, err := embedWithRetry(client, batch)
+		if err != nil {
+			log.Fatalf("第 %d-%d 片向量化失败: %v\n"+
+				"若是 ModelNotOpen 错误，请先到火山方舟控制台开通 %s",
+				start+1, end, err, model)
 		}
+		if len(vecs) != len(batch) {
+			log.Fatalf("向量数量不匹配：请求%d条，返回%d条", len(batch), len(vecs))
+		}
+		for j, v := range vecs {
+			vectors[pendingIdx[start+j]] = knowledge.Vec32(v)
+		}
+		log.Printf("[indexer] 已向量化新增切片 %d/%d 片", end, len(pendingText))
+	}
+	if cache == nil && len(chunks) > 0 {
+		log.Printf("[indexer] 提示：未找到可用旧索引（或加了 -full），本次为全量嵌入")
 	}
 
 	// 4. 构建存储并写出 gob
@@ -152,6 +173,33 @@ func collectMarkdown(dir string) ([]doc, error) {
 		docs = append(docs, doc{name: n, content: string(b)})
 	}
 	return docs, nil
+}
+
+// loadVectorCache 读取旧索引，返回 "来源文件名\x00切片原文" -> 已归一化向量 的映射。
+// 旧文件不存在、解析失败或嵌入模型已更换时返回 nil（调用方据此走全量嵌入）。
+func loadVectorCache(path, model string) map[string]knowledge.Vec32 {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Printf("[indexer] 未发现旧索引 %s，将全量嵌入", path)
+		return nil
+	}
+	store, err := knowledge.DecodeGOB(data)
+	if err != nil {
+		log.Printf("[indexer] 旧索引解析失败（%v），将全量嵌入", err)
+		return nil
+	}
+	if store.Model != model {
+		log.Printf("[indexer] 嵌入模型已变更（%s -> %s），旧向量不可复用，全量嵌入",
+			store.Model, model)
+		return nil
+	}
+	m := make(map[string]knowledge.Vec32, len(store.Chunks))
+	for i, c := range store.Chunks {
+		m[c.Source+"\x00"+c.Content] = store.Vectors[i]
+	}
+	log.Printf("[indexer] 已加载旧索引：%d 切片、%d 维，增量模式（-full 可强制全量）",
+		len(store.Chunks), store.Dimension)
+	return m
 }
 
 // embedWithRetry 单批向量化，失败退避重试一次（应对偶发网络抖动/限流）

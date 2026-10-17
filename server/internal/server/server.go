@@ -10,6 +10,11 @@
 //	event: chunk
 //	data: "一段回答文本（JSON编码字符串）"
 //
+//	event: candidate
+//	data: {"query":"...","summary":"...","sources":[{...}],"searched_at":"..."}
+//	      Agent 调用 web_search 联网核实时推送的候选知识卡片，
+//	      网页端可凭管理员口令 POST /v1/knowledge/ingest 采纳入库。
+//
 //	event: done
 //	data: ""
 //
@@ -24,13 +29,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"yhagent-server/internal/ai"
+	"yhagent-server/internal/websearch"
 )
 
 const (
@@ -38,6 +46,8 @@ const (
 	maxChatImages    = 3        // 单条消息最多携带图片数
 	maxImageBytes    = 4 << 20  // 单张图片解码后上限 4MB
 	sseHeartbeat     = 25 * time.Second
+	// knowledgeIngestTimeout 采纳入库总超时：AI 整理文档（思考型模型实测约3分钟）+向量化
+	knowledgeIngestTimeout = 240 * time.Second
 )
 
 // Config 服务端配置
@@ -48,6 +58,40 @@ type Config struct {
 	// Web 网页版静态资源根（含 index.html）。传入后根路径提供网页入口；
 	// 传 nil 则只提供 /v1/* API（网页功能关闭）。
 	Web fs.FS
+	// AdminToken 管理员口令：把联网知识确认入库需要 X-Admin-Token。
+	// 留空则采纳接口直接关闭（返回 503），防止普通访问码用户污染知识库。
+	AdminToken string
+	// Ingester 联网知识采纳入库能力；nil 时采纳接口关闭。
+	Ingester Ingester
+}
+
+// IngestSource 采纳请求里的引用来源
+type IngestSource struct {
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
+// IngestInput 采纳入库入参（服务端层 DTO，与 websearch 包类型解耦）
+type IngestInput struct {
+	Query   string         `json:"query"`
+	Summary string         `json:"summary"`
+	Sources []IngestSource `json:"sources"`
+}
+
+// IngestProgress 入库进度事件（SSE 实时推给网页端）。
+// Stage 取值：organizing（AI 开始整理）、writing（Delta 为 AI 撰写增量）、
+// chunking（切片中）、embedding（Done/Total 为分批向量化进度）。
+type IngestProgress struct {
+	Stage string `json:"stage"`
+	Done  int    `json:"done,omitempty"`
+	Total int    `json:"total,omitempty"`
+	Delta string `json:"delta,omitempty"`
+}
+
+// Ingester 采纳入库接口（由 internal/ingest.Service 经适配后注入）。
+// onProgress 可为 nil；非 nil 时会被同步回调推送入库阶段进度。
+type Ingester interface {
+	Ingest(ctx context.Context, in IngestInput, onProgress func(IngestProgress)) (source string, chunks int, err error)
 }
 
 // Server HTTP 服务
@@ -73,6 +117,7 @@ func New(cfg Config) (*Server, error) {
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("POST /v1/chat", s.withAuth(s.handleChat))
 	mux.HandleFunc("POST /v1/session/reset", s.withAuth(s.handleReset))
+	mux.HandleFunc("POST /v1/knowledge/ingest", s.withAuth(s.handleKnowledgeIngest))
 	// 网页版"访问码"登录时据此校验令牌是否有效，避免发消息才发现 401
 	mux.HandleFunc("GET /v1/auth/check", s.withAuth(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -224,8 +269,8 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}()
 	defer close(stopHeartbeat)
 
-	writeEvent := func(event string, payload string) bool {
-		data, _ := json.Marshal(payload) // 文本统一 JSON 编码，换行/特殊字符安全
+	writeEvent := func(event string, payload any) bool {
+		data, _ := json.Marshal(payload) // 文本/结构体统一 JSON 编码，换行/特殊字符安全
 		if _, err := w.Write([]byte("event: " + event + "\ndata: " + string(data) + "\n\n")); err != nil {
 			return false
 		}
@@ -233,8 +278,12 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 
-	// 客户端断连时 r.Context() 会取消，上游豆包调用随之终止，不白烧 token
-	err = s.cfg.Chat.ChatWithSessionImages(r.Context(), req.SessionID, req.Message, images, func(chunk string) {
+	// 客户端断连时 r.Context() 会取消，上游豆包调用随之终止，不白烧 token。
+	// 注入候选知识回调：Agent 调用 web_search 时，把候选卡片通过 SSE 推给网页端。
+	ctx := websearch.WithCandidateFunc(r.Context(), func(cand websearch.Candidate) {
+		writeEvent("candidate", cand)
+	})
+	err = s.cfg.Chat.ChatWithSessionImages(ctx, req.SessionID, req.Message, images, func(chunk string) {
 		writeEvent("chunk", chunk)
 	})
 	if err != nil {
@@ -257,6 +306,126 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
 	}
 	s.cfg.Chat.Reset(req.SessionID)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+const maxIngestBodyBytes = 256 << 10 // 候选卡片只有摘要+若干链接，256KB 足够
+
+type ingestRequestBody struct {
+	Query   string         `json:"query"`
+	Summary string         `json:"summary"`
+	Sources []IngestSource `json:"sources"`
+}
+
+// handleKnowledgeIngest 管理员确认联网知识入库：
+// 需同时持有访问码（withAuth）和 X-Admin-Token 管理员口令。
+func (s *Server) handleKnowledgeIngest(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Ingester == nil || strings.TrimSpace(s.cfg.AdminToken) == "" {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "知识入库功能未开启（需配置 ADMIN_TOKEN 并装配入库服务）"})
+		return
+	}
+	admin := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
+	if subtle.ConstantTimeCompare([]byte(admin), []byte(strings.TrimSpace(s.cfg.AdminToken))) != 1 {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "管理员口令缺失或无效"})
+		return
+	}
+
+	var req ingestRequestBody
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxIngestBodyBytes)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求参数解析失败或体积过大"})
+		return
+	}
+	if strings.TrimSpace(req.Summary) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "待入库摘要不能为空"})
+		return
+	}
+	if len(req.Sources) > 10 {
+		req.Sources = req.Sources[:10]
+	}
+
+	// AI 整理（思考型模型首字较慢，实测约3分钟）+ 分批向量化可能耗时数分钟，
+	// 用独立超时兜底，避免异常情况下请求无限挂起、前端永久转圈。
+	ctx, cancel := context.WithTimeout(r.Context(), knowledgeIngestTimeout)
+	defer cancel()
+	log.Printf("[server] 收到知识入库请求：query=%q 摘要=%d字 来源=%d条",
+		req.Query, len([]rune(req.Summary)), len(req.Sources))
+
+	// 鉴权通过后切换为 SSE：先回 ready 让前端立刻知道口令正确，
+	// 之后实时推送 AI 撰写/切片/向量化进度（全程可能数分钟，靠心跳保活）。
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "服务器不支持流式响应"})
+		return
+	}
+	h := w.Header()
+	h.Set("Content-Type", "text/event-stream; charset=utf-8")
+	h.Set("Cache-Control", "no-cache")
+	h.Set("Connection", "keep-alive")
+	h.Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	var writeMu sync.Mutex
+	send := func(event string, payload any) {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+		var buf strings.Builder
+		fmt.Fprintf(&buf, "event: %s\ndata: ", event)
+		_ = json.NewEncoder(&buf).Encode(payload)
+		_, _ = io.WriteString(w, buf.String()+"\n")
+		flusher.Flush()
+	}
+
+	// 心跳：AI 整理阶段可能长时间没有事件，防止反代/浏览器按空闲连接断开
+	stopBeat := make(chan struct{})
+	go func() {
+		t := time.NewTicker(sseHeartbeat)
+		defer t.Stop()
+		for {
+			select {
+			case <-stopBeat:
+				return
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				writeMu.Lock()
+				_, _ = io.WriteString(w, ": ping\n\n")
+				flusher.Flush()
+				writeMu.Unlock()
+			}
+		}
+	}()
+
+	// ready = 管理员口令校验通过（前端据此给出即时正反馈并缓存口令）
+	send("ready", map[string]string{"status": "ok"})
+
+	source, n, err := s.cfg.Ingester.Ingest(ctx, IngestInput{
+		Query:   req.Query,
+		Summary: req.Summary,
+		Sources: req.Sources,
+	}, func(p IngestProgress) {
+		if p.Stage == "writing" {
+			// AI 撰写增量单独走 doc 事件，避免与步骤状态混在一起
+			send("doc", map[string]string{"delta": p.Delta})
+			return
+		}
+		send("progress", p)
+	})
+	close(stopBeat)
+	if err != nil {
+		log.Printf("[server] 联网知识入库失败: %v", err)
+		msg := "知识入库失败：" + err.Error()
+		if errors.Is(err, context.DeadlineExceeded) {
+			msg = "资料整理超时（AI 响应过慢），请稍后重试"
+		}
+		send("error", map[string]string{"error": msg})
+		return
+	}
+	log.Printf("[server] 联网知识已入库：%s（%d 个切片）", source, n)
+	send("done", map[string]any{
+		"status": "ok",
+		"source": source,
+		"chunks": n,
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

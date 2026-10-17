@@ -29,9 +29,11 @@ import (
 	"yhagent-server/internal/config"
 	"yhagent-server/internal/data/cache"
 	"yhagent-server/internal/data/deltaapi"
+	"yhagent-server/internal/ingest"
 	"yhagent-server/internal/knowledge"
 	"yhagent-server/internal/knowledge/embedded"
 	"yhagent-server/internal/server"
+	"yhagent-server/internal/websearch"
 	"yhagent-server/web"
 )
 
@@ -53,17 +55,43 @@ func main() {
 	agent := ai.NewAgent(aiClient)
 	deltaapi.RegisterTools(agent.Tools(), deltaClient)
 
-	// 3.1 加载编译期嵌入的静态知识库索引；有内容才注册 search_knowledge 工具，
-	//     未建库（空占位索引）时模型看不到该工具，不影响其余对话能力。
+	// 3.1 加载编译期嵌入的静态知识库主索引；再叠加运行时可写的补充知识库
+	//     （玩家确认采纳的联网知识存在 KB_EXTRA_DIR，默认 data/kb-extra，重启不丢）。
 	kbStore, kbErr := knowledge.DecodeGOB(embedded.IndexGOB)
+	var kbSearcher knowledge.Searcher
+	var extraStore *knowledge.ExtraStore
+	var loadErr error
 	if kbErr != nil {
-		log.Printf("[server] 知识库索引加载失败，search_knowledge 不可用: %v", kbErr)
+		log.Printf("[server] 知识库主索引加载失败，search_knowledge/web_search 入库能力不可用: %v", kbErr)
 	} else if kbStore.Len() > 0 {
-		knowledge.RegisterTool(agent.Tools(), kbStore, aiClient)
-		log.Printf("[server] 静态知识库已加载：%d 个知识切片（%s，%d维）",
-			kbStore.Len(), kbStore.Model, kbStore.Dimension)
+		extraDir := os.Getenv("KB_EXTRA_DIR")
+		if extraDir == "" {
+			extraDir = "data/kb-extra" // 相对于 systemd WorkingDirectory（部署为 /opt/yhagent）
+		}
+		extraStore, loadErr = knowledge.LoadExtraStore(kbStore, extraDir)
+		if loadErr != nil {
+			log.Fatalf("[server] 补充知识库初始化失败: %v", loadErr)
+		}
+		kbSearcher = extraStore
+		knowledge.RegisterTool(agent.Tools(), kbSearcher, aiClient)
+		log.Printf("[server] 静态知识库已加载：%d 主切片 + %d 补充切片（%s，%d维）",
+			kbStore.Len(), extraStore.ExtraLen(), kbStore.Model, kbStore.Dimension)
 	} else {
 		log.Printf("[server] 静态知识库为空，search_knowledge 未注册（放文档后运行 cmd/indexer 建库）")
+	}
+
+	// 3.2 注册联网搜索工具（需在火山方舟控制台开通「联网内容插件」，未开通时工具返回友好错误）
+	webClient := websearch.New(
+		config.AppConfig.DoubaoAPIKey,
+		config.AppConfig.DoubaoBaseURL,
+		config.AppConfig.DoubaoEndpoint,
+	)
+	websearch.RegisterTool(agent.Tools(), webClient)
+
+	// 3.3 联网知识采纳入库服务：候选摘要经 AI 整理成 md 后写入补充索引
+	var ingester server.Ingester
+	if extraStore != nil {
+		ingester = ingestAdapter{s: ingest.New(extraStore, aiClient, aiClient)}
 	}
 
 	log.Printf("[server] Agent初始化完成，已注册 %d 个工具（共享缓存已启用）", len(agent.Tools().Names()))
@@ -74,14 +102,17 @@ func main() {
 		log.Fatalf("网页资源加载失败: %v", err)
 	}
 	srv, err := server.New(server.Config{
-		Addr:  os.Getenv("SERVER_ADDR"),
-		Token: os.Getenv("SERVER_TOKEN"),
-		Chat:  agent,
-		Web:   webFS,
+		Addr:       os.Getenv("SERVER_ADDR"),
+		Token:      os.Getenv("SERVER_TOKEN"),
+		Chat:       agent,
+		Web:        webFS,
+		AdminToken: os.Getenv("ADMIN_TOKEN"),
+		Ingester:   ingester,
 	})
 	if err != nil {
 		log.Fatalf("服务初始化失败: %v", err)
 	}
+	log.Printf("[server] 联网知识入库：%s", enabledText(ingester != nil && os.Getenv("ADMIN_TOKEN") != ""))
 
 	// 5. 监听中断信号，优雅关闭（正在进行的流式回答有时间收尾）
 	go func() {
@@ -101,4 +132,39 @@ func main() {
 		log.Printf("[server] 优雅关闭失败: %v", err)
 	}
 	log.Println("[server] 已退出")
+}
+
+// ingestAdapter 把 server 层 DTO 转成 ingest.Service 入参（隔离 websearch 包类型），
+// 并把 server.IngestProgress 桥接为 ingest.Progress（经 context 注入服务层）。
+type ingestAdapter struct {
+	s *ingest.Service
+}
+
+func (a ingestAdapter) Ingest(ctx context.Context, in server.IngestInput, onProgress func(server.IngestProgress)) (string, int, error) {
+	sources := make([]websearch.Source, 0, len(in.Sources))
+	for _, s := range in.Sources {
+		sources = append(sources, websearch.Source{Title: s.Title, URL: s.URL})
+	}
+	if onProgress != nil {
+		ctx = ingest.WithProgress(ctx, func(p ingest.Progress) {
+			onProgress(server.IngestProgress{
+				Stage: p.Stage,
+				Done:  p.Done,
+				Total: p.Total,
+				Delta: p.Delta,
+			})
+		})
+	}
+	return a.s.Ingest(ctx, ingest.Request{
+		Query:   in.Query,
+		Summary: in.Summary,
+		Sources: sources,
+	})
+}
+
+func enabledText(on bool) string {
+	if on {
+		return "已开启（ADMIN_TOKEN 已配置）"
+	}
+	return "未开启（未配置 ADMIN_TOKEN 时采纳接口返回 503）"
 }

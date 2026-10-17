@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"yhagent-server/internal/config"
@@ -153,4 +154,30 @@ func buildCompleteToolCalls(acc map[int32]*chat.ChatCompletionMessageToolCallChu
 // 模型/接入点来自配置 ARK_EMBEDDING_MODEL。
 func (c *SeedClient) CreateEmbedding(ctx context.Context, texts []string) ([][]float32, error) {
 	return createMultimodalEmbeddings(ctx, c.http, texts)
+}
+
+// SimpleChat 无工具的单轮非流式（内部仍用流式接口收全文）对话，
+// 用于"联网资料整理成 Markdown 入库"这类后台场景：一条 system + 一条 user，返回完整文本。
+func (c *SeedClient) SimpleChat(ctx context.Context, system, user string) (string, error) {
+	return c.SimpleChatStream(ctx, system, user, nil)
+}
+
+// SimpleChatStream 无工具的一次性对话，并把流式输出通过 onChunk 实时回调。
+// onChunk 为 nil 时与 SimpleChat 等价（入库整理时用它向前端推送撰写进度）。
+func (c *SeedClient) SimpleChatStream(ctx context.Context, system, user string, onChunk func(content string)) (string, error) {
+	msgs := []chat.ChatCompletionRequestMessage{
+		newSystemMessage(system),
+		NewUserMessage(user),
+	}
+	var sb strings.Builder
+	err := c.ChatStream(ctx, msgs, nil, func(chunk string) {
+		sb.WriteString(chunk)
+		if onChunk != nil {
+			onChunk(chunk)
+		}
+	}, func(_ []chat.ChatCompletionMessageToolCall) error { return nil })
+	if err != nil {
+		return "", err
+	}
+	return sb.String(), nil
 }
