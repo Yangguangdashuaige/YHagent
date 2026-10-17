@@ -12,7 +12,7 @@
 //     正文在 data[0].sContent（HTML）
 //
 // 抓到的每篇公告转成 Markdown（图片丢弃——向量检索用不上，且 chunk.go
-// 只切文本），平铺写入 knowledge/ 目录，随后跑 cmd/indexer 即可建库。
+// 只切文本），平铺写入 data/knowledge/ 目录，随后跑 cmd/indexer 即可建库。
 //
 // 用法（在 server/ 目录下）：
 //
@@ -95,7 +95,7 @@ type infoResp struct {
 
 func main() {
 	chanID := flag.String("chan", "6896", "资讯频道：6896=公告 6895=最新 6898=新闻 7037=赛事")
-	outDir := flag.String("out", "knowledge", "Markdown 输出目录（与 indexer 的 -src 一致）")
+	outDir := flag.String("out", "data/knowledge", "Markdown 输出目录（与 indexer 的 -src 一致）")
 	maxDocs := flag.Int("maxdocs", 0, "最多抓取多少篇（0=全部，试跑可设 10）")
 	ocr := flag.Bool("ocr", false, "对纯图片公告调用豆包视觉模型转写成文字（需要 server/.env 中的 ARK 配置，按篇产生少量 token 费用）")
 	idsFlag := flag.String("ids", "", "只抓指定文档ID（逗号分隔，补跑特定公告用）")
@@ -123,7 +123,7 @@ func main() {
 		log.Printf("[crawler] OCR 已开启：纯图片公告将通过模型接入点 %s 转写", vision.model)
 	}
 
-	// 1. 增量去重：扫描 knowledge/ 里已有的"文档ID：xxx"标记
+	// 1. 增量去重：扫描 data/knowledge/ 里已有的"文档ID：xxx"标记
 	have, err := scanExistingDocs(*outDir)
 	if err != nil {
 		log.Fatalf("扫描已有文档失败: %v", err)
@@ -356,7 +356,7 @@ var (
 	badCharRe = regexp.MustCompile(`[\\/:*?"<>|\r\n\t]+`)
 )
 
-// renderDoc 把已转成 Markdown 的正文写入 knowledge/。
+// renderDoc 把已转成 Markdown 的正文写入 data/knowledge/。
 // body 由 htmlToMarkdown（文字公告）或视觉转写（图片公告）提供。
 func renderDoc(outDir, chanID, title, idxTime, docid, body string) (string, error) {
 	date := strings.ReplaceAll(strings.Split(idxTime, " ")[0], "-", "")

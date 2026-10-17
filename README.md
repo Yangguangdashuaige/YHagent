@@ -83,7 +83,9 @@ YHagent/
     │   │   └── deltaapi/       # 三角洲 API 客户端 + 24 个工具 + 智能改枪顾问
     │   ├── knowledge/          # 文档切片 / 向量检索 / search_knowledge 工具
     │   └── server/             # HTTP 路由、鉴权、SSE、图片校验
-    ├── knowledge/              # 静态知识源（Markdown，下划线开头文件跳过）
+    ├── data/
+    │   ├── knowledge/          # 静态知识源（Markdown，下划线开头文件跳过，不入库）
+    │   └── kb-extra/           # 运行时补充知识库（联网核实后管理员确认入库）
     └── web/dist/               # 网页版（go:embed 编入二进制）
 ```
 
@@ -120,7 +122,7 @@ wails build                # 产出 Windows EXE
 
 ### 3. 构建静态知识库（可选）
 
-将 Markdown 文档放入 `server/knowledge/`（以下划线开头的文件会被跳过），然后：
+将 Markdown 文档放入 `server/data/knowledge/`（以下划线开头的文件会被跳过），然后：
 
 ```bash
 cd server
@@ -132,7 +134,7 @@ go run ./cmd/server       # 重启后自动注册 search_knowledge 工具
 
 ### 4. 同步 B 站视频到知识库（可选）
 
-`cmd/bilisync` 把游戏教学视频转成带时间戳锚点的 Markdown 知识文档：登录态拉取 B 站 AI 字幕（`ai-zh`，秒级时间轴）与官方 AI 大纲 → 碎片字幕按停顿合并自然段、按官方大纲分大节 → 豆包去口头语、修正 ASR 错字并按干员/流言主题切 `###` 小标题 → 写入 `knowledge/视频-{BV号}-{标题}.md`，再跑 indexer 增量入库。
+`cmd/bilisync` 把游戏教学视频转成带时间戳锚点的 Markdown 知识文档：登录态拉取 B 站 AI 字幕（`ai-zh`，秒级时间轴）与官方 AI 大纲 → 碎片字幕按停顿合并自然段、按官方大纲分大节 → 豆包去口头语、修正 ASR 错字并按干员/流言主题切 `###` 小标题 → 写入 `data/knowledge/视频-{BV号}-{标题}.md`，再跑 indexer 增量入库。
 
 ```bash
 cd server

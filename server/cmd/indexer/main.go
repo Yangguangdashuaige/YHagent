@@ -2,7 +2,7 @@
 //
 // 静态知识库离线建库工具（只在你自己的开发机上运行，不部署到服务器）：
 //
-//  1. 读取 knowledge/*.md（跳过 README* 和下划线 _ 开头的文件）；
+//  1. 读取 data/knowledge/*.md（跳过 README* 和下划线 _ 开头的文件）；
 //  2. 按标题/表格/段落切成约600字的知识切片；
 //  3. 批量调用豆包向量化接口生成向量；
 //  4. 序列化成 index.gob，写入 internal/knowledge/embedded/index.gob，
@@ -13,7 +13,7 @@
 //	go run ./cmd/indexer            # 默认增量：只对新增/改动切片重新向量化
 //	go run ./cmd/indexer -full      # 全量：忽略旧索引，全部切片重新向量化
 //
-// 每次增删改 knowledge/ 下的文档后，重新跑一次再构建/部署服务端。
+// 每次增删改 data/knowledge/ 下的文档后，重新跑一次再构建/部署服务端。
 // 增量模式以"来源文件名+切片原文"为键复用旧 index.gob 里的向量，
 // 只有没命中的切片（新文档、被编辑过的段落）才调用嵌入接口；
 // 更换嵌入模型或旧索引缺失/损坏时自动退回全量。
@@ -40,7 +40,7 @@ import (
 const embedBatchSize = 16
 
 func main() {
-	srcDir := flag.String("src", "knowledge", "Markdown 知识文档目录")
+	srcDir := flag.String("src", "data/knowledge", "Markdown 知识文档目录")
 	outPath := flag.String("out", "internal/knowledge/embedded/index.gob", "索引输出路径（go:embed 目录）")
 	fullRebuild := flag.Bool("full", false, "全量重建：忽略旧索引，重新向量化全部切片（默认增量）")
 	flag.Parse()
