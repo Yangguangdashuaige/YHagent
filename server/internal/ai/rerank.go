@@ -247,19 +247,21 @@ func truncateRunes(s string, n int) string {
 // ---------------- VikingDB 专用重排模型 ----------------
 
 const (
-	vikingRerankPath    = "/api/knowledge/service/rerank"
+	// SaaS 环境真实端点：volc-sdk-golang service/vikingdb 的 BatchRerank 所用路径
+	// （注意不是知识库文档里的 /api/knowledge/service/rerank，那是私有化实例路径，实测 404）
+	vikingRerankPath    = "/api/index/batch_rerank"
 	vikingRerankTimeout = 30 * time.Second
-	// vikingRerankInstruction 对齐 VikingDB 控制台默认指令（官方文档：使用相同指令可对齐控制台效果）
-	vikingRerankInstruction = "Whether the document answers the query or matches the content retrieval intent"
 )
 
-// VikingReranker 调 VikingDB 服务的专用重排模型（doubao-seed-rerank 等）。
+// VikingReranker 调 VikingDB 服务的专用重排模型。
 // 鉴权：火山 IAM AK/SK 的 HMAC-SHA256 V4 签名（service=air，region=cn-beijing）。
+// 请求/响应格式与 volc-sdk-golang VikingDBService.BatchRerank 完全一致：
+// body {"datas":[{query,content,title}…]}，响应 data 为与输入对齐的 float 数组。
 type VikingReranker struct {
 	ak    string
 	sk    string
 	host  string
-	model string
+	model string // 报告/日志标识（SaaS 端点由服务端定模型，不随请求下发）
 	http  *http.Client
 }
 
@@ -286,7 +288,7 @@ type vikingRerankData struct {
 	Content string `json:"content"`
 }
 
-// Rerank 单次请求批量重排（datas 与响应 scores 一一对应）
+// Rerank 单次请求批量重排（datas 与响应 data 数组一一对应）
 func (v *VikingReranker) Rerank(ctx context.Context, query string, docs []RerankDoc) ([]float64, error) {
 	if len(docs) == 0 {
 		return nil, nil
@@ -295,11 +297,7 @@ func (v *VikingReranker) Rerank(ctx context.Context, query string, docs []Rerank
 	for i, d := range docs {
 		datas[i] = vikingRerankData{Query: query, Title: d.Title, Content: d.Content}
 	}
-	raw, err := json.Marshal(map[string]any{
-		"rerank_model":       v.model,
-		"rerank_instruction": vikingRerankInstruction,
-		"datas":              datas,
-	})
+	raw, err := json.Marshal(map[string]any{"datas": datas})
 	if err != nil {
 		return nil, err
 	}
@@ -323,26 +321,47 @@ func (v *VikingReranker) Rerank(ctx context.Context, query string, docs []Rerank
 	if err != nil {
 		return nil, fmt.Errorf("VikingDB 重排读取响应失败: %w", err)
 	}
+	// 响应两种形态都兼容：data 直接是分数数组（SDK 实测形态），
+	// 或 data.scores 数组（知识库文档形态）
 	var out struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`
 		Data    struct {
-			Scores     []float64 `json:"scores"`
-			TokenUsage int       `json:"token_usage"`
+			Scores []float64 `json:"scores"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(data, &out); err != nil {
 		return nil, fmt.Errorf("VikingDB 重排响应解析失败(HTTP %d): %w; body: %.200s",
 			resp.StatusCode, err, string(data))
 	}
-	if resp.StatusCode != http.StatusOK || out.Code != 0 {
+	if resp.StatusCode != http.StatusOK || (out.Code != 0 && out.Message != "") {
 		return nil, fmt.Errorf("VikingDB 重排接口错误(HTTP %d, code=%d): %s",
 			resp.StatusCode, out.Code, out.Message)
 	}
-	if len(out.Data.Scores) != len(docs) {
-		return nil, fmt.Errorf("VikingDB 重排返回 %d 个分数，与 %d 条候选不一致", len(out.Data.Scores), len(docs))
+	// data 为数组形态：重新解析
+	var scores []float64
+	if err := json.Unmarshal(out2Data(data), &scores); err == nil && len(scores) > 0 {
+		if len(scores) != len(docs) {
+			return nil, fmt.Errorf("VikingDB 重排返回 %d 个分数，与 %d 条候选不一致", len(scores), len(docs))
+		}
+		return scores, nil
 	}
-	return out.Data.Scores, nil
+	if len(out.Data.Scores) > 0 {
+		if len(out.Data.Scores) != len(docs) {
+			return nil, fmt.Errorf("VikingDB 重排返回 %d 个分数，与 %d 条候选不一致", len(out.Data.Scores), len(docs))
+		}
+		return out.Data.Scores, nil
+	}
+	return nil, fmt.Errorf("VikingDB 重排响应无分数(HTTP %d): %.200s", resp.StatusCode, string(data))
+}
+
+// out2Data 提取响应 JSON 中 "data" 字段的原始值（可能是数组或对象）
+func out2Data(body []byte) json.RawMessage {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(body, &m); err != nil {
+		return nil
+	}
+	return m["data"]
 }
 
 // sign 给请求加火山 OpenAPI V4 签名（HMAC-SHA256，service=air/cn-beijing）。

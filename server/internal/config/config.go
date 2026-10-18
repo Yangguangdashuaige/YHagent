@@ -49,9 +49,11 @@ const DefaultDoubaoBaseURL = "https://ark.cn-beijing.volces.com/api/v3"
 // 在线推理接入点 ID（ep- 开头），建库与线上查询必须走同一接入点。
 const DefaultEmbeddingModel = "doubao-embedding-vision-251215"
 
-// VikingDB 重排服务兜底配置（火山官方文档默认值）
+// VikingDB 重排服务兜底配置。host 用 volc-sdk-golang 官方 example 同款
+// （api-vikingdb.volces.com，已实测连通；带区域前缀的域名实测 404）。
+// 注意：调用前需在火山引擎购买/开通 VikingDB 向量数据库（华北），否则 403。
 const (
-	DefaultVikingHost        = "api-vikingdb.vikingdb.cn-beijing.volces.com"
+	DefaultVikingHost        = "api-vikingdb.volces.com"
 	DefaultVikingRerankModel = "doubao-seed-rerank"
 )
 
