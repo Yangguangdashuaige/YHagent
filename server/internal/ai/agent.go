@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/volcengine/ark-runtime-go/arkruntime/model/chat"
+
+	"yhagent-server/internal/trace"
 )
 
 const (
@@ -125,7 +127,7 @@ func (a *Agent) ChatWithSessionImages(ctx context.Context, sessionID, userText s
 }
 
 // ChatWithSessionMulti 与 ChatWithSession 相同，但支持随消息携带图片（二期截图识别：服务端透传多模态）
-func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText string, images []UserImage, onChunk func(content string)) error {
+func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText string, images []UserImage, onChunk func(content string)) (retErr error) {
 	hasText := strings.TrimSpace(userText) != ""
 	hasImage := false
 	for _, im := range images {
@@ -145,6 +147,16 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 	if sessionID == "" {
 		sessionID = defaultSessionID
 	}
+	// 请求级 trace：记录 LLM 轮次/usage、工具耗时、缓存命中、总延迟（Recorder 未启用时 span 为 nil，全 no-op）
+	span := trace.Start(sessionID, userText, len(images))
+	ctx = trace.WithSpan(ctx, span)
+	defer func() {
+		if retErr != nil {
+			span.End(retErr.Error())
+		} else {
+			span.End("")
+		}
+	}()
 	session := a.sessions.GetOrCreate(sessionID, a.systemPrompt)
 	session.append(NewUserMessageWithImages(textForModel, images))
 	log.Printf("[agent] 会话 %s 收到提问（图片%d张）: %s", sessionID, len(images), previewArgs(userText))
@@ -153,6 +165,8 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 		// pendingCalls 收集本轮模型要求执行的工具调用；answerBuilder 累积本轮流式文本
 		var pendingCalls []chat.ChatCompletionMessageToolCall
 		var answerBuilder strings.Builder
+		var usage chat.CompletionUsage
+		llmStart := time.Now()
 
 		err := a.client.ChatStream(
 			ctx,
@@ -160,6 +174,7 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			a.tools.Definitions(),
 			func(chunk string) {
 				answerBuilder.WriteString(chunk)
+				span.FirstToken()
 				if onChunk != nil {
 					onChunk(chunk)
 				}
@@ -168,6 +183,7 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 				pendingCalls = calls
 				return nil
 			},
+			func(u chat.CompletionUsage) { usage = u },
 		)
 		if err != nil {
 			// 豆包API超时/失败：回滚本轮用户消息，返回友好提示，绝不崩溃
@@ -175,10 +191,14 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			log.Printf("[agent] 豆包API调用失败: %v", err)
 			return friendlyUpstreamError(err)
 		}
+		span.LLMRound(time.Since(llmStart).Milliseconds(),
+			usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens)
 
 		// 没有工具调用 = 模型已给出最终回答，落盘历史后结束
 		if len(pendingCalls) == 0 {
-			session.append(NewAssistantTextMessage(answerBuilder.String()))
+			answer := answerBuilder.String()
+			span.AnswerChars(len([]rune(answer)))
+			session.append(NewAssistantTextMessage(answer))
 			return nil
 		}
 
@@ -194,7 +214,7 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			}
 			log.Printf("[agent] 会话 %s 第%d轮 调用工具 #%d: %s 参数=%s",
 				sessionID, round+1, idx+1, call.Function.Name, previewArgs(call.Function.Arguments))
-			result := a.executeToolSafe(ctx, call)
+			result := a.executeToolSafe(ctx, round+1, call)
 			session.append(NewToolResultMessage(callID, call.Function.Name, result))
 		}
 		// 继续下一轮，让模型基于工具结果决定继续调工具还是输出最终回答
@@ -205,6 +225,7 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 	if onChunk != nil {
 		onChunk(tip)
 	}
+	span.AnswerChars(len([]rune(tip)))
 	session.append(NewAssistantTextMessage(tip))
 	log.Printf("[agent] 会话 %s 达到最大工具轮数 %d，已兜底结束", sessionID, maxToolRounds)
 	return nil
@@ -212,17 +233,25 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 
 // executeToolSafe 执行单个工具，统一做超时控制、panic 恢复和错误降级，
 // 无论成功失败都返回合法 JSON 字符串，保证主循环不会被任何工具拖垮。
-func (a *Agent) executeToolSafe(parent context.Context, call chat.ChatCompletionMessageToolCall) (resultJSON string) {
+// round 为当前 LLM 轮次（1 起），仅供 trace 记录。
+func (a *Agent) executeToolSafe(parent context.Context, round int, call chat.ChatCompletionMessageToolCall) (resultJSON string) {
+	span := trace.FromContext(parent)
+	start := time.Now()
+	ok := true
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[agent] 工具 %s 执行panic: %v", call.Function.Name, r)
 			resultJSON = toolErrorJSON("工具内部异常，请换个问法或稍后再试")
+			ok = false
 		}
+		span.ToolCall(round, call.Function.Name, call.Function.Arguments,
+			time.Since(start).Milliseconds(), len(resultJSON), ok)
 	}()
 
-	tool, ok := a.tools.Get(call.Function.Name)
-	if !ok {
+	tool, ok2 := a.tools.Get(call.Function.Name)
+	if !ok2 {
 		log.Printf("[agent] 模型调用了未注册工具: %s", call.Function.Name)
+		ok = false
 		return toolErrorJSON(fmt.Sprintf("工具 %s 不存在，请从可用工具列表中选择", call.Function.Name))
 	}
 
@@ -235,22 +264,25 @@ func (a *Agent) executeToolSafe(parent context.Context, call chat.ChatCompletion
 	ctx, cancel := context.WithTimeout(parent, toolExecuteTimeout)
 	defer cancel()
 
-	start := time.Now()
+	execStart := time.Now()
 	output, err := tool.Execute(ctx, rawArgs)
-	cost := time.Since(start)
+	cost := time.Since(execStart)
 	if err != nil {
 		log.Printf("[agent] 工具 %s 执行失败 耗时=%dms: %v", call.Function.Name, cost.Milliseconds(), err)
+		ok = false
 		return toolErrorJSON(friendlyToolError(err))
 	}
 
 	payload, err := json.Marshal(output)
 	if err != nil {
 		log.Printf("[agent] 工具 %s 结果序列化失败: %v", call.Function.Name, err)
+		ok = false
 		return toolErrorJSON("工具返回数据格式异常，请稍后再试")
 	}
 	log.Printf("[agent] 工具 %s 执行成功 耗时=%dms 返回=%d字节", call.Function.Name, cost.Milliseconds(), len(payload))
 	if len(payload) > maxToolResultBytes {
 		log.Printf("[agent] 工具 %s 返回过大(%d字节)，已截断降级", call.Function.Name, len(payload))
+		ok = false
 		return toolErrorJSON("工具返回数据量过大，请增加筛选条件（如名称、分类、分页）缩小范围后重试")
 	}
 	return string(payload)

@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 	"yhagent-server/internal/knowledge"
 	"yhagent-server/internal/knowledge/embedded"
 	"yhagent-server/internal/server"
+	"yhagent-server/internal/trace"
 	"yhagent-server/internal/websearch"
 	"yhagent-server/web"
 )
@@ -105,6 +107,26 @@ func main() {
 		ingester = ingestAdapter{s: ingest.New(extraStore, aiClient, aiClient)}
 	}
 
+	// 3.4 请求级 trace 记录器：JSONL 按天轮转落盘（默认 data/trace，保留 7 天）；
+	//     Agent 内部经 internal/trace 埋点写入，网页版 /trace.html 经 /v1/traces 查看
+	traceDir := os.Getenv("TRACE_DIR")
+	keepDays := 7
+	if v := os.Getenv("TRACE_KEEP_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			keepDays = n
+		}
+	}
+	trace.Default = trace.NewRecorder(traceDir, keepDays)
+	if trace.Default != nil {
+		defer trace.Default.Close()
+		if traceDir == "" {
+			traceDir = "data/trace" // 仅用于日志展示，NewRecorder 内部使用同一默认值
+		}
+		log.Printf("[server] 请求 trace 已启用：目录=%s 保留=%d天", traceDir, keepDays)
+	} else {
+		log.Printf("[server] 请求 trace 未启用（trace 目录创建失败，仅影响可观测性）")
+	}
+
 	log.Printf("[server] Agent初始化完成，已注册 %d 个工具（共享缓存已启用）", len(agent.Tools().Names()))
 
 	// 4. 启动 HTTP/SSE 服务（网页版静态资源编译期嵌入，部署仍是单个二进制）
@@ -119,6 +141,7 @@ func main() {
 		Web:        webFS,
 		AdminToken: os.Getenv("ADMIN_TOKEN"),
 		Ingester:   ingester,
+		Tracer:     trace.Default,
 	})
 	if err != nil {
 		log.Fatalf("服务初始化失败: %v", err)

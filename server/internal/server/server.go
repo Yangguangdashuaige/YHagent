@@ -33,11 +33,13 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"yhagent-server/internal/ai"
+	"yhagent-server/internal/trace"
 	"yhagent-server/internal/websearch"
 )
 
@@ -63,6 +65,9 @@ type Config struct {
 	AdminToken string
 	// Ingester 联网知识采纳入库能力；nil 时采纳接口关闭。
 	Ingester Ingester
+	// Tracer 请求级 trace 记录器（internal/trace）；nil 时 /v1/traces 查看接口关闭。
+	// trace 写入本身在 Agent 内部完成，此处只用于查看端读取。
+	Tracer *trace.Recorder
 }
 
 // IngestSource 采纳请求里的引用来源
@@ -118,6 +123,8 @@ func New(cfg Config) (*Server, error) {
 	mux.HandleFunc("POST /v1/chat", s.withAuth(s.handleChat))
 	mux.HandleFunc("POST /v1/session/reset", s.withAuth(s.handleReset))
 	mux.HandleFunc("POST /v1/knowledge/ingest", s.withAuth(s.handleKnowledgeIngest))
+	// 请求级 trace 查看接口（调用链路观测，需管理员口令，见 handleTraces）
+	mux.HandleFunc("GET /v1/traces", s.withAuth(s.handleTraces))
 	// 网页版"访问码"登录时据此校验令牌是否有效，避免发消息才发现 401
 	mux.HandleFunc("GET /v1/auth/check", s.withAuth(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -432,4 +439,41 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// ---- 请求级 trace 查看接口 ----
+
+const (
+	tracesDefaultLimit = 50  // 默认返回最近 50 条
+	tracesMaxLimit     = 200 // 单次最多返回 200 条
+)
+
+// handleTraces 返回最近 N 条请求 trace（管理员查看调用链路观测数据）。
+// 与知识入库接口同款双鉴权：访问码（withAuth）+ X-Admin-Token；
+// trace 含各会话的提问内容，不开放给普通访问码用户。
+func (s *Server) handleTraces(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Tracer == nil || strings.TrimSpace(s.cfg.AdminToken) == "" {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "trace 查看功能未开启（需配置 ADMIN_TOKEN 并启用 trace 记录）"})
+		return
+	}
+	admin := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
+	if subtle.ConstantTimeCompare([]byte(admin), []byte(strings.TrimSpace(s.cfg.AdminToken))) != 1 {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "管理员口令缺失或无效"})
+		return
+	}
+
+	limit := tracesDefaultLimit
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	if limit > tracesMaxLimit {
+		limit = tracesMaxLimit
+	}
+	traces := s.cfg.Tracer.Recent(limit)
+	if traces == nil {
+		traces = []trace.Record{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"traces": traces})
 }

@@ -33,13 +33,16 @@ func NewSeedClient() *SeedClient {
 }
 
 // ChatStream 流式对话（兼容Wails前端打字机效果）
-// 参数预留了Function Call工具位，后续对接三角洲API时不需要修改核心逻辑
+// 参数预留了Function Call工具位，后续对接三角洲API时不需要修改核心逻辑。
+// onUsage 在上游返回 usage 时回调一次（请求已开启 stream_options.include_usage，
+// 末 chunk 携带 token 用量；上游未返回时不回调），可为 nil。
 func (c *SeedClient) ChatStream(
 	ctx context.Context,
 	history []chat.ChatCompletionRequestMessage,
 	tools []chat.ChatCompletionTool,
 	onChunk func(content string),
 	onToolCall func(calls []chat.ChatCompletionMessageToolCall) error,
+	onUsage func(u chat.CompletionUsage),
 ) error {
 	temp := chat.NewOptFloat64(0.1)
 	optTrue := chat.NewOptBool(true)
@@ -49,6 +52,10 @@ func (c *SeedClient) ChatStream(
 		Temperature: temp,
 		Stream:      optTrue,
 		Tools:       tools,
+		// 让末 chunk 携带 token 用量（trace 层统计每轮开销）
+		StreamOptions: chat.NewOptChatCompletionStreamOptions(chat.ChatCompletionStreamOptions{
+			IncludeUsage: optTrue,
+		}),
 	}
 
 	stream, err := c.client.CreateChatCompletionStream(ctx, &req)
@@ -58,6 +65,9 @@ func (c *SeedClient) ChatStream(
 	defer stream.Close()
 	// 流式工具调用累积器：key使用int32匹配chunk.Index类型，value使用chunk类型累积
 	toolAccumulator := make(map[int32]*chat.ChatCompletionMessageToolCallChunk)
+	// 收到 finish_reason=tool_calls 后不再立即返回：继续读到 EOF，
+	// 以便拿到末 chunk 的 usage（否则会提前退出丢掉统计），语义与原先一致
+	finished := false
 	for {
 		recv, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
@@ -70,7 +80,23 @@ func (c *SeedClient) ChatStream(
 			return nil
 		}
 		if err != nil {
+			// finish_reason 之后流的任何异常都不影响已完整收到的工具调用，按原语义视为成功
+			if finished {
+				if len(toolAccumulator) > 0 {
+					completeCalls := buildCompleteToolCalls(toolAccumulator)
+					if err := onToolCall(completeCalls); err != nil {
+						return fmt.Errorf("工具调用执行失败: %w", err)
+					}
+				}
+				return nil
+			}
 			return fmt.Errorf("流式接收中断: %w", err)
+		}
+		// usage 只出现在末 chunk（choices 为空），先于下方的 choices 判空提取
+		if onUsage != nil {
+			if u, ok := recv.Usage.Get(); ok {
+				onUsage(u)
+			}
 		}
 		if len(recv.Choices) == 0 {
 			continue
@@ -114,14 +140,10 @@ func (c *SeedClient) ChatStream(
 				}
 			}
 		}
-		// 3. 提前判断工具调用结束标记
+		// 3. 工具调用结束标记：标记后继续读到 EOF/末 chunk（拿 usage），再统一交付工具调用
 		if finishReason, ok := choice.FinishReason.Get(); ok && finishReason == chat.FinishReasonToolCalls {
-			completeCalls := buildCompleteToolCalls(toolAccumulator)
-			toolAccumulator = make(map[int32]*chat.ChatCompletionMessageToolCallChunk)
-			if err := onToolCall(completeCalls); err != nil {
-				return fmt.Errorf("工具调用执行失败: %w", err)
-			}
-			return nil
+			finished = true
+			continue
 		}
 	}
 }
@@ -175,7 +197,7 @@ func (c *SeedClient) SimpleChatStream(ctx context.Context, system, user string, 
 		if onChunk != nil {
 			onChunk(chunk)
 		}
-	}, func(_ []chat.ChatCompletionMessageToolCall) error { return nil })
+	}, func(_ []chat.ChatCompletionMessageToolCall) error { return nil }, nil)
 	if err != nil {
 		return "", err
 	}

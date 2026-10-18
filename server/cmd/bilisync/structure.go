@@ -131,7 +131,7 @@ func polishOnce(client *ai.SeedClient, title string, block *Block, raw string, h
 	defer cancel()
 	if err := client.ChatStream(ctx, msgs, nil, func(chunk string) {
 		sb.WriteString(chunk)
-	}, nil); err != nil {
+	}, nil, nil); err != nil {
 		return "", err
 	}
 	return cleanModelOutput(sb.String()), nil

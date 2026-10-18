@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"yhagent-server/internal/data/cache"
+	"yhagent-server/internal/trace"
 )
 
 // DefaultBaseURL 三角洲数据帝正式环境地址（DELTA_API_BASE 未配置时使用）
@@ -132,17 +133,21 @@ func (c *Client) doGet(ctx context.Context, apiPath string, query url.Values, tt
 	if ttl > 0 && c.memCache != nil {
 		if cached, ok := c.memCache.Get(cacheKey); ok {
 			if raw, ok := cached.(json.RawMessage); ok {
+				trace.FromContext(ctx).NoteCacheHit()
 				return raw, nil
 			}
 		}
 	}
 
 	// 缓存未命中：singleflight 合并同 key 并发调用，上游三角洲接口同一时刻只会真正请求一次
-	return c.flights.Do(cacheKey, func() (json.RawMessage, error) {
+	// trace 口径：从缓存拿到（含临界区二次命中）记 hit；真正请求上游或合并等待记 miss，每次调用至多一条
+	fromCache := false
+	data, err := c.flights.Do(cacheKey, func() (json.RawMessage, error) {
 		// 等待首个调用期间缓存可能已被填充，进入临界区后再查一次
 		if ttl > 0 && c.memCache != nil {
 			if cached, ok := c.memCache.Get(cacheKey); ok {
 				if raw, ok := cached.(json.RawMessage); ok {
+					fromCache = true
 					return raw, nil
 				}
 			}
@@ -195,6 +200,14 @@ func (c *Client) doGet(ctx context.Context, apiPath string, query url.Values, tt
 		}
 		return env.Data, nil
 	})
+	if err == nil {
+		if fromCache {
+			trace.FromContext(ctx).NoteCacheHit()
+		} else {
+			trace.FromContext(ctx).NoteCacheMiss()
+		}
+	}
+	return data, err
 }
 
 // ---- 查询参数小工具：三角洲接口未传的可选参数应当缺省，而不是统一传 0 ----

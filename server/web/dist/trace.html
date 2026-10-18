@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>调用观测 · 三角洲AI助手</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; min-height: 100%;
+      color: #e8ebf2;
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+      font-size: 13px;
+      background: radial-gradient(1200px 800px at 20% -10%, #1d2742 0%, #0e121b 55%, #0a0d14 100%);
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 18px 16px 40px; }
+
+    header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+    header h1 { margin: 0; font-size: 17px; letter-spacing: 0.5px; }
+    header h1 .web-tag { font-size: 11px; color: #8b95ad; font-weight: normal; margin-left: 6px; }
+    .spacer { flex: 1; }
+
+    input, select, button {
+      border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.3); color: #e8ebf2;
+      padding: 7px 10px; font-size: 13px; outline: none;
+    }
+    input:focus, select:focus { border-color: rgba(77,136,255,0.7); }
+    input#adminToken { width: 200px; }
+    button { cursor: pointer; }
+    button.primary { background: rgba(77,136,255,0.85); border-color: transparent; }
+    button.primary:hover { background: rgba(77,136,255,1); }
+    button:hover { border-color: rgba(77,136,255,0.7); }
+
+    .error { color: #ff8585; min-height: 18px; font-size: 12px; margin: 6px 0; }
+    .hint { color: #8b95ad; font-size: 12px; }
+
+    .stats {
+      display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
+    }
+    .stat {
+      background: rgba(20,24,34,0.85); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 10px 14px; min-width: 120px;
+    }
+    .stat .k { color: #8b95ad; font-size: 11px; margin-bottom: 4px; }
+    .stat .v { font-size: 17px; font-weight: 600; }
+    .stat .v small { font-size: 11px; color: #8b95ad; font-weight: normal; }
+
+    .trace-list { display: flex; flex-direction: column; gap: 8px; }
+    .trace {
+      background: rgba(20,24,34,0.85); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; overflow: hidden;
+    }
+    .trace-head {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      padding: 10px 14px; cursor: pointer; user-select: none;
+    }
+    .trace-head:hover { background: rgba(255,255,255,0.04); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; flex: none; }
+    .dot.bad { background: #ff8585; }
+    .q { flex: 1; min-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .q .ts { color: #8b95ad; font-size: 11px; margin-right: 8px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chip {
+      font-size: 11px; padding: 2px 8px; border-radius: 20px;
+      background: rgba(255,255,255,0.07); color: #b9c2d6; white-space: nowrap;
+    }
+    .chip.warn { background: rgba(255,190,80,0.15); color: #ffcf7d; }
+    .chip.err  { background: rgba(255,90,90,0.15);  color: #ff9c9c; }
+    .chip.ok   { background: rgba(80,220,130,0.13); color: #7de2a5; }
+
+    .detail { display: none; border-top: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; }
+    .trace.open .detail { display: block; }
+    .detail h3 { margin: 10px 0 6px; font-size: 12px; color: #8b95ad; font-weight: 600; }
+    .detail h3:first-child { margin-top: 0; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    th { color: #8b95ad; font-weight: 500; white-space: nowrap; }
+    td.num { font-variant-numeric: tabular-nums; }
+    td .args { color: #8b95ad; font-size: 11px; word-break: break-all; }
+    .fail { color: #ff9c9c; }
+    .pass { color: #7de2a5; }
+
+    .meta { color: #8b95ad; font-size: 12px; margin: 4px 0 8px; }
+    .empty { text-align: center; color: #8b95ad; padding: 40px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>📊 调用观测 <span class="web-tag">trace</span></h1>
+      <div class="spacer"></div>
+      <input id="adminToken" type="password" placeholder="管理员口令"
+             autocomplete="new-password" />
+      <select id="limit">
+        <option value="50">最近 50 条</option>
+        <option value="100">最近 100 条</option>
+        <option value="200">最近 200 条</option>
+      </select>
+      <button id="refreshBtn" class="primary">刷新</button>
+    </header>
+    <div id="loginHint" class="hint hidden">
+      未检测到访问码：请先在 <a href="/" style="color:#7da4ff">主页</a> 登录后再打开本页。
+    </div>
+    <div id="error" class="error"></div>
+
+    <div id="stats" class="stats hidden"></div>
+    <div id="list" class="trace-list"><div class="empty">输入管理员口令后点击刷新</div></div>
+  </div>
+
+  <script>
+    // 调用观测页：读 GET /v1/traces（需 访问码 Bearer + X-Admin-Token 双鉴权）。
+    // 访问码复用主页登录的 localStorage(yh_token)；管理员口令沿用入库流程的
+    // localStorage(yh_admin_token)，避免重复输入。
+    const TOKEN_KEY = "yh_token";
+    const ADMIN_TOKEN_KEY = "yh_admin_token";
+
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function fmtMS(ms) {
+      if (ms == null) return "-";
+      return ms >= 1000 ? (ms / 1000).toFixed(1) + "s" : ms + "ms";
+    }
+
+    function init() {
+      if (!localStorage.getItem(TOKEN_KEY)) {
+        $("loginHint").classList.remove("hidden");
+      }
+      const savedAdmin = localStorage.getItem(ADMIN_TOKEN_KEY);
+      if (savedAdmin) $("adminToken").value = savedAdmin;
+
+      $("refreshBtn").addEventListener("click", load);
+      $("adminToken").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") load();
+      });
+      if (savedAdmin) load();
+    }
+
+    async function load() {
+      const err = $("error");
+      err.textContent = "";
+      const token = localStorage.getItem(TOKEN_KEY) || "";
+      const admin = $("adminToken").value.trim();
+      if (!token) { err.textContent = "缺少访问码，请先从主页登录"; return; }
+      if (!admin) { err.textContent = "请输入管理员口令"; return; }
+
+      try {
+        const resp = await fetch("/v1/traces?limit=" + encodeURIComponent($("limit").value), {
+          headers: {
+            Authorization: "Bearer " + token,
+            "X-Admin-Token": admin,
+          },
+        });
+        if (resp.status === 401) {
+          err.textContent = "访问码无效，请回主页重新登录";
+          return;
+        }
+        if (resp.status === 403) {
+          err.textContent = "管理员口令错误";
+          localStorage.removeItem(ADMIN_TOKEN_KEY);
+          return;
+        }
+        if (resp.status === 503) {
+          err.textContent = "trace 查看功能未开启（服务端需配置 ADMIN_TOKEN）";
+          return;
+        }
+        if (!resp.ok) {
+          err.textContent = "加载失败：HTTP " + resp.status;
+          return;
+        }
+        localStorage.setItem(ADMIN_TOKEN_KEY, admin); // 口令正确才缓存
+        const data = await resp.json();
+        render(data.traces || []);
+      } catch (e) {
+        err.textContent = "网络异常：" + e.message;
+      }
+    }
+
+    function render(traces) {
+      renderStats(traces);
+
+      const list = $("list");
+      list.innerHTML = "";
+      if (!traces.length) {
+        list.innerHTML = '<div class="empty">暂无 trace 记录（服务刚启动或还没有提问）</div>';
+        return;
+      }
+      traces.forEach((t) => list.appendChild(renderTrace(t)));
+    }
+
+    function renderStats(traces) {
+      const el = $("stats");
+      if (!traces.length) { el.classList.add("hidden"); return; }
+      el.classList.remove("hidden");
+
+      const okCount = traces.filter((t) => t.ok).length;
+      const avgMS = Math.round(traces.reduce((s, t) => s + (t.total_ms || 0), 0) / traces.length);
+      const avgTTFT = Math.round(
+        traces.filter((t) => t.first_tok_ms > 0).reduce((s, t) => s + t.first_tok_ms, 0) /
+        Math.max(1, traces.filter((t) => t.first_tok_ms > 0).length)
+      );
+      const tokens = traces.reduce(
+        (s, t) => s + (t.llm || []).reduce((x, r) => x + (r.total_tokens || 0), 0), 0
+      );
+      const hits = traces.reduce((s, t) => s + (t.cache_hits || 0), 0);
+      const misses = traces.reduce((s, t) => s + (t.cache_misses || 0), 0);
+      const hitRate = hits + misses > 0 ? Math.round((hits / (hits + misses)) * 100) + "%" : "-";
+
+      const items = [
+        ["样本", traces.length + " 条"],
+        ["成功率", Math.round((okCount / traces.length) * 100) + "%"],
+        ["平均耗时", fmtMS(avgMS)],
+        ["平均首字", fmtMS(avgTTFT)],
+        ["LLM tokens", tokens.toLocaleString()],
+        ["三角洲缓存命中", hitRate + " <small>(" + hits + "/" + (hits + misses) + ")</small>"],
+      ];
+      el.innerHTML = items
+        .map(([k, v]) => '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + "</div></div>")
+        .join("");
+    }
+
+    function renderTrace(t) {
+      const div = document.createElement("div");
+      div.className = "trace";
+
+      const ts = (t.ts || "").replace("T", " ").replace(/Z$/, "").slice(5, 19);
+      const toolCount = (t.tools || []).length;
+      const chips = [];
+      chips.push('<span class="chip">总耗时 ' + fmtMS(t.total_ms) + "</span>");
+      if (t.first_tok_ms > 0) chips.push('<span class="chip">首字 ' + fmtMS(t.first_tok_ms) + "</span>");
+      chips.push('<span class="chip">LLM ' + (t.llm_rounds || 0) + " 轮</span>");
+      if (t.llm && t.llm.length) {
+        const tok = t.llm.reduce((s, r) => s + (r.total_tokens || 0), 0);
+        if (tok) chips.push('<span class="chip">' + tok.toLocaleString() + " tokens</span>");
+      }
+      if (toolCount) chips.push('<span class="chip">工具 ' + toolCount + " 次</span>");
+      if (t.cache_hits || t.cache_misses) {
+        chips.push('<span class="chip ok">缓存命中 ' + t.cache_hits + "/" + (t.cache_hits + t.cache_misses) + "</span>");
+      }
+      if (t.images) chips.push('<span class="chip warn">图 ' + t.images + " 张</span>");
+      if (!t.ok) chips.push('<span class="chip err">失败</span>');
+
+      const head = document.createElement("div");
+      head.className = "trace-head";
+      head.innerHTML =
+        '<span class="dot' + (t.ok ? "" : " bad") + '"></span>' +
+        '<span class="q"><span class="ts">' + escapeHtml(ts) + "</span>" + escapeHtml(t.query || "") + "</span>" +
+        '<span class="chips">' + chips.join("") + "</span>";
+      head.addEventListener("click", () => div.classList.toggle("open"));
+      div.appendChild(head);
+
+      const detail = document.createElement("div");
+      detail.className = "detail";
+
+      const meta = [];
+      meta.push("trace_id: " + escapeHtml(t.trace_id || "-"));
+      meta.push("会话: " + escapeHtml((t.session_id || "").slice(0, 8)));
+      meta.push("回答: " + (t.answer_chars || 0) + " 字");
+      if (t.error) meta.push('<span class="fail">错误: ' + escapeHtml(t.error) + "</span>");
+      detail.innerHTML = '<div class="meta">' + meta.join(" · ") + "</div>";
+
+      if (t.llm && t.llm.length) {
+        const rows = t.llm
+          .map(
+            (r) =>
+              "<tr><td class='num'>" + r.round + "</td><td class='num'>" + fmtMS(r.ms) + "</td>" +
+              "<td class='num'>" + (r.prompt_tokens || "-") + "</td>" +
+              "<td class='num'>" + (r.completion_tokens || "-") + "</td>" +
+              "<td class='num'>" + (r.total_tokens || "-") + "</td></tr>"
+          )
+          .join("");
+        detail.innerHTML +=
+          "<h3>LLM 轮次</h3><table><tr><th>轮</th><th>耗时</th><th>输入</th><th>输出</th><th>合计 tokens</th></tr>" +
+          rows + "</table>";
+      }
+
+      if (t.tools && t.tools.length) {
+        const rows = t.tools
+          .map((c) => {
+            const cache = c.cache_hit == null ? "-" : c.cache_hit
+              ? '<span class="pass">命中</span>'
+              : '<span class="fail">未命中</span>';
+            return (
+              "<tr><td class='num'>" + c.round + "</td><td>" + escapeHtml(c.name) + "</td>" +
+              "<td class='num'>" + fmtMS(c.ms) + "</td>" +
+              "<td class='num'>" + (c.result_bytes || 0).toLocaleString() + " B</td>" +
+              "<td>" + cache + "</td>" +
+              "<td>" + (c.ok ? '<span class="pass">成功</span>' : '<span class="fail">失败</span>') + "</td>" +
+              "<td><div class='args'>" + escapeHtml(c.args || "") + "</div></td></tr>"
+            );
+          })
+          .join("");
+        detail.innerHTML +=
+          "<h3>工具调用</h3><table><tr><th>轮</th><th>工具</th><th>耗时</th><th>结果</th><th>缓存</th><th>状态</th><th>入参摘要</th></tr>" +
+          rows + "</table>";
+      }
+
+      div.appendChild(detail);
+      return div;
+    }
+
+    init();
+  </script>
+</body>
+</html>
