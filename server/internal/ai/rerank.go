@@ -247,20 +247,29 @@ func truncateRunes(s string, n int) string {
 // ---------------- VikingDB 专用重排模型 ----------------
 
 const (
-	// SaaS 环境真实端点：volc-sdk-golang service/vikingdb 的 BatchRerank 所用路径
-	// （注意不是知识库文档里的 /api/knowledge/service/rerank，那是私有化实例路径，实测 404）
-	vikingRerankPath    = "/api/index/batch_rerank"
+	// SaaS 真实端点（与官方 vikingdb-go-sdk knowledge 包逐字段对齐）：
+	//   host  api-knowledgebase.mlp.cn-beijing.volces.com（SDK 文档示例同款）
+	//   path  /api/knowledge/service/rerank
+	//   鉴权  IAM AK/SK 的 V4 签名，service=air / region=cn-beijing（该接口
+	//         不支持 APIKey 鉴权，官方文档明确只收 IAM）
+	// 注意：volc-sdk-golang 旧版 VikingDBService 的 /api/index/batch_rerank
+	// 在 SaaS 上只会返回 {"message":"pong"}（网关兜底），不可用。
+	vikingRerankPath    = "/api/knowledge/service/rerank"
 	vikingRerankTimeout = 30 * time.Second
+	// 对齐 VikingDB 控制台默认指令（官方文档：使用相同指令可对齐控制台效果）
+	vikingRerankInstruction = "Whether the document answers the query or matches the content retrieval intent"
 )
 
 // VikingReranker 调 VikingDB 服务的专用重排模型。
 // 鉴权：火山 IAM AK/SK 的 HMAC-SHA256 V4 签名（service=air，region=cn-beijing）。
-// 请求/响应格式与 volc-sdk-golang VikingDBService.BatchRerank 完全一致：
-// body {"datas":[{query,content,title}…]}，响应 data 为与输入对齐的 float 数组。
+// 请求/响应格式与官方 vikingdb-go-sdk knowledge 包 Rerank 接口完全一致：
+// body {"datas":[{query,content,title}…], "rerank_model":…, "rerank_instruction":…}，
+// 响应 data.scores 为与输入对齐的 float 数组。
 type VikingReranker struct {
 	ak    string
 	sk    string
 	host  string
+	path  string // 默认 vikingRerankPath，探测时可覆盖
 	model string // 报告/日志标识（SaaS 端点由服务端定模型，不随请求下发）
 	http  *http.Client
 }
@@ -275,12 +284,27 @@ func NewVikingReranker() *VikingReranker {
 		ak:    cfg.VikingAccessKey,
 		sk:    cfg.VikingSecretKey,
 		host:  cfg.VikingHost,
+		path:  vikingRerankPath,
 		model: cfg.VikingRerankModel,
 		http:  &http.Client{Timeout: vikingRerankTimeout},
 	}
 }
 
 func (v *VikingReranker) Name() string { return "viking:" + v.model }
+
+// NewVikingRerankerForProbe 探测工具专用：指定 host/path 构造（凭据仍来自配置）。
+// 生产代码用 NewVikingReranker，不要调用本方法。
+func NewVikingRerankerForProbe(host, path string) *VikingReranker {
+	cfg := config.AppConfig
+	if cfg.VikingAccessKey == "" || cfg.VikingSecretKey == "" {
+		return nil
+	}
+	return &VikingReranker{
+		ak: cfg.VikingAccessKey, sk: cfg.VikingSecretKey,
+		host: host, path: path, model: cfg.VikingRerankModel,
+		http: &http.Client{Timeout: vikingRerankTimeout},
+	}
+}
 
 type vikingRerankData struct {
 	Query   string `json:"query"`
@@ -297,7 +321,14 @@ func (v *VikingReranker) Rerank(ctx context.Context, query string, docs []Rerank
 	for i, d := range docs {
 		datas[i] = vikingRerankData{Query: query, Title: d.Title, Content: d.Content}
 	}
-	raw, err := json.Marshal(map[string]any{"datas": datas})
+	// rerank_model 默认 doubao-seed-rerank（多模态精细语义匹配，官方推荐）；
+	// rerank_instruction 仅对 seed 模型生效，对齐控制台默认指令
+	body := map[string]any{
+		"datas":              datas,
+		"rerank_model":       v.model,
+		"rerank_instruction": vikingRerankInstruction,
+	}
+	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +336,7 @@ func (v *VikingReranker) Rerank(ctx context.Context, query string, docs []Rerank
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://"+v.host+vikingRerankPath, bytes.NewReader(raw))
+		"https://"+v.host+v.path, bytes.NewReader(raw))
 	if err != nil {
 		return nil, err
 	}
