@@ -18,6 +18,16 @@ type Config struct {
 	// 火山方舟 doubao-embedding-vision 接入点 ID（ep- 开头），文本/图片共用同一向量空间
 	DoubaoEmbeddingModel string
 
+	// ---- 检索结果重排（rerank，可选，两项各自独立开关）----
+	// LLM 重排：复用方舟 chat 接口与 ARK_API_KEY，用"可关闭深度思考"的快速模型
+	RerankLLMModel string
+	// VikingDB 重排：doubao-seed-rerank 等专用重排模型，走 VikingDB 服务接口；
+	// 鉴权是火山 IAM AK/SK（控制台"访问密钥"，与 ARK_API_KEY 是两套凭据）
+	VikingAccessKey   string
+	VikingSecretKey   string
+	VikingHost        string
+	VikingRerankModel string
+
 	// 新增三角洲开放平台配置
 	DeltaAPIKey  string
 	DeltaAPIBase string
@@ -38,6 +48,12 @@ const DefaultDoubaoBaseURL = "https://ark.cn-beijing.volces.com/api/v3"
 // 推荐在 .env 中用 ARK_EMBEDDING_MODEL 配置自己的 doubao-embedding-vision
 // 在线推理接入点 ID（ep- 开头），建库与线上查询必须走同一接入点。
 const DefaultEmbeddingModel = "doubao-embedding-vision-251215"
+
+// VikingDB 重排服务兜底配置（火山官方文档默认值）
+const (
+	DefaultVikingHost        = "api-vikingdb.vikingdb.cn-beijing.volces.com"
+	DefaultVikingRerankModel = "doubao-seed-rerank"
+)
 
 // getenvOr 依次读取多个环境变量名，返回第一个非空值（兼容不同的.env命名习惯，不改变Config结构）
 func getenvOr(keys ...string) string {
@@ -64,6 +80,13 @@ func Load() error {
 		// 向量化模型接入点：ARK_EMBEDDING_MODEL 指定 doubao-embedding-vision 的 ep- 接入点
 		DoubaoEmbeddingModel: getenvOr("ARK_EMBEDDING_MODEL", "DOUBAO_EMBEDDING_MODEL"),
 
+		// 重排配置（全部可选，未配置时检索走纯 hybrid，不重排）
+		RerankLLMModel:    getenvOr("ARK_RERANK_LLM_MODEL", "DOUBAO_RERANK_LLM_MODEL"),
+		VikingAccessKey:   getenvOr("VOLC_ACCESSKEY", "VOLC_ACCESS_KEY"),
+		VikingSecretKey:   getenvOr("VOLC_SECRETKEY", "VOLC_SECRET_KEY"),
+		VikingHost:        getenvOr("VIKING_RERANK_HOST"),
+		VikingRerankModel: getenvOr("VIKING_RERANK_MODEL"),
+
 		// 三角洲API配置
 		DeltaAPIKey:  os.Getenv("DELTA_API_KEY"),
 		DeltaAPIBase: os.Getenv("DELTA_API_BASE"),
@@ -81,6 +104,14 @@ func Load() error {
 	}
 	if AppConfig.DoubaoEmbeddingModel == "" {
 		AppConfig.DoubaoEmbeddingModel = DefaultEmbeddingModel
+	}
+	// 注意：RerankLLMModel 不设默认值——显式留空 = 不启用重排，
+	// 避免账号未开通默认模型时每次检索都白发一次注定失败的调用
+	if AppConfig.VikingHost == "" {
+		AppConfig.VikingHost = DefaultVikingHost
+	}
+	if AppConfig.VikingRerankModel == "" {
+		AppConfig.VikingRerankModel = DefaultVikingRerankModel
 	}
 	return nil
 }

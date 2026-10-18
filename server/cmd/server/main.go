@@ -73,7 +73,18 @@ func main() {
 			log.Fatalf("[server] 补充知识库初始化失败: %v", loadErr)
 		}
 		kbSearcher = extraStore
-		knowledge.RegisterTool(agent.Tools(), kbSearcher, aiClient)
+		// 检索重排器：配置了 VikingDB AK/SK 走专用重排模型（优先），
+		// 否则配置了 ARK_RERANK_LLM_MODEL 走 LLM 重排；都未配置为 nil（不重排）
+		var reranker ai.Reranker
+		if v := ai.NewVikingReranker(); v != nil {
+			reranker = v
+		} else if l := ai.NewLLMReranker(aiClient); l != nil {
+			reranker = l
+		}
+		if reranker != nil {
+			log.Printf("[server] 知识库检索重排已启用：%s", reranker.Name())
+		}
+		knowledge.RegisterTool(agent.Tools(), kbSearcher, aiClient, reranker)
 		log.Printf("[server] 静态知识库已加载：%d 主切片 + %d 补充切片（%s，%d维）",
 			kbStore.Len(), extraStore.ExtraLen(), kbStore.Model, kbStore.Dimension)
 	} else {

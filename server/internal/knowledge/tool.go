@@ -9,6 +9,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"time"
 
 	"yhagent-server/internal/ai"
 )
@@ -23,16 +25,20 @@ const (
 	maxTopK     = 8
 	// 单条检索结果回传给模型的正文长度上限（切片本身约600字，这里再兜一道）
 	maxResultRunes = 900
+	// 重排参数：检索阶段先取 rerankDepth 个候选交给重排器，再截断到 top_k；
+	// 超时/失败回退 RRF 原序（eval 实测深度 30 时目标召回 100%）
+	rerankDepth   = 30
+	rerankTimeout = 8 * time.Second
 )
 
-// RegisterTool 向工具注册中心注册知识库检索工具
-func RegisterTool(reg *ai.Registry, store Searcher, embedder Embedder) {
-	reg.Register(NewSearchTool(store, embedder))
+// RegisterTool 向工具注册中心注册知识库检索工具。reranker 可为 nil（不重排）
+func RegisterTool(reg *ai.Registry, store Searcher, embedder Embedder, reranker ai.Reranker) {
+	reg.Register(NewSearchTool(store, embedder, reranker))
 }
 
 // NewSearchTool 构造 search_knowledge 函数工具。store 可以是只读主索引 *Store，
-// 也可以是合并了运行时补充库的 *ExtraStore。
-func NewSearchTool(store Searcher, embedder Embedder) *ai.FunctionTool {
+// 也可以是合并了运行时补充库的 *ExtraStore；reranker 非 nil 时检索结果经重排。
+func NewSearchTool(store Searcher, embedder Embedder, reranker ai.Reranker) *ai.FunctionTool {
 	return ai.NewFunctionTool(
 		"search_knowledge",
 		"搜索《三角洲行动》静态攻略知识库，包含人工整理的玩法机制、武器使用技巧、"+
@@ -73,14 +79,51 @@ func NewSearchTool(store Searcher, embedder Embedder) *ai.FunctionTool {
 			}
 
 			// 向量 + BM25 双通道 RRF 混合检索（数字类查询 BM25 等权，
-			// 纯语义查询降权纠偏，见 store.go SearchHybrid）
-			hits := store.SearchHybrid(Vec32(vecs[0]), args.Query, k)
+			// 纯语义查询降权纠偏，见 store.go SearchHybrid）。
+			// 启用重排时先取 rerankDepth 个候选，重排后截断到 k
+			depth := k
+			if reranker != nil {
+				depth = rerankDepth
+			}
+			hits := store.SearchHybrid(Vec32(vecs[0]), args.Query, depth)
+			if reranker != nil && len(hits) > 0 {
+				docs := make([]ai.RerankDoc, len(hits))
+				for i, h := range hits {
+					docs[i] = ai.RerankDoc{Title: h.Chunk.Title, Content: h.Chunk.Content}
+				}
+				rctx, cancel := context.WithTimeout(ctx, rerankTimeout)
+				scores, err := reranker.Rerank(rctx, args.Query, docs)
+				cancel()
+				if err != nil {
+					// 回退 RRF 原序，检索可用性不受重排服务影响
+					log.Printf("[knowledge] 重排失败（%s），回退混合检索原序: %v", reranker.Name(), err)
+				} else if len(scores) != len(hits) {
+					log.Printf("[knowledge] 重排返回 %d 分数与 %d 候选不一致，回退原序", len(scores), len(hits))
+				} else {
+					reordered := make([]Hit, len(hits))
+					for pos, i := range ai.SortDocsByScore(scores) {
+						h := hits[i]
+						h.Score = float32(scores[i]) // 相关度展示切到重排分（相对分逻辑不变）
+						reordered[pos] = h
+					}
+					hits = reordered
+				}
+				if len(hits) > k {
+					hits = hits[:k]
+				}
+			}
 			results := make([]map[string]any, 0, len(hits))
 			for i, h := range hits {
 				content := truncate(h.Chunk.Content, maxResultRunes)
-				// RRF 融合分是名次分（~0.01-0.03 量级），换算成相对第一名的
-				// 归一化相对相关度，模型侧可读性与原余弦分量级一致
-				rel := h.Score / hits[0].Score
+				// 分数量纲随检索/重排路径不同（余弦 / RRF 名次 / 重排分），统一换算成
+				// 相对第一名的归一化相关度；重排垫底负分或全零分时钳到 [0,1] 防异常显示
+				rel := float32(0)
+				if hits[0].Score > 0 && h.Score > 0 {
+					rel = h.Score / hits[0].Score
+					if rel > 1 {
+						rel = 1
+					}
+				}
 				results = append(results, map[string]any{
 					"序号":  i + 1,
 					"标题":  h.Chunk.Title,

@@ -5,6 +5,8 @@
 //	go run ./cmd/eval                                          # 纯向量检索（基线，默认）
 //	go run ./cmd/eval -mode=bm25                               # 纯 BM25 关键词检索
 //	go run ./cmd/eval -mode=hybrid -tag=hybrid                 # 向量+BM25 RRF 混合检索
+//	go run ./cmd/eval -mode=hybrid -rerank=llm -tag=hybrid-llm-rerank    # 混合检索 + LLM 重排
+//	go run ./cmd/eval -mode=hybrid -rerank=viking -tag=hybrid-viking-rerank # 混合检索 + VikingDB 重排
 //	go run ./cmd/eval "-dataset=eval/dataset.coarse.jsonl"     # 文件级对照口径
 //	go run ./cmd/eval -tag=hybrid                              # 给本次报告打标签
 //
@@ -116,7 +118,10 @@ type metrics struct {
 // report 落盘报告
 type report struct {
 	Tag          string             `json:"tag"`
-	Mode         string             `json:"mode"` // vector / bm25 / hybrid
+	Mode         string             `json:"mode"`         // vector / bm25 / hybrid
+	Rerank       string             `json:"rerank"`       // none / llm:xxx / viking:xxx
+	RerankDepth  int                `json:"rerank_depth"` // 进入重排的候选深度（0=未重排）
+	RerankFails  int                `json:"rerank_fails"` // 重排调用失败（保留原序）的条数
 	Time         string             `json:"time"`
 	Model        string             `json:"model"`
 	Dimension    int                `json:"dimension"`
@@ -136,12 +141,19 @@ func main() {
 	tag := flag.String("tag", "baseline", "报告标签：baseline / hybrid / rerank …")
 	cachePath := flag.String("qcache", ".cache/eval_queries.gob", "query 向量缓存文件")
 	mode := flag.String("mode", "vector", "检索模式：vector=纯向量(基线) / bm25=纯关键词 / hybrid=向量+BM25 RRF融合")
+	rerankMode := flag.String("rerank", "none", "重排模式：none=不重排 / llm=豆包LLM重排(关思考) / viking=VikingDB专用重排模型(需VOLC_AK/SK)")
+	rdepth := flag.Int("rdepth", 30, "进入重排的候选深度（检索阶段先取该数量候选，重排后再截断到 -k）")
 	flag.Parse()
 
 	switch *mode {
 	case "vector", "bm25", "hybrid":
 	default:
 		log.Fatalf("未知检索模式 %q（可选 vector / bm25 / hybrid）", *mode)
+	}
+	switch *rerankMode {
+	case "none", "llm", "viking":
+	default:
+		log.Fatalf("未知重排模式 %q（可选 none / llm / viking）", *rerankMode)
 	}
 
 	if err := config.Load(); err != nil {
@@ -152,6 +164,25 @@ func main() {
 			log.Fatal("缺少 ARK_API_KEY，请确认 server/.env 已配置")
 		}
 	}
+
+	// 0. 构造重排器（rerank=none 时为 nil，检索流程与原版完全一致）
+	var reranker ai.Reranker
+	switch *rerankMode {
+	case "llm":
+		reranker = ai.NewLLMReranker(ai.NewSeedClient())
+		if reranker == nil {
+			log.Fatal("LLM 重排需要 ARK_RERANK_LLM_MODEL（方舟模型名或 ep- 接入点，需已开通），请配置 server/.env")
+		}
+		log.Printf("[eval] LLM 重排已启用：%s", reranker.Name())
+	case "viking":
+		v := ai.NewVikingReranker()
+		if v == nil {
+			log.Fatal("VikingDB 重排需要 VOLC_ACCESSKEY / VOLC_SECRETKEY（火山控制台 IAM 访问密钥），请配置 server/.env")
+		}
+		reranker = v
+		log.Printf("[eval] VikingDB 重排已启用：%s @ %s", reranker.Name(), config.AppConfig.VikingHost)
+	}
+	rerankFails := 0
 
 	// 1. 加载标注集
 	cases, err := loadCases(*dataset)
@@ -211,15 +242,47 @@ func main() {
 		log.Printf("[eval] BM25 倒排索引构建完成（%d 切片）", store.ChunkCount)
 	}
 	results := make([]caseResult, 0, len(cases))
-	for _, c := range cases {
+	for qi, c := range cases {
+		// 重排模式下先取 rdepth 个候选，重排后再截断到 k
+		depth := *k
+		if reranker != nil {
+			depth = *rdepth
+		}
 		var hits []knowledge.Hit
 		switch *mode {
 		case "bm25":
-			hits = bmIdx.Search(c.Query, *k)
+			hits = bmIdx.Search(c.Query, depth)
 		case "hybrid":
-			hits = store.SearchHybrid(knowledge.Vec32(cache.Vecs[c.Query]), c.Query, *k)
+			hits = store.SearchHybrid(knowledge.Vec32(cache.Vecs[c.Query]), c.Query, depth)
 		default:
-			hits = store.Search(knowledge.Vec32(cache.Vecs[c.Query]), *k)
+			hits = store.Search(knowledge.Vec32(cache.Vecs[c.Query]), depth)
+		}
+		if reranker != nil && len(hits) > 0 {
+			docs := make([]ai.RerankDoc, len(hits))
+			for i, h := range hits {
+				docs[i] = ai.RerankDoc{Title: h.Chunk.Title, Content: h.Chunk.Content}
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			scores, err := reranker.Rerank(ctx, c.Query, docs)
+			cancel()
+			if err != nil {
+				rerankFails++
+				log.Printf("[eval] %s 重排失败（保留原序）: %v", c.ID, err)
+			} else {
+				reordered := make([]knowledge.Hit, len(hits))
+				for pos, i := range ai.SortDocsByScore(scores) {
+					h := hits[i]
+					h.Score = float32(scores[i]) // 分数语义切换为重排分（报告 TopK 中可识别）
+					reordered[pos] = h
+				}
+				hits = reordered
+			}
+			if len(hits) > *k {
+				hits = hits[:*k]
+			}
+		}
+		if reranker != nil && (qi+1)%25 == 0 {
+			log.Printf("[eval] 重排进度 %d/%d（失败 %d）", qi+1, len(cases), rerankFails)
 		}
 		fileWant := map[string]bool{}
 		for _, s := range c.Expected {
@@ -248,6 +311,11 @@ func main() {
 
 	// 5. 汇总 + 落盘 + 打印
 	rep := buildReport(*tag, *mode, store, *k, results)
+	if reranker != nil {
+		rep.Rerank = reranker.Name()
+		rep.RerankDepth = *rdepth
+		rep.RerankFails = rerankFails
+	}
 	writeReport(rep)
 	printReport(rep)
 }
@@ -417,8 +485,12 @@ func writeReport(rep *report) {
 func printReport(rep *report) {
 	fmt.Println()
 	fmt.Printf("================ 检索评测报告 [%s] ================\n", rep.Tag)
-	fmt.Printf("时间 %s | 模式 %s | 模型 %s | 索引 %d 片 / %d 维 | 样本 %d\n",
-		rep.Time, rep.Mode, rep.Model, rep.ChunkCount, rep.Dimension, rep.Overall["all"].N)
+	fmt.Printf("时间 %s | 模式 %s", rep.Time, rep.Mode)
+	if rep.Rerank != "" && rep.Rerank != "none" {
+		fmt.Printf(" + 重排 %s(深度%d, 失败%d)", rep.Rerank, rep.RerankDepth, rep.RerankFails)
+	}
+	fmt.Printf(" | 模型 %s | 索引 %d 片 / %d 维 | 样本 %d\n",
+		rep.Model, rep.ChunkCount, rep.Dimension, rep.Overall["all"].N)
 	printMetrics("总体(all)   ", rep.Overall["all"])
 	if rep.Overall["chunk"].N > 0 {
 		printMetrics("  切片级标注 ", rep.Overall["chunk"])
