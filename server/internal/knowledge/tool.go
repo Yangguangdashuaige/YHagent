@@ -72,15 +72,20 @@ func NewSearchTool(store Searcher, embedder Embedder) *ai.FunctionTool {
 				return nil, fmt.Errorf("向量化返回异常：得到 %d 条向量", len(vecs))
 			}
 
-			hits := store.Search(Vec32(vecs[0]), k)
+			// 向量 + BM25 双通道 RRF 混合检索（数字类查询 BM25 等权，
+			// 纯语义查询降权纠偏，见 store.go SearchHybrid）
+			hits := store.SearchHybrid(Vec32(vecs[0]), args.Query, k)
 			results := make([]map[string]any, 0, len(hits))
 			for i, h := range hits {
 				content := truncate(h.Chunk.Content, maxResultRunes)
+				// RRF 融合分是名次分（~0.01-0.03 量级），换算成相对第一名的
+				// 归一化相对相关度，模型侧可读性与原余弦分量级一致
+				rel := h.Score / hits[0].Score
 				results = append(results, map[string]any{
 					"序号":  i + 1,
 					"标题":  h.Chunk.Title,
 					"出处":  h.Chunk.Source,
-					"相关度": roundScore(h.Score),
+					"相关度": roundScore(rel),
 					"内容":  content,
 				})
 			}

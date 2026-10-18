@@ -31,6 +31,8 @@ const (
 // Searcher 检索能力（*Store 与 *ExtraStore 均实现）
 type Searcher interface {
 	Search(query Vec32, k int) []Hit
+	// SearchHybrid 向量 + BM25 混合检索；queryText 是生成 query 向量的原始文本
+	SearchHybrid(query Vec32, queryText string, k int) []Hit
 }
 
 // EmbedProgressFunc 分批向量化进度：done 个切片已完成，共 total 个。
@@ -111,7 +113,15 @@ func (e *ExtraStore) Search(query Vec32, k int) []Hit {
 	if len(b) == 0 {
 		return a
 	}
-	// 双指针归并两个有序列表
+	merged := mergeHitsByScore(a, b)
+	if k > 0 && len(merged) > k {
+		merged = merged[:k]
+	}
+	return merged
+}
+
+// mergeHitsByScore 归并两个按分数降序的命中列表（同分时 a 侧优先），结果仍降序
+func mergeHitsByScore(a, b []Hit) []Hit {
 	merged := make([]Hit, 0, len(a)+len(b))
 	i, j := 0, 0
 	for i < len(a) && j < len(b) {
@@ -125,10 +135,41 @@ func (e *ExtraStore) Search(query Vec32, k int) []Hit {
 	}
 	merged = append(merged, a[i:]...)
 	merged = append(merged, b[j:]...)
-	if k > 0 && len(merged) > k {
-		merged = merged[:k]
-	}
 	return merged
+}
+
+// SearchHybrid 混合检索主索引与补充索引（生产 search_knowledge 走的路径）：
+//   - 向量通道：两侧余弦命中按分数归并取全局 Top-Depth（余弦分跨库可比）；
+//   - BM25 通道：主/补两侧各取关键词 Top-Depth 后按原始分归并再截断到
+//     Top-Depth。两侧语料规模悬殊（4484 vs 几十），IDF 统计不严格可比，
+//     但 RRF 只消费名次且权重有门控，跨库分差被强阻尼，不做索引合并。
+//
+// 补充库是整体替换式重建（AddDocument 换掉整个 *Store），BM25 索引随
+// *Store 实例惰性构建、随旧实例一起被垃圾回收，因此无需任何失效逻辑。
+func (e *ExtraStore) SearchHybrid(query Vec32, queryText string, k int) []Hit {
+	e.mu.RLock()
+	base, extra := e.base, e.extra
+	e.mu.RUnlock()
+
+	total := base.Len() + extra.Len()
+	if total == 0 {
+		return nil
+	}
+	if k <= 0 || k > total {
+		k = total
+	}
+
+	// 通道一：两侧余弦归并 Top-Depth（复用 Search 的归并逻辑）
+	vecCh := e.Search(query, hybridDepth)
+	// 通道二：两侧 BM25 子榜单归并后截断 Top-Depth
+	bmCh := mergeHitsByScore(
+		base.bm25Index().Search(queryText, hybridDepth),
+		extra.bm25Index().Search(queryText, hybridDepth))
+	if len(bmCh) > hybridDepth {
+		bmCh = bmCh[:hybridDepth]
+	}
+	return fuseRRF([][]Hit{vecCh, bmCh},
+		[]float64{1.0, bm25WeightFor(queryText)}, k)
 }
 
 // ExtraLen 当前补充切片数（监控/日志用）
