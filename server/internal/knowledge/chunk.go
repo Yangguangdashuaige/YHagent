@@ -24,6 +24,39 @@ type Chunk struct {
 	Content string `json:"content"` // 标题 + 正文
 }
 
+// EmbedInput 返回该切片送入向量化模型的输入文本：面包屑的**最深小节名**
+// 单独一行 + 原始 Content（Content 开头本就带【完整面包屑】前缀）。
+//
+// 只加重"末段小节名"而不是整条面包屑的原因（title2x 全标题加权实测翻车）：
+// 面包屑大头是文档名前缀，整条加权会让同文档所有小节的向量互相拉近，
+// 顶层摘要片（标题=纯文档名）反而失去区分度（R053/R042 回归）；而末段
+// 小节名是每个切片**独有**的内容标识（如「可选择行动及难度」），加重它：
+//   - "能选什么难度和行动"类查询贴住答案小节（R098）；
+//   - 摘要片末段=文档名（含日期/赛季名），日期查询区分度提高（R053/R042）。
+//
+// indexer（离线建库）与 ExtraStore.AddDocument（运行时入库）必须使用同一函数，
+// 保证主索引与补充索引的向量分布一致。
+func EmbedInput(c Chunk) string {
+	leaf := EmbedTitleLeaf(c.Title)
+	if leaf == "" {
+		return c.Content
+	}
+	return leaf + "\n" + c.Content
+}
+
+// EmbedTitleLeaf 取面包屑最后一段（最深小节名）；无分隔符时返回整条标题。
+// 用于向量化输入加权（见 EmbedInput）与 BM25 之外的轻量标题信号。
+func EmbedTitleLeaf(title string) string {
+	t := strings.TrimSpace(title)
+	if t == "" {
+		return ""
+	}
+	if i := strings.LastIndex(t, ">"); i >= 0 {
+		return strings.TrimSpace(t[i+1:])
+	}
+	return t
+}
+
 // ChunkMarkdown 把一篇 Markdown 文档切成若干 Chunk。
 // source 通常是文件名；startID 为本文件起始编号（多文件连续编号）。
 func ChunkMarkdown(source, markdown string, startID int) []Chunk {

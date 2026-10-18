@@ -18,6 +18,11 @@ import (
 	"unicode"
 )
 
+// EmbedInputVersion 向量化输入格式版本。输入格式变更（如标题加重）后
+// 旧索引里的向量与新格式分布不一致，必须全量重嵌；indexer 写入当前版本、
+// 加载时校验不符即放弃复用。旧索引该字段为空串，视为不可复用。
+const EmbedInputVersion = "titleleaf2x-20261018"
+
 // Store 是建库产物的完整结构（gob 可序列化）
 type Store struct {
 	Model      string  // 使用的向量化模型名（校验查询向量维度用）
@@ -25,6 +30,7 @@ type Store struct {
 	ChunkCount int     // 切片数（冗余字段，加载后快速判空）
 	Chunks     []Chunk // 切片原文，下标与 Vectors 一一对应
 	Vectors    []Vec32 // 已 L2 归一化的向量
+	EmbedVer   string  // 向量化输入格式版本（见 EmbedInputVersion；空=旧格式）
 
 	// BM25 倒排索引：首次混合检索时惰性构建
 	// （未导出字段不参与 gob 序列化，不影响既有索引文件兼容性）

@@ -14,7 +14,7 @@
 //	go run ./cmd/indexer -full      # 全量：忽略旧索引，全部切片重新向量化
 //
 // 每次增删改 data/knowledge/ 下的文档后，重新跑一次再构建/部署服务端。
-// 增量模式以"来源文件名+切片原文"为键复用旧 index.gob 里的向量，
+// 增量模式以"来源文件名+向量化输入(EmbedInput)"为键复用旧 index.gob 里的向量，
 // 只有没命中的切片（新文档、被编辑过的段落）才调用嵌入接口；
 // 更换嵌入模型或旧索引缺失/损坏时自动退回全量。
 package main
@@ -81,12 +81,14 @@ func main() {
 	var pendingIdx []int
 	var pendingText []string
 	for i, c := range chunks {
-		if v, ok := cache[c.Source+"\x00"+c.Content]; ok && len(v) > 0 {
+		// 缓存键含 EmbedInput（标题加重的向量化输入）：输入格式变更后
+		// 旧向量自然全部未命中，无需 -full 即自动触发全量重嵌
+		if v, ok := cache[c.Source+"\x00"+knowledge.EmbedInput(c)]; ok && len(v) > 0 {
 			vectors[i] = v
 			continue
 		}
 		pendingIdx = append(pendingIdx, i)
-		pendingText = append(pendingText, c.Content)
+		pendingText = append(pendingText, knowledge.EmbedInput(c))
 	}
 	log.Printf("[indexer] 共 %d 切片：复用旧向量 %d 片，需新嵌入 %d 片",
 		len(chunks), len(chunks)-len(pendingText), len(pendingText))
@@ -122,6 +124,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("构建索引失败: %v", err)
 	}
+	store.EmbedVer = knowledge.EmbedInputVersion
 	data, err := store.EncodeGOB()
 	if err != nil {
 		log.Fatalf("序列化失败: %v", err)
@@ -175,7 +178,7 @@ func collectMarkdown(dir string) ([]doc, error) {
 	return docs, nil
 }
 
-// loadVectorCache 读取旧索引，返回 "来源文件名\x00切片原文" -> 已归一化向量 的映射。
+// loadVectorCache 读取旧索引，返回 "来源文件名\x00向量化输入(EmbedInput)" -> 已归一化向量 的映射。
 // 旧文件不存在、解析失败或嵌入模型已更换时返回 nil（调用方据此走全量嵌入）。
 func loadVectorCache(path, model string) map[string]knowledge.Vec32 {
 	data, err := os.ReadFile(path)
@@ -193,9 +196,14 @@ func loadVectorCache(path, model string) map[string]knowledge.Vec32 {
 			store.Model, model)
 		return nil
 	}
+	if store.EmbedVer != knowledge.EmbedInputVersion {
+		log.Printf("[indexer] 向量化输入格式版本已变更（%q -> %q），旧向量不可复用，全量嵌入",
+			store.EmbedVer, knowledge.EmbedInputVersion)
+		return nil
+	}
 	m := make(map[string]knowledge.Vec32, len(store.Chunks))
 	for i, c := range store.Chunks {
-		m[c.Source+"\x00"+c.Content] = store.Vectors[i]
+		m[c.Source+"\x00"+knowledge.EmbedInput(c)] = store.Vectors[i]
 	}
 	log.Printf("[indexer] 已加载旧索引：%d 切片、%d 维，增量模式（-full 可强制全量）",
 		len(store.Chunks), store.Dimension)

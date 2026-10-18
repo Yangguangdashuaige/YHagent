@@ -199,7 +199,8 @@ func (e *ExtraStore) AddDocument(ctx context.Context, source, markdown string, e
 	}
 	texts := make([]string, len(chunks))
 	for i, c := range chunks {
-		texts[i] = c.Content
+		// 与 indexer 一致：标题加重进向量化输入，保证主/补索引向量分布一致
+		texts[i] = EmbedInput(c)
 	}
 
 	// 2. 分批向量化（网络调用在锁外执行，避免阻塞检索）
