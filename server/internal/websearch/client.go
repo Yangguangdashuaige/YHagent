@@ -59,8 +59,10 @@ func New(apiKey, baseURL, model string) *Client {
 		apiKey:  apiKey,
 		baseURL: baseURL,
 		model:   model,
-		// 联网检索 + 生成通常 10~40s，留足余量；上层 Agent 工具超时已放宽到 45s
-		http: &http.Client{Timeout: 40 * time.Second},
+		// 不设短的总超时：冷门查询的联网检索+生成可能超过 40s，过早掐断只会
+		// 诱导模型换词重试再烧一轮。执行时限由上层 Agent 工具超时（45s，经 ctx）
+		// 统一控制；这里的 120s 只是防 ctx 失效时请求永久挂起的兜底。
+		http: &http.Client{Timeout: 120 * time.Second},
 	}
 }
 
