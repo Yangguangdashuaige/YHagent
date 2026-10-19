@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/volcengine/ark-runtime-go/arkruntime/model/chat"
@@ -47,7 +48,9 @@ const defaultSystemPrompt = `你是“三角洲行动”游戏助手小小轩，
    严禁直接用现实世界常识给游戏内名词下定义。
 8. 当 search_knowledge 没有命中、资料明显不足，或问题涉及近期活动、新版本内容、限时道具/收藏品获取时，
    调用 web_search 联网核实：回答以搜索资料为依据并在末尾列出来源链接；
-   搜索结果只是临时参考，只有管理员确认后才会被知识库收录，不要对玩家声称“已收录”。`
+   搜索结果只是临时参考，只有管理员确认后才会被知识库收录，不要对玩家声称“已收录”。
+9. 需要多个互不依赖的工具时（例如先查本地知识库同时联网核实、同时查多个物品价格），
+   在同一轮一起发起调用，不要拆成多轮逐个调用。`
 
 // Agent Agent 核心：持有大模型客户端、工具注册中心和会话管理器，
 // 负责跑完“提问→模型决策→工具执行→结果回传→流式回答”的完整多轮循环。
@@ -205,17 +208,28 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 		// 模型要求调工具：先把“助手发起的工具调用”写进上下文
 		session.append(NewAssistantToolCallMessage(pendingCalls))
 
-		// 逐个执行工具并把结果回传；单个工具失败只影响该工具，错误以消息形式回传由模型降级解释
+		// 同一轮的多个工具调用并行执行（模型只在无依赖时才同轮多调），
+		// 耗时从串行累加变为取最大值；结果按调用顺序回传，
+		// tool 消息顺序必须与 tool_calls 一致，所以先并行收结果、再按序落历史。
+		results := make([]string, len(pendingCalls))
+		var wg sync.WaitGroup
+		for idx, call := range pendingCalls {
+			log.Printf("[agent] 会话 %s 第%d轮 调用工具 #%d: %s 参数=%s",
+				sessionID, round+1, idx+1, call.Function.Name, previewArgs(call.Function.Arguments))
+			wg.Add(1)
+			go func(idx int, call chat.ChatCompletionMessageToolCall) {
+				defer wg.Done()
+				results[idx] = a.executeToolSafe(ctx, round+1, call)
+			}(idx, call)
+		}
+		wg.Wait()
 		for idx, call := range pendingCalls {
 			callID := call.ID
 			if callID == "" {
 				// 极少数情况下模型不下发ID，本地补一个，保证 tool 消息能与 tool_calls 对应
 				callID = fmt.Sprintf("call_%d_%d", round, idx)
 			}
-			log.Printf("[agent] 会话 %s 第%d轮 调用工具 #%d: %s 参数=%s",
-				sessionID, round+1, idx+1, call.Function.Name, previewArgs(call.Function.Arguments))
-			result := a.executeToolSafe(ctx, round+1, call)
-			session.append(NewToolResultMessage(callID, call.Function.Name, result))
+			session.append(NewToolResultMessage(callID, call.Function.Name, results[idx]))
 		}
 		// 继续下一轮，让模型基于工具结果决定继续调工具还是输出最终回答
 	}
@@ -234,10 +248,12 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 // executeToolSafe 执行单个工具，统一做超时控制、panic 恢复和错误降级，
 // 无论成功失败都返回合法 JSON 字符串，保证主循环不会被任何工具拖垮。
 // round 为当前 LLM 轮次（1 起），仅供 trace 记录。
+// 执行前后经 context 回调发出 ToolEvent（SSE 层转发给网页端做进度显示）。
 func (a *Agent) executeToolSafe(parent context.Context, round int, call chat.ChatCompletionMessageToolCall) (resultJSON string) {
 	span := trace.FromContext(parent)
 	start := time.Now()
 	ok := true
+	emitToolEvent(parent, ToolEvent{Name: call.Function.Name, Phase: "start"})
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("[agent] 工具 %s 执行panic: %v", call.Function.Name, r)
@@ -246,6 +262,10 @@ func (a *Agent) executeToolSafe(parent context.Context, round int, call chat.Cha
 		}
 		span.ToolCall(round, call.Function.Name, call.Function.Arguments,
 			time.Since(start).Milliseconds(), len(resultJSON), ok)
+		emitToolEvent(parent, ToolEvent{
+			Name: call.Function.Name, Phase: "end",
+			MS: time.Since(start).Milliseconds(), OK: ok,
+		})
 	}()
 
 	tool, ok2 := a.tools.Get(call.Function.Name)

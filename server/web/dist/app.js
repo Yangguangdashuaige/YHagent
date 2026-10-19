@@ -98,9 +98,57 @@ function addMessage(role, text, images) {
   return bubble;
 }
 
-function showTyping(bubble) {
-  bubble.innerHTML =
-    '<div class="typing"><span></span><span></span><span></span></div>';
+// 构造回答气泡里的执行状态条：🧠思考中 → 每个工具一枚进度 chip（旋转+实时计时）
+// → 工具完成变 ✓+耗时；回答正文渲染在独立 span，状态条不会被流式重绘冲掉。
+// onTool 由 streamChat 的 SSE tool 事件驱动；remove() 停掉所有计时器并移除节点。
+function buildStatusBar() {
+  const el = document.createElement("div");
+  el.className = "status-bar";
+  const thinking = document.createElement("span");
+  thinking.className = "status-thinking";
+  thinking.innerHTML =
+    '🧠 思考中<span class="dots"><i></i><i></i><i></i></span>';
+  el.appendChild(thinking);
+
+  const chips = new Map(); // 工具名 -> {row, label, timerId}
+  let removed = false;
+
+  const remove = () => {
+    if (removed) return;
+    removed = true;
+    chips.forEach((c) => clearInterval(c.timerId));
+    el.remove();
+  };
+
+  const onTool = (ev) => {
+    if (removed || !ev || !ev.name) return;
+    if (ev.phase === "start") {
+      if (thinking.parentNode) thinking.remove();
+      const row = document.createElement("span");
+      row.className = "tool-chip running";
+      const label = ev.label || ev.name;
+      row.innerHTML =
+        '<i class="spin"></i>' + escapeHtml(label) + '<b class="t">0.0s</b>';
+      el.appendChild(row);
+      const t = row.querySelector(".t");
+      const startTs = Date.now();
+      const timerId = setInterval(() => {
+        t.textContent = ((Date.now() - startTs) / 1000).toFixed(1) + "s";
+      }, 100);
+      chips.set(ev.name, { row, label, timerId });
+    } else if (ev.phase === "end") {
+      const c = chips.get(ev.name);
+      if (!c) return;
+      clearInterval(c.timerId);
+      c.row.className = "tool-chip " + (ev.ok ? "done" : "fail");
+      const sec = ev.ms != null ? (ev.ms / 1000).toFixed(1) + "s" : "";
+      c.row.innerHTML =
+        (ev.ok ? "✓ " : "✗ ") + escapeHtml(c.label) +
+        (sec ? '<b class="t">' + sec + "</b>" : "");
+    }
+  };
+
+  return { el, onTool, remove };
 }
 
 function setBusy(b) {
@@ -214,8 +262,9 @@ async function verifyToken(token) {
 }
 
 // 流式提问：images 为可选的 data URL 数组；onChunk 每收到一段回答文本被回调；
+// onTool 在工具开始/结束时收到进度事件（{name,label,phase,ms,ok}）；
 // onCandidate 在模型联网搜索时收到候选知识卡片；出错时 throw Error（中文信息）
-async function streamChat(sessionId, text, images, onChunk, onCandidate) {
+async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool) {
   let resp;
   try {
     resp = await fetch("/v1/chat", {
@@ -261,6 +310,7 @@ async function streamChat(sessionId, text, images, onChunk, onCandidate) {
     if (!event) return;
     const payload = data ? JSON.parse(data) : "";
     if (event === "chunk") onChunk(payload || "");
+    else if (event === "tool" && onTool && payload) onTool(payload);
     else if (event === "candidate" && onCandidate && payload) onCandidate(payload);
     else if (event === "error") errMsg = payload || "服务异常，请稍后再试";
   };
@@ -829,7 +879,11 @@ async function send() {
   setBusy(true);
 
   currentBubble = addMessage("assistant", "");
-  showTyping(currentBubble);
+  const status = buildStatusBar();
+  currentBubble.appendChild(status.el);
+  // 回答正文渲染在独立 span：流式重绘只更新它，状态条/候选卡片不被冲掉
+  const textSpan = document.createElement("span");
+  currentBubble.appendChild(textSpan);
   answerText = "";
   const candidates = [];
 
@@ -840,7 +894,7 @@ async function send() {
       images,
       (chunk) => {
         answerText += chunk;
-        currentBubble.innerHTML = escapeHtml(answerText).replace(/\n/g, "<br>");
+        textSpan.innerHTML = escapeHtml(answerText).replace(/\n/g, "<br>");
         scrollToBottom();
       },
       (cand) => {
@@ -849,10 +903,12 @@ async function send() {
           (c) => c.query === cand.query && c.summary === cand.summary
         );
         if (!dup) candidates.push(cand);
-      }
+      },
+      status.onTool
     );
+    status.remove(); // 结束后才移除：保留各工具完成耗时供玩家回看
     if (!answerText) {
-      currentBubble.textContent = "（没有收到回复内容，请再试一次）";
+      textSpan.textContent = "（没有收到回复内容，请再试一次）";
     }
     // 回答渲染完后再插入候选知识卡片，避免流式 innerHTML 重绘把卡片冲掉
     candidates.forEach((cand) => {
@@ -860,8 +916,9 @@ async function send() {
     });
     if (candidates.length) scrollToBottom();
   } catch (e) {
+    status.remove();
     currentBubble.classList.add("error");
-    currentBubble.textContent = "⚠️ " + (e && e.message ? e.message : String(e));
+    textSpan.textContent = "⚠️ " + (e && e.message ? e.message : String(e));
   } finally {
     currentBubble = null;
     answerText = "";

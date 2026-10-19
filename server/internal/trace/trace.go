@@ -81,7 +81,9 @@ type Record struct {
 
 // Span 请求级 trace 累积器。Agent 在请求入口 Start，结束时 End 落盘；
 // 中间各埋点通过 context 拿到 Span（可能为 nil，全部方法 nil 安全）。
+// 同轮多个工具并行执行时会并发调用各记录方法，内部用互斥锁保证安全。
 type Span struct {
+	mu         sync.Mutex
 	rec        *Recorder
 	traceID    string
 	sessionID  string
@@ -138,6 +140,8 @@ func (s *Span) LLMRound(ms int64, prompt, completion, total int32) {
 	if s == nil {
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.llm = append(s.llm, LLMRound{
 		Round:            len(s.llm) + 1,
 		MS:               ms,
@@ -149,10 +153,14 @@ func (s *Span) LLMRound(ms int64, prompt, completion, total int32) {
 
 // FirstToken 记录首 token 时刻（只记第一次）
 func (s *Span) FirstToken() {
-	if s == nil || !s.firstChunk.IsZero() {
+	if s == nil {
 		return
 	}
-	s.firstChunk = time.Now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.firstChunk.IsZero() {
+		s.firstChunk = time.Now()
+	}
 }
 
 // ToolCall 记录一次工具调用
@@ -160,6 +168,8 @@ func (s *Span) ToolCall(round int, name, args string, ms int64, resultBytes int,
 	if s == nil {
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.tools = append(s.tools, ToolCall{
 		Round:       round,
 		Name:        name,
@@ -175,6 +185,8 @@ func (s *Span) NoteCacheHit() {
 	if s == nil {
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.cacheHits++
 }
 
@@ -183,6 +195,8 @@ func (s *Span) NoteCacheMiss() {
 	if s == nil {
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.cacheMiss++
 }
 
@@ -191,6 +205,8 @@ func (s *Span) AnswerChars(n int) {
 	if s == nil {
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.answer = n
 }
 
@@ -199,6 +215,7 @@ func (s *Span) End(errMsg string) {
 	if s == nil {
 		return
 	}
+	s.mu.Lock()
 	rec := &Record{
 		TraceID:     s.traceID,
 		Time:        s.start.Format(time.RFC3339),
@@ -218,6 +235,7 @@ func (s *Span) End(errMsg string) {
 	if !s.firstChunk.IsZero() {
 		rec.FirstTokMS = s.firstChunk.Sub(s.start).Milliseconds()
 	}
+	s.mu.Unlock()
 	s.rec.Write(rec)
 }
 

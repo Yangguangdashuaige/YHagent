@@ -15,6 +15,11 @@
 //	      Agent 调用 web_search 联网核实时推送的候选知识卡片，
 //	      网页端可凭管理员口令 POST /v1/knowledge/ingest 采纳入库。
 //
+//	event: tool
+//	data: {"name":"web_search","phase":"start","label":"联网搜索"}
+//	data: {"name":"web_search","phase":"end","ms":3200,"ok":true}
+//	      Agent 每个工具调用开始/结束时推送，网页端显示实时执行进度。
+//
 //	event: done
 //	data: ""
 //
@@ -257,7 +262,10 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
-	// 心跳：模型长时间思考（如工具轮询）时防止中间代理/客户端误判定超时
+	// 心跳：模型长时间思考（如工具轮询）时防止中间代理/客户端误判定超时。
+	// 同轮多工具并行执行后，chunk/candidate/tool 回调可能来自不同 goroutine，
+	// 心跳协程也会并发写：所有 SSE 写入统一走 writeMu 串行化，防止响应撕裂。
+	var writeMu sync.Mutex
 	stopHeartbeat := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(sseHeartbeat)
@@ -267,10 +275,15 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 			case <-stopHeartbeat:
 				return
 			case <-ticker.C:
-				if _, err := w.Write([]byte(": ping\n\n")); err != nil {
+				writeMu.Lock()
+				_, err := w.Write([]byte(": ping\n\n"))
+				if err == nil {
+					flusher.Flush()
+				}
+				writeMu.Unlock()
+				if err != nil {
 					return
 				}
-				flusher.Flush()
 			}
 		}
 	}()
@@ -278,6 +291,8 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 	writeEvent := func(event string, payload any) bool {
 		data, _ := json.Marshal(payload) // 文本/结构体统一 JSON 编码，换行/特殊字符安全
+		writeMu.Lock()
+		defer writeMu.Unlock()
 		if _, err := w.Write([]byte("event: " + event + "\ndata: " + string(data) + "\n\n")); err != nil {
 			return false
 		}
@@ -289,6 +304,14 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	// 注入候选知识回调：Agent 调用 web_search 时，把候选卡片通过 SSE 推给网页端。
 	ctx := websearch.WithCandidateFunc(r.Context(), func(cand websearch.Candidate) {
 		writeEvent("candidate", cand)
+	})
+	// 注入工具状态回调：每个工具开始/结束时推 tool 事件，网页端据此显示
+	// 「联网搜索中… 3.2s」实时进度，消除工具执行期的静默体感
+	ctx = ai.WithToolEventFunc(ctx, func(ev ai.ToolEvent) {
+		if ev.Phase == "start" {
+			ev.Label = toolLabel(ev.Name)
+		}
+		writeEvent("tool", ev)
 	})
 	err = s.cfg.Chat.ChatWithSessionImages(ctx, req.SessionID, req.Message, images, func(chunk string) {
 		writeEvent("chunk", chunk)
@@ -303,6 +326,24 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 type resetRequest struct {
 	SessionID string `json:"session_id"`
+}
+
+// toolLabel 工具名 → 网页端进度条展示的中文标签（未命中映射的 delta 工具按前缀归并）
+func toolLabel(name string) string {
+	switch name {
+	case "web_search":
+		return "联网搜索"
+	case "search_knowledge":
+		return "知识库检索"
+	case "gun_build_advisor":
+		return "改枪方案生成"
+	case "recognize_screenshot":
+		return "截图识别"
+	}
+	if strings.HasPrefix(name, "delta_") {
+		return "游戏数据查询"
+	}
+	return name
 }
 
 func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
