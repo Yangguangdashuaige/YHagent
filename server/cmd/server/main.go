@@ -183,7 +183,7 @@ type ingestAdapter struct {
 	s *ingest.Service
 }
 
-func (a ingestAdapter) Ingest(ctx context.Context, in server.IngestInput, onProgress func(server.IngestProgress)) (string, int, error) {
+func (a ingestAdapter) Ingest(ctx context.Context, in server.IngestInput, onProgress func(server.IngestProgress)) (string, int, string, error) {
 	sources := make([]websearch.Source, 0, len(in.Sources))
 	for _, s := range in.Sources {
 		sources = append(sources, websearch.Source{Title: s.Title, URL: s.URL})

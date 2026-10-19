@@ -455,6 +455,17 @@ body {
   color: #cfd6e6;
   margin-bottom: 6px;
 }
+/* 注入扫描警示：入库文档含疑似指令性文本时的黄色提示 */
+.kb-card-warn {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 200, 60, 0.12);
+  border: 1px solid rgba(255, 200, 60, 0.35);
+  color: #ffd97a;
+  font-size: 12px;
+  line-height: 1.5;
+}
 .kb-card-sources {
   margin: 0 0 8px;
   padding-left: 18px;

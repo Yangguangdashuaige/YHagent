@@ -100,8 +100,9 @@ type IngestProgress struct {
 
 // Ingester 采纳入库接口（由 internal/ingest.Service 经适配后注入）。
 // onProgress 可为 nil；非 nil 时会被同步回调推送入库阶段进度。
+// 第三个返回值为注入扫描警示（空 = 干净），随 done 事件透传给管理员。
 type Ingester interface {
-	Ingest(ctx context.Context, in IngestInput, onProgress func(IngestProgress)) (source string, chunks int, err error)
+	Ingest(ctx context.Context, in IngestInput, onProgress func(IngestProgress)) (source string, chunks int, warning string, err error)
 }
 
 // Server HTTP 服务
@@ -446,7 +447,7 @@ func (s *Server) handleKnowledgeIngest(w http.ResponseWriter, r *http.Request) {
 	// ready = 管理员口令校验通过（前端据此给出即时正反馈并缓存口令）
 	send("ready", map[string]string{"status": "ok"})
 
-	source, n, err := s.cfg.Ingester.Ingest(ctx, IngestInput{
+	source, n, warn, err := s.cfg.Ingester.Ingest(ctx, IngestInput{
 		Query:   req.Query,
 		Summary: req.Summary,
 		Sources: req.Sources,
@@ -468,11 +469,15 @@ func (s *Server) handleKnowledgeIngest(w http.ResponseWriter, r *http.Request) {
 		send("error", map[string]string{"error": msg})
 		return
 	}
+	if warn != "" {
+		log.Printf("[server] 联网知识入库含疑似注入文本（%s）：%s", source, warn)
+	}
 	log.Printf("[server] 联网知识已入库：%s（%d 个切片）", source, n)
 	send("done", map[string]any{
-		"status": "ok",
-		"source": source,
-		"chunks": n,
+		"status":  "ok",
+		"source":  source,
+		"chunks":  n,
+		"warning": warn,
 	})
 }
 

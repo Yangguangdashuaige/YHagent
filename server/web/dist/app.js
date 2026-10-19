@@ -834,6 +834,13 @@ async function adoptCandidate(card, cand, adminToken, ui) {
     meta.textContent = source + "（" + chunks + " 个切片），之后提问即可直接检索到";
     card.appendChild(ok);
     card.appendChild(meta);
+    // 注入扫描警示：文档含疑似指令性文本，提醒管理员事后核查（不阻断收录）
+    if (result.warning) {
+      const warn = document.createElement("div");
+      warn.className = "kb-card-warn";
+      warn.textContent = "⚠ " + result.warning;
+      card.appendChild(warn);
+    }
     scrollToBottom();
   }, 500);
 }
