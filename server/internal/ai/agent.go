@@ -164,6 +164,10 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 	session.append(NewUserMessageWithImages(textForModel, images))
 	log.Printf("[agent] 会话 %s 收到提问（图片%d张）: %s", sessionID, len(images), previewArgs(userText))
 
+	// token 预算检查：超限则把旧消息压缩成滚动摘要（不配置预算时为 no-op，
+	// 保持原有"固定 20 条窗口"行为；压缩失败跳过不影响本次回答）
+	a.compactIfNeeded(ctx, session, span)
+
 	for round := 0; round < maxToolRounds; round++ {
 		// pendingCalls 收集本轮模型要求执行的工具调用；answerBuilder 累积本轮流式文本
 		var pendingCalls []chat.ChatCompletionMessageToolCall

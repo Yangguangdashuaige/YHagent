@@ -23,11 +23,12 @@ const (
 
 // Session 单个会话的完整对话上下文，同一 sessionID 的多轮提问共享同一份历史
 type Session struct {
-	mu         sync.Mutex
-	id         string
-	messages   []chat.ChatCompletionRequestMessage
-	maxKeep    int // 除 system 消息外最多保留多少条
-	lastActive time.Time
+	mu                sync.Mutex
+	id                string
+	messages          []chat.ChatCompletionRequestMessage
+	maxKeep           int // 除 system 消息外最多保留多少条
+	lastActive        time.Time
+	compactBackoffTil time.Time // 摘要压缩失败后的退避截止时间（期间跳过压缩）
 }
 
 // newSession 创建会话并写入 system 消息
@@ -55,6 +56,58 @@ func (s *Session) append(msg chat.ChatCompletionRequestMessage) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.messages = append(s.messages, msg)
+	s.lastActive = time.Now()
+}
+
+// ID 返回会话标识（日志/压缩记录用）
+func (s *Session) ID() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.id
+}
+
+// compactBlocked 摘要压缩失败退避期内返回 true（避免反复白等超时）
+func (s *Session) compactBlocked() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return time.Now().Before(s.compactBackoffTil)
+}
+
+// noteCompactResult 记录一次压缩结果：失败进入退避期，成功清除退避
+func (s *Session) noteCompactResult(ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if ok {
+		s.compactBackoffTil = time.Time{}
+	} else {
+		s.compactBackoffTil = time.Now().Add(compactBackoff)
+	}
+}
+
+// historyAfterSystem 返回不含首条 system 消息的历史副本（供 token 预算评估）
+func (s *Session) historyAfterSystem() []chat.ChatCompletionRequestMessage {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.messages) <= 1 {
+		return nil
+	}
+	out := make([]chat.ChatCompletionRequestMessage, len(s.messages)-1)
+	copy(out, s.messages[1:])
+	return out
+}
+
+// replacePrefix 把 system 之后的前 k 条历史替换为一条摘要消息（压缩落盘动作）。
+// 保留段至少一条消息；k 非法时静默忽略（compact 侧已保证边界，这里兜底）。
+func (s *Session) replacePrefix(k int, summary chat.ChatCompletionRequestMessage) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if k < 0 || k+1 > len(s.messages)-1 {
+		return
+	}
+	kept := make([]chat.ChatCompletionRequestMessage, len(s.messages)-k-1)
+	copy(kept, s.messages[k+1:])
+	s.messages = append(s.messages[:1:1], summary)
+	s.messages = append(s.messages, kept...)
 	s.lastActive = time.Now()
 }
 

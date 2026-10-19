@@ -60,23 +60,32 @@ type ToolCall struct {
 	CacheHit    *bool  `json:"cache_hit,omitempty"` // 三角洲缓存命中（非 delta 工具无此字段）
 }
 
+// CompactInfo 一次上下文压缩的观测数据（会话超 token 预算时触发）
+type CompactInfo struct {
+	Messages int   `json:"messages"` // 被压缩的消息条数
+	Before   int   `json:"before"`   // 压缩前历史估算 token
+	After    int   `json:"after"`    // 压缩后历史估算 token（摘要+保留段）
+	MS       int64 `json:"ms"`       // 压缩耗时（含一次 LLM 摘要调用）
+}
+
 // Record 单次请求的完整 trace（JSONL 一行）
 type Record struct {
-	TraceID     string     `json:"trace_id"`
-	Time        string     `json:"ts"` // RFC3339
-	SessionID   string     `json:"session_id"`
-	Query       string     `json:"query"`
-	Images      int        `json:"images"` // 携带图片数
-	OK          bool       `json:"ok"`
-	Error       string     `json:"error,omitempty"`
-	TotalMS     int64      `json:"total_ms"`     // 请求总耗时
-	FirstTokMS  int64      `json:"first_tok_ms"` // 首 token 延迟（TTFT），0 = 未产生回答
-	LLMRounds   int        `json:"llm_rounds"`   // LLM 调用轮数
-	LLM         []LLMRound `json:"llm,omitempty"`
-	Tools       []ToolCall `json:"tools,omitempty"`
-	CacheHits   int        `json:"cache_hits"`   // delta 缓存命中次数
-	CacheMisses int        `json:"cache_misses"` // delta 缓存未命中次数
-	AnswerChars int        `json:"answer_chars"` // 最终回答字符数
+	TraceID     string       `json:"trace_id"`
+	Time        string       `json:"ts"` // RFC3339
+	SessionID   string       `json:"session_id"`
+	Query       string       `json:"query"`
+	Images      int          `json:"images"` // 携带图片数
+	OK          bool         `json:"ok"`
+	Error       string       `json:"error,omitempty"`
+	TotalMS     int64        `json:"total_ms"`     // 请求总耗时
+	FirstTokMS  int64        `json:"first_tok_ms"` // 首 token 延迟（TTFT），0 = 未产生回答
+	LLMRounds   int          `json:"llm_rounds"`   // LLM 调用轮数
+	LLM         []LLMRound   `json:"llm,omitempty"`
+	Tools       []ToolCall   `json:"tools,omitempty"`
+	Compact     *CompactInfo `json:"compact,omitempty"` // 本次请求触发的上下文压缩
+	CacheHits   int          `json:"cache_hits"`        // delta 缓存命中次数
+	CacheMisses int          `json:"cache_misses"`      // delta 缓存未命中次数
+	AnswerChars int          `json:"answer_chars"`      // 最终回答字符数
 }
 
 // Span 请求级 trace 累积器。Agent 在请求入口 Start，结束时 End 落盘；
@@ -93,6 +102,7 @@ type Span struct {
 	firstChunk time.Time
 	llm        []LLMRound
 	tools      []ToolCall
+	compact    *CompactInfo
 	cacheHits  int
 	cacheMiss  int
 	answer     int // 回答字符数
@@ -200,6 +210,16 @@ func (s *Span) NoteCacheMiss() {
 	s.cacheMiss++
 }
 
+// NoteCompact 记录一次上下文压缩（token 预算超限触发）
+func (s *Span) NoteCompact(messages, before, after int, ms int64) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.compact = &CompactInfo{Messages: messages, Before: before, After: after, MS: ms}
+}
+
 // AnswerChars 记录最终回答的字符数
 func (s *Span) AnswerChars(n int) {
 	if s == nil {
@@ -228,6 +248,7 @@ func (s *Span) End(errMsg string) {
 		LLMRounds:   len(s.llm),
 		LLM:         s.llm,
 		Tools:       s.tools,
+		Compact:     s.compact,
 		CacheHits:   s.cacheHits,
 		CacheMisses: s.cacheMiss,
 		AnswerChars: s.answer,

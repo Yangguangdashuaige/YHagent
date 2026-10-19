@@ -241,6 +241,10 @@
         if (tok) chips.push('<span class="chip">' + tok.toLocaleString() + " tokens</span>");
       }
       if (toolCount) chips.push('<span class="chip">工具 ' + toolCount + " 次</span>");
+      if (t.compact) {
+        chips.push('<span class="chip warn">压缩 ' + t.compact.messages + '条 ' +
+          (t.compact.before || 0).toLocaleString() + "→" + (t.compact.after || 0).toLocaleString() + " tok</span>");
+      }
       if (t.cache_hits || t.cache_misses) {
         chips.push('<span class="chip ok">缓存命中 ' + t.cache_hits + "/" + (t.cache_hits + t.cache_misses) + "</span>");
       }

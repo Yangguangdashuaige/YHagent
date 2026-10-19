@@ -116,6 +116,15 @@ func main() {
 			keepDays = n
 		}
 	}
+	// 会话上下文 token 预算：超限触发滚动摘要压缩（不配置则维持固定 20 条窗口）
+	if v := os.Getenv("SESSION_TOKEN_BUDGET"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			ai.SessionTokenBudget = n
+		}
+	}
+	if ai.SessionTokenBudget > 0 {
+		log.Printf("[server] 会话上下文 token 预算 %d（超限触发滚动摘要压缩）", ai.SessionTokenBudget)
+	}
 	trace.Default = trace.NewRecorder(traceDir, keepDays)
 	if trace.Default != nil {
 		defer trace.Default.Close()
