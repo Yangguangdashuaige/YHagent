@@ -66,6 +66,7 @@
       background: rgba(255,255,255,0.07); color: #b9c2d6; white-space: nowrap;
     }
     .chip.warn { background: rgba(255,190,80,0.15); color: #ffcf7d; }
+    .chip.plan { background: rgba(130,170,255,0.16); color: #a8c4ff; }
     .chip.err  { background: rgba(255,90,90,0.15);  color: #ff9c9c; }
     .chip.ok   { background: rgba(80,220,130,0.13); color: #7de2a5; }
 
@@ -240,6 +241,7 @@
         const tok = t.llm.reduce((s, r) => s + (r.total_tokens || 0), 0);
         if (tok) chips.push('<span class="chip">' + tok.toLocaleString() + " tokens</span>");
       }
+      if (t.mode === "plan") chips.push('<span class="chip plan">规划式</span>');
       if (toolCount) chips.push('<span class="chip">工具 ' + toolCount + " 次</span>");
       if (t.compact) {
         chips.push('<span class="chip warn">压缩 ' + t.compact.messages + '条 ' +
@@ -292,7 +294,7 @@
               ? '<span class="pass">命中</span>'
               : '<span class="fail">未命中</span>';
             return (
-              "<tr><td class='num'>" + c.round + "</td><td>" + escapeHtml(c.name) + "</td>" +
+              "<tr><td class='num'>" + (c.round > 0 ? c.round : "计划") + "</td><td>" + escapeHtml(c.name) + "</td>" +
               "<td class='num'>" + fmtMS(c.ms) + "</td>" +
               "<td class='num'>" + (c.result_bytes || 0).toLocaleString() + " B</td>" +
               "<td>" + cache + "</td>" +

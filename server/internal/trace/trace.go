@@ -74,7 +74,8 @@ type Record struct {
 	Time        string       `json:"ts"` // RFC3339
 	SessionID   string       `json:"session_id"`
 	Query       string       `json:"query"`
-	Images      int          `json:"images"` // 携带图片数
+	Mode        string       `json:"mode,omitempty"` // 执行范式：reactive（反应式）/ plan（规划式，调用了 plan_and_execute）
+	Images      int          `json:"images"`         // 携带图片数
 	OK          bool         `json:"ok"`
 	Error       string       `json:"error,omitempty"`
 	TotalMS     int64        `json:"total_ms"`     // 请求总耗时
@@ -103,6 +104,7 @@ type Span struct {
 	llm        []LLMRound
 	tools      []ToolCall
 	compact    *CompactInfo
+	mode       string
 	cacheHits  int
 	cacheMiss  int
 	answer     int // 回答字符数
@@ -210,6 +212,16 @@ func (s *Span) NoteCacheMiss() {
 	s.cacheMiss++
 }
 
+// NoteMode 标记执行范式（reactive / plan），观测页按此分组对比两种模式
+func (s *Span) NoteMode(mode string) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.mode = mode
+}
+
 // NoteCompact 记录一次上下文压缩（token 预算超限触发）
 func (s *Span) NoteCompact(messages, before, after int, ms int64) {
 	if s == nil {
@@ -241,6 +253,7 @@ func (s *Span) End(errMsg string) {
 		Time:        s.start.Format(time.RFC3339),
 		SessionID:   s.sessionID,
 		Query:       s.query,
+		Mode:        s.mode,
 		Images:      s.images,
 		OK:          errMsg == "",
 		Error:       errMsg,

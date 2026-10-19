@@ -101,6 +101,13 @@ func main() {
 	)
 	websearch.RegisterTool(agent.Tools(), webClient)
 
+	// 3.2b Plan-and-Execute 元工具（可选）：对比/多实体类任务由模型自主选择
+	// 一次性下发计划并行执行；默认关闭，AGENT_PLAN_TOOL=1 启用（A/B 对比实验开关）
+	if os.Getenv("AGENT_PLAN_TOOL") == "1" {
+		agent.EnablePlanTool()
+		log.Printf("[server] plan_and_execute 元工具已启用（模型可选的规划式执行模式）")
+	}
+
 	// 3.3 联网知识采纳入库服务：候选摘要经 AI 整理成 md 后写入补充索引
 	var ingester server.Ingester
 	if extraStore != nil {

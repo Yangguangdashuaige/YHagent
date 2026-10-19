@@ -156,6 +156,7 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 	}
 	// 请求级 trace：记录 LLM 轮次/usage、工具耗时、缓存命中、总延迟（Recorder 未启用时 span 为 nil，全 no-op）
 	span := trace.Start(sessionID, userText, len(images))
+	span.NoteMode("reactive") // 默认反应式；调 plan_and_execute 后升级为 plan
 	ctx = trace.WithSpan(ctx, span)
 	defer func() {
 		if retErr != nil {
@@ -215,6 +216,14 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 
 		// 模型要求调工具：先把“助手发起的工具调用”写进上下文
 		session.append(NewAssistantToolCallMessage(pendingCalls))
+		// 执行模式标记：调用了 plan_and_execute 元工具 = 规划式，否则 = 反应式
+		// （trace 观测页按 mode 分组，两种范式的轮数/延迟/token 对比由此而来）
+		for _, call := range pendingCalls {
+			if call.Function.Name == planToolName {
+				span.NoteMode("plan")
+				break
+			}
+		}
 
 		// 同一轮的多个工具调用并行执行（模型只在无依赖时才同轮多调），
 		// 耗时从串行累加变为取最大值；结果按调用顺序回传，
