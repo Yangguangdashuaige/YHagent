@@ -86,6 +86,7 @@ type Record struct {
 	Compact     *CompactInfo `json:"compact,omitempty"` // 本次请求触发的上下文压缩
 	CacheHits   int          `json:"cache_hits"`        // delta 缓存命中次数
 	CacheMisses int          `json:"cache_misses"`      // delta 缓存未命中次数
+	StaleServed int          `json:"stale_served"`      // 上游失败回吐过期缓存次数
 	AnswerChars int          `json:"answer_chars"`      // 最终回答字符数
 }
 
@@ -93,21 +94,22 @@ type Record struct {
 // 中间各埋点通过 context 拿到 Span（可能为 nil，全部方法 nil 安全）。
 // 同轮多个工具并行执行时会并发调用各记录方法，内部用互斥锁保证安全。
 type Span struct {
-	mu         sync.Mutex
-	rec        *Recorder
-	traceID    string
-	sessionID  string
-	query      string
-	images     int
-	start      time.Time
-	firstChunk time.Time
-	llm        []LLMRound
-	tools      []ToolCall
-	compact    *CompactInfo
-	mode       string
-	cacheHits  int
-	cacheMiss  int
-	answer     int // 回答字符数
+	mu          sync.Mutex
+	rec         *Recorder
+	traceID     string
+	sessionID   string
+	query       string
+	images      int
+	start       time.Time
+	firstChunk  time.Time
+	llm         []LLMRound
+	tools       []ToolCall
+	compact     *CompactInfo
+	mode        string
+	cacheHits   int
+	cacheMiss   int
+	staleServed int
+	answer      int // 回答字符数
 }
 
 type spanKey struct{}
@@ -212,6 +214,16 @@ func (s *Span) NoteCacheMiss() {
 	s.cacheMiss++
 }
 
+// NoteStaleServed 上游失败回吐过期缓存（stale-while-error）时记录
+func (s *Span) NoteStaleServed() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.staleServed++
+}
+
 // NoteMode 标记执行范式（reactive / plan），观测页按此分组对比两种模式
 func (s *Span) NoteMode(mode string) {
 	if s == nil {
@@ -264,6 +276,7 @@ func (s *Span) End(errMsg string) {
 		Compact:     s.compact,
 		CacheHits:   s.cacheHits,
 		CacheMisses: s.cacheMiss,
+		StaleServed: s.staleServed,
 		AnswerChars: s.answer,
 	}
 	if !s.firstChunk.IsZero() {

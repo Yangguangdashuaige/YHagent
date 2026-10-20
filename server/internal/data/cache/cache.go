@@ -83,7 +83,21 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 	return it.value, true
 }
 
-// Delete 删除指定缓存
+// GetStale 返回条目即使已过期（stale-while-error 兜底用）：
+// 上游接口失败时回吐过期数据远好于直接报错——价格/密码这类数据
+// "10 分钟前的值"几乎总是好于"没有值"。返回值标注是否已过期。
+func (c *Cache) GetStale(key string) (interface{}, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	it, ok := c.items[key]
+	if !ok {
+		return nil, false
+	}
+	it.lastAccess = time.Now()
+	return it.value, true
+}
+
+// Delete 删除缓存条目
 func (c *Cache) Delete(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

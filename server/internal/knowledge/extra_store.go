@@ -210,7 +210,24 @@ func (e *ExtraStore) AddDocument(ctx context.Context, source, markdown string, e
 		if end > len(texts) {
 			end = len(texts)
 		}
-		vecs, err := embedder.CreateEmbedding(ctx, texts[start:end])
+		// 单批重试一次（对齐 indexer 的 embedWithRetry 策略）：
+		// 偶发网络抖动/限流不该让一整次入库（含前面已成功的批次）作废
+		var vecs [][]float32
+		var err error
+		for attempt := 0; attempt < 2; attempt++ {
+			vecs, err = embedder.CreateEmbedding(ctx, texts[start:end])
+			if err == nil {
+				break
+			}
+			if attempt == 0 && ctx.Err() == nil {
+				log.Printf("[extrastore] 入库向量化失败（%v），3秒后重试该批次", err)
+				select {
+				case <-time.After(3 * time.Second):
+				case <-ctx.Done():
+					return 0, fmt.Errorf("入库向量化失败: %w", err)
+				}
+			}
+		}
 		if err != nil {
 			return 0, fmt.Errorf("入库向量化失败: %w", err)
 		}

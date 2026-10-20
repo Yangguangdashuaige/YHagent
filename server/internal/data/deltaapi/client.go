@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -205,6 +206,20 @@ func (c *Client) doGet(ctx context.Context, apiPath string, query url.Values, tt
 			trace.FromContext(ctx).NoteCacheHit()
 		} else {
 			trace.FromContext(ctx).NoteCacheMiss()
+		}
+		return data, nil
+	}
+	// stale-while-error：上游失败时回吐过期缓存数据（若曾缓存过），
+	// 标注数据可能滞后——"10 分钟前的价格"几乎总是好于"查询失败"。
+	// 注：Get 正常路径过期即删，此处能拿到的一定是并发窗口内未清理的条目，
+	// 因此直接用 GetStale 尝试，拿到即用
+	if ttl > 0 && c.memCache != nil {
+		if stale, ok := c.memCache.GetStale(cacheKey); ok {
+			if raw, ok := stale.(json.RawMessage); ok && len(raw) > 0 {
+				log.Printf("[deltaapi] 上游失败（%v），回吐过期缓存: %s", err, apiPath)
+				trace.FromContext(ctx).NoteStaleServed()
+				return json.RawMessage(fmt.Sprintf(`{"_stale":true,"_note":"数据源暂时不可用，以下为缓存的历史数据","data":%s}`, raw)), nil
+			}
 		}
 	}
 	return data, err

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"yhagent-server/internal/ai"
@@ -29,7 +30,43 @@ const (
 	// 超时/失败回退 RRF 原序（eval 实测深度 30 时目标召回 100%）
 	rerankDepth   = 30
 	rerankTimeout = 8 * time.Second
+	// 重排熔断：连续失败 3 次后熔断 10 分钟（跳过重排直接 RRF 序）。
+	// 典型场景是免费额度到期/服务故障——不熔断的话每次检索都要白等
+	// 8s 超时才回退，P99 延迟翻倍；熔断期内自动走"关闭重排"路径
+	rerankBreakerThreshold = 3
+	rerankBreakerCooldown  = 10 * time.Minute
 )
+
+// rerankBreaker 重排服务熔断器（进程级，包内单实例即可——重排服务全局唯一）
+type rerankBreaker struct {
+	mu      sync.Mutex
+	fails   int       // 连续失败计数（成功即清零）
+	openTil time.Time // 熔断截止时间；now 在 openTil 之前 = 熔断中
+}
+
+func (b *rerankBreaker) allow() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return time.Now().After(b.openTil)
+}
+
+func (b *rerankBreaker) recordSuccess() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.fails = 0
+}
+
+func (b *rerankBreaker) recordFailure() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.fails++
+	if b.fails >= rerankBreakerThreshold {
+		b.openTil = time.Now().Add(rerankBreakerCooldown)
+		log.Printf("[knowledge] 重排连续失败 %d 次，熔断 %s（期间直接走 RRF 原序）", b.fails, rerankBreakerCooldown)
+	}
+}
+
+var breaker rerankBreaker
 
 // RegisterTool 向工具注册中心注册知识库检索工具。reranker 可为 nil（不重排）
 func RegisterTool(reg *ai.Registry, store Searcher, embedder Embedder, reranker ai.Reranker) {
@@ -71,22 +108,28 @@ func NewSearchTool(store Searcher, embedder Embedder, reranker ai.Reranker) *ai.
 			}
 
 			vecs, err := embedder.CreateEmbedding(ctx, []string{args.Query})
-			if err != nil {
-				return nil, fmt.Errorf("向量化失败: %w", err)
-			}
-			if len(vecs) != 1 {
-				return nil, fmt.Errorf("向量化返回异常：得到 %d 条向量", len(vecs))
+			var queryVec Vec32
+			if err != nil || len(vecs) != 1 {
+				// 向量化失败降级纯 BM25 检索（关键词通道不依赖向量服务）：
+				// 混合检索架构天然提供了这条逃生通道，Embedding API 抖动时
+				// 检索可用性不受影响，只是丢失语义泛化能力
+				log.Printf("[knowledge] 查询向量化失败（%v），降级纯 BM25 检索", err)
+				queryVec = nil
+			} else {
+				queryVec = Vec32(vecs[0])
 			}
 
 			// 向量 + BM25 双通道 RRF 混合检索（数字类查询 BM25 等权，
 			// 纯语义查询降权纠偏，见 store.go SearchHybrid）。
-			// 启用重排时先取 rerankDepth 个候选，重排后截断到 k
+			// 启用重排且未熔断时先取 rerankDepth 个候选，重排后截断到 k；
+			// 熔断期内（连续失败/额度到期）直接跳过重排走 RRF 原序
 			depth := k
-			if reranker != nil {
+			rerankOn := reranker != nil && breaker.allow()
+			if rerankOn {
 				depth = rerankDepth
 			}
-			hits := store.SearchHybrid(Vec32(vecs[0]), args.Query, depth)
-			if reranker != nil && len(hits) > 0 {
+			hits := store.SearchHybrid(queryVec, args.Query, depth)
+			if rerankOn && len(hits) > 0 {
 				docs := make([]ai.RerankDoc, len(hits))
 				for i, h := range hits {
 					docs[i] = ai.RerankDoc{Title: h.Chunk.Title, Content: h.Chunk.Content}
@@ -95,11 +138,14 @@ func NewSearchTool(store Searcher, embedder Embedder, reranker ai.Reranker) *ai.
 				scores, err := reranker.Rerank(rctx, args.Query, docs)
 				cancel()
 				if err != nil {
-					// 回退 RRF 原序，检索可用性不受重排服务影响
+					// 回退 RRF 原序，检索可用性不受重排服务影响；累计失败供熔断判定
 					log.Printf("[knowledge] 重排失败（%s），回退混合检索原序: %v", reranker.Name(), err)
+					breaker.recordFailure()
 				} else if len(scores) != len(hits) {
 					log.Printf("[knowledge] 重排返回 %d 分数与 %d 候选不一致，回退原序", len(scores), len(hits))
+					breaker.recordFailure()
 				} else {
+					breaker.recordSuccess()
 					reordered := make([]Hit, len(hits))
 					for pos, i := range ai.SortDocsByScore(scores) {
 						h := hits[i]

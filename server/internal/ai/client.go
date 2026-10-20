@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -58,9 +59,26 @@ func (c *SeedClient) ChatStream(
 		}),
 	}
 
+	// 流建立重试：请求发出前的失败（网络抖动/限流/网关 5xx）零副作用，
+	// 安全重试一次可救回大部分瞬时故障；2s 退避后再试。
+	// 注意：只有"流还没建立"这一窗口可重试——一旦开始收 chunk，
+	// 输出已部分交给调用方（打字机已播报），中途重试会导致内容重复。
 	stream, err := c.client.CreateChatCompletionStream(ctx, &req)
 	if err != nil {
-		return fmt.Errorf("豆包API调用失败: %w", err)
+		if ctx.Err() == nil {
+			log.Printf("[ai] 豆包流建立失败（%v），2秒后重试一次", err)
+			select {
+			case <-time.After(2 * time.Second):
+			case <-ctx.Done():
+				return fmt.Errorf("豆包API调用失败: %w", err)
+			}
+			if ctx.Err() == nil {
+				stream, err = c.client.CreateChatCompletionStream(ctx, &req)
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("豆包API调用失败: %w", err)
+		}
 	}
 	defer stream.Close()
 	// 流式工具调用累积器：key使用int32匹配chunk.Index类型，value使用chunk类型累积
