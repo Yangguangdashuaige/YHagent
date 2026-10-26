@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -46,8 +47,27 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-// NewSession 生成一个会话ID，前端首次启动时调用并自行保存在 localStorage
+// newSessionTimeout 服务端签发会话ID的超时：签发接口极廉价，10s 只可能是网络问题
+const newSessionTimeout = 10 * time.Second
+
+// sessionMinter 由 internal/remote.Client 实现（接口在使用处声明，按需断言）
+type sessionMinter interface {
+	NewSession(ctx context.Context) (string, error)
+}
+
+// NewSession 返回会话ID：优先由服务端签发（服务端做格式白名单校验，
+// 防止自造ID撞号越权）；服务不可达时兜底为本地 UUID v4——服务端过渡期
+// 仍接受该格式，不阻塞进入界面，真正发消息时若网络不通会有明确错误。
 func (a *App) NewSession() string {
+	if m, ok := a.chat.(sessionMinter); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), newSessionTimeout)
+		defer cancel()
+		if id, err := m.NewSession(ctx); err == nil && id != "" {
+			return id
+		} else if err != nil {
+			log.Printf("[app] 服务端签发会话ID失败，回退本地UUIDv4: %v", err)
+		}
+	}
 	return uuid.NewString()
 }
 

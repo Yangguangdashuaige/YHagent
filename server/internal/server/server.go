@@ -73,6 +73,19 @@ type Config struct {
 	// Tracer 请求级 trace 记录器（internal/trace）；nil 时 /v1/traces 查看接口关闭。
 	// trace 写入本身在 Agent 内部完成，此处只用于查看端读取。
 	Tracer *trace.Recorder
+	// MaxConcurrentChat /v1/chat 全局在途对话上限（并发闸门），<=0 用默认值 16。
+	// 把上游 LLM 并发成本钉死在可预期范围，满了快速返回 503 而非排队拖死。
+	MaxConcurrentChat int
+	// ChatRPMPerIP 单 IP 每分钟对话类请求（chat/会话签发/重置）上限，<=0 用默认值 30。
+	ChatRPMPerIP int
+}
+
+// errInvalidSession 会话标识非法时的统一响应体（前端据 code 自动重新签发并重试）
+func errInvalidSession() map[string]string {
+	return map[string]string{
+		"error": "会话已失效，请重新开始对话",
+		"code":  "invalid_session",
+	}
 }
 
 // IngestSource 采纳请求里的引用来源
@@ -107,8 +120,24 @@ type Ingester interface {
 
 // Server HTTP 服务
 type Server struct {
-	cfg  Config
-	http *http.Server
+	cfg     Config
+	http    *http.Server
+	gate    *chatGate  // /v1/chat 全局并发闸门
+	limiter *ipLimiter // 对话类接口按 IP 限流
+}
+
+// withRateLimit 对话类接口的按 IP 限流中间件（超阈返回 429）
+func (s *Server) withRateLimit(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if s.limiter != nil && !s.limiter.allow(clientIP(r)) {
+			w.Header().Set("Retry-After", "60")
+			writeJSON(w, http.StatusTooManyRequests, map[string]string{
+				"error": "请求过于频繁，请稍候再试",
+			})
+			return
+		}
+		next(w, r)
+	}
 }
 
 // New 创建服务端实例，token 为空时返回错误（避免把自己的服务器变成开放代理）
@@ -122,12 +151,21 @@ func New(cfg Config) (*Server, error) {
 	if cfg.Addr == "" {
 		cfg.Addr = ":8080"
 	}
-	s := &Server{cfg: cfg}
+	s := &Server{
+		cfg:  cfg,
+		gate: newChatGate(cfg.MaxConcurrentChat),
+	}
+	// ChatRPMPerIP：0=默认阈值；负数=显式关闭限流
+	if cfg.ChatRPMPerIP >= 0 {
+		s.limiter = newIPLimiter(cfg.ChatRPMPerIP)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.handleHealth)
-	mux.HandleFunc("POST /v1/chat", s.withAuth(s.handleChat))
-	mux.HandleFunc("POST /v1/session/reset", s.withAuth(s.handleReset))
+	// 对话类三件套统一叠加鉴权 + 按 IP 限流（中间件从外到内：先鉴权再限流）
+	mux.HandleFunc("POST /v1/chat", s.withAuth(s.withRateLimit(s.handleChat)))
+	mux.HandleFunc("POST /v1/session/new", s.withAuth(s.withRateLimit(s.handleNewSession)))
+	mux.HandleFunc("POST /v1/session/reset", s.withAuth(s.withRateLimit(s.handleReset)))
 	mux.HandleFunc("POST /v1/knowledge/ingest", s.withAuth(s.handleKnowledgeIngest))
 	// 请求级 trace 查看接口（调用链路观测，需管理员口令，见 handleTraces）
 	mux.HandleFunc("GET /v1/traces", s.withAuth(s.handleTraces))
@@ -248,6 +286,22 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "缺少会话ID"})
 		return
 	}
+	// 会话标识必须来自服务端签发或历史 UUID v4：挡掉任意字符串撞号越权。
+	// 必须在写出 SSE 200 头之前以普通 JSON 400 返回，前端识别 code 后自动换新 ID 重试。
+	if !validSessionID(req.SessionID) {
+		writeJSON(w, http.StatusBadRequest, errInvalidSession())
+		return
+	}
+	// 全局并发闸门：满员快速失败（503 + Retry-After），不占着连接排队，
+	// 也防止流量尖峰把上游 LLM RPM 配额与本机内存一起打爆。
+	if !s.gate.tryAcquire() {
+		w.Header().Set("Retry-After", "5")
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"error": "当前咨询人数较多，请稍后再试",
+		})
+		return
+	}
+	defer s.gate.release()
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -353,7 +407,20 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "缺少会话ID"})
 		return
 	}
-	s.cfg.Chat.Reset(req.SessionID)
+	if !validSessionID(req.SessionID) {
+		// 非法 ID 无需重置：直接按成功返回，避免向调用方确认 ID 是否存在
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		return
+	}
+	if err := s.cfg.Chat.Reset(req.SessionID); err != nil {
+		if errors.Is(err, ai.ErrSessionBusy) {
+			// 会话正在问答中：告诉客户端稍后重试，别在流式输出期间清空历史
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "对话正在进行中，请稍后再清空"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "清空会话失败"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

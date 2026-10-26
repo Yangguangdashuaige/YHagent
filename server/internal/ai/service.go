@@ -18,6 +18,6 @@ type ChatService interface {
 	// images 为 data URL（data:image/jpeg;base64,...），无图片时传 nil。
 	ChatWithSessionImages(ctx context.Context, sessionID, userText string, images []string, onChunk func(content string)) error
 
-	// Reset 清空指定会话的历史上下文。
-	Reset(sessionID string)
+	// Reset 清空指定会话的历史上下文。会话正在问答中时返回 ErrSessionBusy。
+	Reset(sessionID string) error
 }

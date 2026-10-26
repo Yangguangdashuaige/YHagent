@@ -105,6 +105,37 @@ func (c *Client) ChatWithSessionImages(ctx context.Context, sessionID, userText 
 	return parseSSE(resp.Body, onChunk)
 }
 
+// NewSession 向服务端申请签发会话ID（sess_ 前缀 + 128bit 随机）。
+// 服务端对会话ID有格式白名单（签发格式/历史UUIDv4），新客户端统一走签发，
+// 避免客户端自造 ID 撞号读到他人会话上下文。失败由上层决定是否本地兜底。
+func (c *Client) NewSession(ctx context.Context) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/v1/session/new", nil)
+	if err != nil {
+		return "", fmt.Errorf("构造会话签发请求失败: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", errors.New("无法连接远端AI服务，请检查网络或服务地址后稍后再试")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("会话签发失败（HTTP %d）", resp.StatusCode)
+	}
+
+	var env struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<10)).Decode(&env); err != nil {
+		return "", fmt.Errorf("会话签发响应解析失败: %w", err)
+	}
+	if env.SessionID == "" {
+		return "", errors.New("会话签发响应缺少 session_id")
+	}
+	return env.SessionID, nil
+}
+
 // Reset 实现 ai.ChatService：通知服务器清空指定会话上下文（失败只记日志，不打断 UI）
 func (c *Client) Reset(sessionID string) {
 	if sessionID == "" {

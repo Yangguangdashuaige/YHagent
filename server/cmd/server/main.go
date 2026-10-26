@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -150,14 +151,34 @@ func main() {
 	if err != nil {
 		log.Fatalf("网页资源加载失败: %v", err)
 	}
+	// 入口保护（可选环境变量，留空走内置默认值）：
+	// CHAT_MAX_CONCURRENT 全局在途对话上限（默认 16）；CHAT_RPM_PER_IP 单 IP 每分钟请求上限（默认 30，=0 可关）
+	maxConcurrent, rpmPerIP := 0, 0
+	if v := os.Getenv("CHAT_MAX_CONCURRENT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxConcurrent = n
+		}
+	}
+	// 显式 =0 表示关闭按 IP 限流（配置值映射为 -1 传入）；不配置则为 0 走默认阈值
+	if raw, ok := os.LookupEnv("CHAT_RPM_PER_IP"); ok {
+		if n, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && n >= 0 {
+			if n == 0 {
+				rpmPerIP = -1
+			} else {
+				rpmPerIP = n
+			}
+		}
+	}
 	srv, err := server.New(server.Config{
-		Addr:       os.Getenv("SERVER_ADDR"),
-		Token:      os.Getenv("SERVER_TOKEN"),
-		Chat:       agent,
-		Web:        webFS,
-		AdminToken: os.Getenv("ADMIN_TOKEN"),
-		Ingester:   ingester,
-		Tracer:     trace.Default,
+		Addr:              os.Getenv("SERVER_ADDR"),
+		Token:             os.Getenv("SERVER_TOKEN"),
+		Chat:              agent,
+		Web:               webFS,
+		AdminToken:        os.Getenv("ADMIN_TOKEN"),
+		Ingester:          ingester,
+		Tracer:            trace.Default,
+		MaxConcurrentChat: maxConcurrent,
+		ChatRPMPerIP:      rpmPerIP,
 	})
 	if err != nil {
 		log.Fatalf("服务初始化失败: %v", err)

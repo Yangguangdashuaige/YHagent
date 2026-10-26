@@ -61,18 +61,48 @@ function authHeaders(extra) {
   );
 }
 
-// 网页版没有 Wails 的 NewSession 绑定，会话ID本地生成（优先用浏览器原生 UUID）
-function ensureSessionId() {
-  let id = localStorage.getItem(SESSION_KEY);
-  if (id) return id;
-  if (window.crypto && crypto.randomUUID) {
-    id = crypto.randomUUID();
-  } else {
-    id =
-      Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+// 会话ID由服务端签发（POST /v1/session/new，128bit 随机，sess_ 前缀）。
+// 本地不再自行生成 ID——服务端只接受签发格式与历史 UUIDv4，
+// 杜绝有人故意填 "default"/顺序号去碰撞他人会话上下文。
+let sessionIdPromise = null;
+
+// 向服务端申请一个新会话ID并落本地存储
+async function mintSessionId() {
+  const resp = await fetch("/v1/session/new", {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (resp.status === 401) {
+    localStorage.removeItem(TOKEN_KEY);
+    showLogin("访问码无效或已过期，请重新输入");
+    throw new Error("访问码无效，请重新登录");
   }
-  localStorage.setItem(SESSION_KEY, id);
-  return id;
+  if (!resp.ok) throw new Error("会话初始化失败，请稍后再试");
+  const j = await resp.json();
+  if (!j || !j.session_id) throw new Error("会话初始化失败，请稍后再试");
+  localStorage.setItem(SESSION_KEY, j.session_id);
+  return j.session_id;
+}
+
+// 获取当前会话ID（Promise 缓存，整页生命周期只签发一次）；
+// 签发失败时清掉 rejected 缓存，下次调用可重新尝试，不会一次失败永久卡死。
+function ensureSessionId() {
+  if (!sessionIdPromise) {
+    const cached = localStorage.getItem(SESSION_KEY);
+    const p = cached ? Promise.resolve(cached) : mintSessionId();
+    sessionIdPromise = p.catch((e) => {
+      sessionIdPromise = null;
+      throw e;
+    });
+  }
+  return sessionIdPromise;
+}
+
+// 强制换发新会话ID：清空对话后、或服务端判定旧ID失效（invalid_session）时调用
+async function refreshSessionId() {
+  sessionIdPromise = null;
+  localStorage.removeItem(SESSION_KEY);
+  return ensureSessionId();
 }
 
 function addMessage(role, text, images) {
@@ -244,10 +274,15 @@ function showLogin(msg) {
   tokenInput.focus();
 }
 
-function enterChat() {
+async function enterChat() {
   loginView.classList.add("hidden");
   chatView.classList.remove("hidden");
-  ensureSessionId();
+  // 进界面即签发会话ID；网络不通时不阻塞（发消息时会再试并给出具体错误）
+  try {
+    await ensureSessionId();
+  } catch (e) {
+    /* 忽略：发送时还有一次获取/报错路径 */
+  }
   inputEl.focus();
 }
 
@@ -287,11 +322,15 @@ async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool)
   }
   if (!resp.ok || !resp.body) {
     let msg = "服务异常，请稍后再试";
+    let code = "";
     try {
       const j = await resp.json();
       if (j.error) msg = j.error;
+      if (j.code) code = j.code;
     } catch (_) {}
-    throw new Error(msg);
+    const err = new Error(msg);
+    if (code) err.code = code; // 如 invalid_session：调用方据此换新会话ID自动重试
+    throw err;
   }
 
   const reader = resp.body.getReader();
@@ -333,10 +372,12 @@ async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool)
 
 async function resetSession() {
   try {
+    const sid = await ensureSessionId().catch(() => null);
+    if (!sid) return;
     await fetch("/v1/session/reset", {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ session_id: ensureSessionId() }),
+      body: JSON.stringify({ session_id: sid }),
     });
   } catch (e) {
     /* 清空本地上下文即可，重置失败不阻塞界面 */
@@ -895,24 +936,40 @@ async function send() {
   const candidates = [];
 
   try {
-    await streamChat(
-      ensureSessionId(),
-      text,
-      images,
-      (chunk) => {
-        answerText += chunk;
-        textSpan.innerHTML = escapeHtml(answerText).replace(/\n/g, "<br>");
-        scrollToBottom();
-      },
-      (cand) => {
-        // 同一次搜索可能重复推送，按 搜索词+摘要 去重
-        const dup = candidates.some(
-          (c) => c.query === cand.query && c.summary === cand.summary
-        );
-        if (!dup) candidates.push(cand);
-      },
-      status.onTool
-    );
+    // 抽出单次执行体：旧会话ID失效（服务端重启/脏ID，HTTP 400 code=invalid_session）
+    // 时换发新ID自动重试一次，全程用户无感；400 发生在 SSE 建连前，无重复出字风险
+    const streamOnce = (sid) =>
+      streamChat(
+        sid,
+        text,
+        images,
+        (chunk) => {
+          answerText += chunk;
+          textSpan.innerHTML = escapeHtml(answerText).replace(/\n/g, "<br>");
+          scrollToBottom();
+        },
+        (cand) => {
+          // 同一次搜索可能重复推送，按 搜索词+摘要 去重
+          const dup = candidates.some(
+            (c) => c.query === cand.query && c.summary === cand.summary
+          );
+          if (!dup) candidates.push(cand);
+        },
+        status.onTool
+      );
+
+    let sid;
+    try {
+      sid = await ensureSessionId();
+      await streamOnce(sid);
+    } catch (e) {
+      if (e && e.code === "invalid_session") {
+        sid = await refreshSessionId();
+        await streamOnce(sid);
+      } else {
+        throw e;
+      }
+    }
     status.remove(); // 结束后才移除：保留各工具完成耗时供玩家回看
     if (!answerText) {
       textSpan.textContent = "（没有收到回复内容，请再试一次）";
@@ -979,8 +1036,8 @@ inputEl.addEventListener("input", () => {
 // 清空对话：同时清掉服务端会话上下文，并本地换新会话ID
 clearBtn.addEventListener("click", async () => {
   await resetSession();
-  localStorage.removeItem(SESSION_KEY);
-  ensureSessionId();
+  // 本地换发服务端签发的新会话ID（旧上下文随服务端空闲过期自动回收）
+  await refreshSessionId().catch(() => {});
   messagesEl.innerHTML = "";
   addMessage(
     "assistant",

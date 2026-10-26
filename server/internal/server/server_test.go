@@ -20,7 +20,7 @@ func (stubChat) ChatWithSession(ctx context.Context, sessionID, userText string,
 func (stubChat) ChatWithSessionImages(ctx context.Context, sessionID, userText string, images []string, onChunk func(string)) error {
 	return nil
 }
-func (stubChat) Reset(sessionID string) {}
+func (stubChat) Reset(sessionID string) error { return nil }
 
 // 编译期确认 stubChat 满足 ChatService 接口
 var _ ai.ChatService = stubChat{}

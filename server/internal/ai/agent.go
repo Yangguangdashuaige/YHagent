@@ -105,12 +105,22 @@ func (a *Agent) Tools() *Registry {
 	return a.tools
 }
 
-// Reset 清空指定会话的历史上下文
-func (a *Agent) Reset(sessionID string) {
+// ErrSessionBusy 同一会话已有一轮对话在进行中（并发请求被快速拒绝，避免历史写花）
+var ErrSessionBusy = errors.New("该会话正在处理上一条请求，请稍候再试")
+
+// Reset 清空指定会话的历史上下文。会话正在问答中时返回 ErrSessionBusy，
+// 由上层决定是排队还是返回 409——重置与问答并发会直接撕裂消息序列。
+func (a *Agent) Reset(sessionID string) error {
 	if sessionID == "" {
 		sessionID = defaultSessionID
 	}
-	a.sessions.GetOrCreate(sessionID, a.systemPrompt).reset(a.systemPrompt)
+	sess := a.sessions.GetOrCreate(sessionID, a.systemPrompt)
+	if !sess.tryBeginTurn() {
+		return ErrSessionBusy
+	}
+	defer sess.endTurn()
+	sess.reset(a.systemPrompt)
+	return nil
 }
 
 // Chat 在默认会话中发起一轮带工具调用能力的流式对话
@@ -166,6 +176,13 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 		}
 	}()
 	session := a.sessions.GetOrCreate(sessionID, a.systemPrompt)
+	// 整轮互斥：同一会话的并发请求直接拒绝（SSE 错误事件推给前端），
+	// 杜绝两个请求交错追加历史导致 tool_calls/tool 消息配对错乱（API 400）。
+	if !session.tryBeginTurn() {
+		log.Printf("[agent] 会话 %s 忙，拒绝并发提问: %s", sessionID, previewArgs(userText))
+		return ErrSessionBusy
+	}
+	defer session.endTurn()
 	session.append(NewUserMessageWithImages(textForModel, images))
 	log.Printf("[agent] 会话 %s 收到提问（图片%d张）: %s", sessionID, len(images), previewArgs(userText))
 

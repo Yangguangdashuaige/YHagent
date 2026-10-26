@@ -19,16 +19,36 @@ const (
 	sessionIdleTTL = 2 * time.Hour
 	// sessionCleanupInterval 后台扫描过期会话的间隔
 	sessionCleanupInterval = 10 * time.Minute
+	// maxSessions 内存会话数硬上限：防止异常客户端不断换新 ID 导致 map 无限膨胀。
+	// 超出后新建会话时淘汰一个空闲会话（正在问答中的会话受轮转锁保护不会被淘汰）。
+	maxSessions = 5000
 )
 
 // Session 单个会话的完整对话上下文，同一 sessionID 的多轮提问共享同一份历史
 type Session struct {
-	mu                sync.Mutex
+	mu sync.Mutex
+	// turnMu 整轮对话（一次用户提问到最终回答落盘）级别的独占锁。
+	// mu 只保护单次切片读写；同一 sessionID 的两个并发请求若交错追加，
+	// tool_calls 与 tool 结果会错配（API 直接 400），因此整轮必须互斥。
+	// 两把锁分离：整轮持锁期间仍会多次调用 mu 的 Lock/Unlock，Go 互斥锁不可重入。
+	turnMu            sync.Mutex
 	id                string
 	messages          []chat.ChatCompletionRequestMessage
 	maxKeep           int // 除 system 消息外最多保留多少条
 	lastActive        time.Time
 	compactBackoffTil time.Time // 摘要压缩失败后的退避截止时间（期间跳过压缩）
+}
+
+// tryBeginTurn 尝试开始一整轮对话。已有一轮在跑时返回 false，
+// 调用方应立即拒绝请求（快速失败），而不是排队——排队会让后一个请求
+// 长时间挂起（单轮含工具轮询可能数分钟），SSE 客户端侧早已超时。
+func (s *Session) tryBeginTurn() bool {
+	return s.turnMu.TryLock()
+}
+
+// endTurn 结束整轮对话，释放轮转锁
+func (s *Session) endTurn() {
+	s.turnMu.Unlock()
 }
 
 // newSession 创建会话并写入 system 消息
@@ -176,9 +196,29 @@ func (m *Manager) GetOrCreate(sessionID, systemPrompt string) *Session {
 	if s, ok = m.sessions[sessionID]; ok {
 		return s
 	}
+	if len(m.sessions) >= maxSessions {
+		m.evictOneIdleLocked()
+	}
 	s = newSession(sessionID, systemPrompt)
 	m.sessions[sessionID] = s
 	return s
+}
+
+// evictOneLocked 在会话数达到上限时淘汰一个空闲会话。
+// 用 tryBeginTurn 探测：抢不到轮转锁说明该会话正在问答中，跳过它找下一个；
+// 抢到说明空闲（此刻不会有别人能再拿到该 Session 指针之外的引用去发起新轮次——
+// 新建路径都在 m.mu 写锁内排队），立即释放并删除。极端情况下全部会话都在
+// 问答中则本次不淘汰，允许短暂超限（问答结束后随空闲清理回收）。
+func (m *Manager) evictOneIdleLocked() {
+	for id, s := range m.sessions {
+		if !s.tryBeginTurn() {
+			continue
+		}
+		s.endTurn()
+		delete(m.sessions, id)
+		log.Printf("[session] 会话数达到上限 %d，淘汰空闲会话 %s", maxSessions, id)
+		return
+	}
 }
 
 // Delete 清空并删除一个会话
