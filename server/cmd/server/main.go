@@ -31,6 +31,7 @@ import (
 	"yhagent-server/internal/config"
 	"yhagent-server/internal/data/cache"
 	"yhagent-server/internal/data/deltaapi"
+	"yhagent-server/internal/gunparts"
 	"yhagent-server/internal/ingest"
 	"yhagent-server/internal/knowledge"
 	"yhagent-server/internal/knowledge/embedded"
@@ -57,6 +58,15 @@ func main() {
 
 	agent := ai.NewAgent(aiClient)
 	deltaapi.RegisterTools(agent.Tools(), deltaClient)
+
+	// 3.2 改枪组合求解器：数据集 data/compat/gunparts.json 由 cmd/partssync 生成
+	//     （生成产物不入 git，需随部署包分发；缺失时工具不注册，其余功能不受影响）
+	if gp, err := gunparts.NewStore("data/compat/gunparts.json"); err != nil {
+		log.Printf("[server] 配件数据集加载失败，gun_combo_solve 未注册（运行 cmd/partssync 生成）: %v", err)
+	} else {
+		gunparts.RegisterTools(agent.Tools(), gp)
+		log.Printf("[server] 改枪组合求解器已启用：%d 把武器（数据版本 %s）", gp.WeaponCount(), gp.Version())
+	}
 
 	// 3.1 加载编译期嵌入的静态知识库主索引；再叠加运行时可写的补充知识库
 	//     （玩家确认采纳的联网知识存在 KB_EXTRA_DIR，默认 data/kb-extra，重启不丢）。
