@@ -29,7 +29,6 @@ package server
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -66,8 +65,9 @@ type Config struct {
 	// Web 网页版静态资源根（含 index.html）。传入后根路径提供网页入口；
 	// 传 nil 则只提供 /v1/* API（网页功能关闭）。
 	Web fs.FS
-	// AdminToken 管理员口令：把联网知识确认入库需要 X-Admin-Token。
-	// 留空则采纳接口直接关闭（返回 503），防止普通访问码用户污染知识库。
+	// AdminToken 管理员口令（传统通道）：联网知识入库/trace 查看需 X-Admin-Token。
+	// 新通道：账号 role=admin 直接通过（注册/登录时提供 AUTH_ADMIN_KEY 获得），
+	// 两条通道满足其一即可；都未配置时管理接口一律 403。
 	AdminToken string
 	// Ingester 联网知识采纳入库能力；nil 时采纳接口关闭。
 	Ingester Ingester
@@ -442,15 +442,13 @@ type ingestRequestBody struct {
 }
 
 // handleKnowledgeIngest 管理员确认联网知识入库：
-// 需同时持有访问码（withAuth）和 X-Admin-Token 管理员口令。
+// 管理员账号登录（role=admin）直接通过；否则需要 X-Admin-Token 管理员口令。
 func (s *Server) handleKnowledgeIngest(w http.ResponseWriter, r *http.Request) {
-	if s.cfg.Ingester == nil || strings.TrimSpace(s.cfg.AdminToken) == "" {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "知识入库功能未开启（需配置 ADMIN_TOKEN 并装配入库服务）"})
+	if s.cfg.Ingester == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "知识入库功能未开启（知识库未加载）"})
 		return
 	}
-	admin := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
-	if subtle.ConstantTimeCompare([]byte(admin), []byte(strings.TrimSpace(s.cfg.AdminToken))) != 1 {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "管理员口令缺失或无效"})
+	if !s.requireAdmin(w, r) {
 		return
 	}
 
@@ -571,16 +569,14 @@ const (
 )
 
 // handleTraces 返回最近 N 条请求 trace（管理员查看调用链路观测数据）。
-// 与知识入库接口同款双鉴权：访问码（withAuth）+ X-Admin-Token；
+// 管理员账号登录（role=admin）直接通过；否则需要 X-Admin-Token 管理员口令。
 // trace 含各会话的提问内容，不开放给普通访问码用户。
 func (s *Server) handleTraces(w http.ResponseWriter, r *http.Request) {
-	if s.cfg.Tracer == nil || strings.TrimSpace(s.cfg.AdminToken) == "" {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "trace 查看功能未开启（需配置 ADMIN_TOKEN 并启用 trace 记录）"})
+	if s.cfg.Tracer == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "trace 查看功能未开启（需启用 trace 记录）"})
 		return
 	}
-	admin := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
-	if subtle.ConstantTimeCompare([]byte(admin), []byte(strings.TrimSpace(s.cfg.AdminToken))) != 1 {
-		writeJSON(w, http.StatusForbidden, map[string]string{"error": "管理员口令缺失或无效"})
+	if !s.requireAdmin(w, r) {
 		return
 	}
 

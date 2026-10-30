@@ -224,12 +224,14 @@ func main() {
 			}
 		}
 		allowReg := !strings.EqualFold(strings.TrimSpace(os.Getenv("AUTH_ALLOW_REGISTER")), "false")
-		authService, err = auth.Open(dbPath, time.Duration(ttlHours)*time.Hour, allowReg)
+		authService, err = auth.Open(dbPath, time.Duration(ttlHours)*time.Hour, allowReg, os.Getenv("AUTH_ADMIN_KEY"))
 		if err != nil {
 			log.Fatalf("账号系统初始化失败: %v", err)
 		}
 		defer authService.Close()
-		log.Printf("[server] 账号系统已启用：db=%s 令牌有效期=%dh 注册=%v", dbPath, ttlHours, allowReg)
+		adminKeyOn := os.Getenv("AUTH_ADMIN_KEY") != ""
+		log.Printf("[server] 账号系统已启用：db=%s 令牌有效期=%dh 注册=%v 管理员密钥=%v",
+			dbPath, ttlHours, allowReg, adminKeyOn)
 	}
 	srv, err := server.New(server.Config{
 		Addr:              os.Getenv("SERVER_ADDR"),

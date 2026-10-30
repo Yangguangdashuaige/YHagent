@@ -15,7 +15,7 @@ import (
 // newAuthTestServer 构造带账号系统的测试服务（纯 HTTP 层，不涉 LLM）
 func newAuthTestServer(t *testing.T) *Server {
 	t.Helper()
-	as, err := auth.Open(filepath.Join(t.TempDir(), "accounts.db"), time.Hour, true)
+	as, err := auth.Open(filepath.Join(t.TempDir(), "accounts.db"), time.Hour, true, "")
 	if err != nil {
 		t.Fatalf("打开账号库: %v", err)
 	}
@@ -140,6 +140,78 @@ func TestSessionOwnership(t *testing.T) {
 	w = callAuth(t, s, "POST", "/v1/chat", a.Token, `{"session_id":"`+ns.SessionID+`","message":"自己的"}`)
 	if w.Code == http.StatusForbidden {
 		t.Errorf("A 访问自己的会话不应 403: %s", w.Body.String())
+	}
+}
+
+// TestRequireAdminDualChannel 管理员鉴权双通道：
+// 管理员账号令牌免口令通过；普通账号/主令牌需传统 X-Admin-Token 口令
+func TestRequireAdminDualChannel(t *testing.T) {
+	as, err := auth.Open(filepath.Join(t.TempDir(), "a.db"), time.Hour, true, "the-admin-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { as.Close() })
+	s, err := New(Config{
+		Token:        "master-token",
+		Chat:         stubChat{},
+		Auth:         as,
+		AdminToken:   "legacy-adm",
+		ChatRPMPerIP: -1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 管理员/普通账号各注册一个
+	regBoss := callAuth(t, s, "POST", "/v1/auth/register", "",
+		`{"username":"boss","password":"password123","admin_key":"the-admin-key"}`)
+	regWorker := callAuth(t, s, "POST", "/v1/auth/register", "", `{"username":"worker","password":"password123"}`)
+	var boss, worker authResponse
+	json.Unmarshal(regBoss.Body.Bytes(), &boss)
+	json.Unmarshal(regWorker.Body.Bytes(), &worker)
+	if boss.Role != "admin" || worker.Role != "user" {
+		t.Fatalf("角色应 admin/user，得到 %q/%q", boss.Role, worker.Role)
+	}
+
+	// 直接打 requireAdmin（路由层 withAuth 已验证过令牌，这里聚焦管理员判定）
+	try := func(bearer, adminHeader string) int {
+		r := httptest.NewRequest("POST", "/v1/knowledge/ingest", nil)
+		if bearer != "" {
+			r.Header.Set("Authorization", "Bearer "+bearer)
+		}
+		if adminHeader != "" {
+			r.Header.Set("X-Admin-Token", adminHeader)
+		}
+		w := httptest.NewRecorder()
+		if s.requireAdmin(w, r) {
+			return http.StatusOK
+		}
+		return w.Code
+	}
+
+	// 1) 管理员账号：无需任何口令 → 通过（本次需求核心）
+	if c := try(boss.Token, ""); c != http.StatusOK {
+		t.Errorf("管理员账号应免口令通过，得到 %d", c)
+	}
+	// 2) 普通账号：无口令 → 403
+	if c := try(worker.Token, ""); c != http.StatusForbidden {
+		t.Errorf("普通账号应 403，得到 %d", c)
+	}
+	// 3) 普通账号 + 正确传统口令 → 通过（旧通道兼容）
+	if c := try(worker.Token, "legacy-adm"); c != http.StatusOK {
+		t.Errorf("传统口令通道应通过，得到 %d", c)
+	}
+	// 4) 主令牌（匿名身份）+ 错误口令 → 403
+	if c := try("master-token", "wrong"); c != http.StatusForbidden {
+		t.Errorf("主令牌带错口令应 403，得到 %d", c)
+	}
+	// 5) 主令牌 + 正确传统口令 → 通过（旧通道对主令牌依然有效）
+	if c := try("master-token", "legacy-adm"); c != http.StatusOK {
+		t.Errorf("主令牌带正确口令应通过，得到 %d", c)
+	}
+	// 6) 完全无身份 → 403
+	if c := try("", ""); c != http.StatusForbidden {
+		t.Errorf("无身份应 403，得到 %d", c)
 	}
 }
 

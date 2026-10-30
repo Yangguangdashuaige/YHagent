@@ -8,6 +8,7 @@ const TOKEN_KEY = "yh_token";
 const ADMIN_TOKEN_KEY = "yh_admin_token";
 const SESSION_KEY = "yh_session_id";
 const USER_KEY = "yh_username"; // 账号登录时的用户名（访问码模式为空）
+const ROLE_KEY = "yh_role"; // 账号角色（admin=管理员：联网知识入库免口令）
 
 // ---------- DOM ----------
 const loginView = document.getElementById("loginView");
@@ -20,6 +21,7 @@ const codeFields = document.getElementById("codeFields");
 const accountFields = document.getElementById("accountFields");
 const usernameInput = document.getElementById("usernameInput");
 const passwordInput = document.getElementById("passwordInput");
+const adminKeyInput = document.getElementById("adminKeyInput");
 const accountSub = document.getElementById("accountSub");
 const accountSwitchBtn = document.getElementById("accountSwitchBtn");
 const userBadge = document.getElementById("userBadge");
@@ -313,14 +315,17 @@ async function verifyToken(token) {
   return resp.ok;
 }
 
-// 账号登录/注册：成功返回 {token, username}，失败 throw Error（服务端中文提示）
-async function accountAuth(username, password, register) {
+// 账号登录/注册：成功返回 {token, username, role}，失败 throw Error（服务端中文提示）
+// adminKey 可选：注册时授予管理员角色；登录时给存量账号认领管理员
+async function accountAuth(username, password, register, adminKey) {
   let resp;
   try {
+    const body = { username, password };
+    if (adminKey) body.admin_key = adminKey;
     resp = await fetch(register ? "/v1/auth/register" : "/v1/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify(body),
     });
   } catch (e) {
     throw new Error("无法连接服务器，请检查网络后重试");
@@ -329,10 +334,16 @@ async function accountAuth(username, password, register) {
   if (!resp.ok) {
     throw new Error(j.error || (register ? "注册失败，请稍后再试" : "用户名或密码错误"));
   }
-  return { token: j.token, username: j.username };
+  return { token: j.token, username: j.username, role: j.role || "user" };
 }
 
-// 探测当前令牌是否账号身份：是则刷新标题栏用户名徽标（访问码模式无徽标）
+// 当前登录账号是否管理员（服务端 /v1/auth/me 定期校正，localStorage 只做缓存）
+function isAdminAccount() {
+  return localStorage.getItem(ROLE_KEY) === "admin";
+}
+
+// 探测当前令牌是否账号身份：是则刷新标题栏用户名徽标（访问码模式无徽标），
+// 同时用服务端返回的角色校正本地缓存（管理员角色决定入库是否免口令）
 async function refreshUserBadge() {
   const name = localStorage.getItem(USER_KEY) || "";
   if (!name) {
@@ -343,7 +354,13 @@ async function refreshUserBadge() {
     const resp = await fetch("/v1/auth/me", { headers: authHeaders({}) });
     if (resp.ok) {
       const j = await resp.json();
-      userBadge.textContent = "👤 " + (j.username || name);
+      if (j.role === "admin") {
+        localStorage.setItem(ROLE_KEY, "admin");
+        userBadge.textContent = "👤 " + (j.username || name) + " 🛡";
+      } else {
+        localStorage.removeItem(ROLE_KEY);
+        userBadge.textContent = "👤 " + (j.username || name);
+      }
       userBadge.classList.remove("hidden");
       return;
     }
@@ -549,7 +566,11 @@ function buildCandidateCard(cand) {
   card.appendChild(panel.el);
 
   adoptBtn.addEventListener("click", () => {
-    // 已缓存过口令则直接提交；否则展开内联输入框
+    // 管理员账号登录：无需口令直接提交；否则看是否缓存过口令，都没有才展开输入框
+    if (isAdminAccount()) {
+      adoptCandidate(card, cand, "", ui);
+      return;
+    }
     if (getAdminToken()) {
       adoptCandidate(card, cand, getAdminToken(), ui);
       return;
@@ -746,9 +767,10 @@ function buildIngestPanel() {
 }
 
 // 采纳入库：口令对错通过 SSE 的 ready/403 即时反馈，全程展示真实入库阶段进度。
-// 仅在 ready 后才把口令缓存到 localStorage。
+// 仅在 ready 后才把口令缓存到 localStorage。adminToken 为空表示走管理员账号
+// 免口令通道（服务端按 role=admin 放行，无需 X-Admin-Token 头）。
 async function adoptCandidate(card, cand, adminToken, ui) {
-  if (!adminToken) return;
+  if (!adminToken && !isAdminAccount()) return;
   const { actions, adminRow, adminInput, adminErr, adoptBtn, panel } = ui;
 
   adoptBtn.disabled = true;
@@ -785,12 +807,11 @@ async function adoptCandidate(card, cand, adminToken, ui) {
 
   let resp;
   try {
+    const headers = { "Content-Type": "application/json" };
+    if (adminToken) headers["X-Admin-Token"] = adminToken;
     resp = await fetch("/v1/knowledge/ingest", {
       method: "POST",
-      headers: authHeaders({
-        "Content-Type": "application/json",
-        "X-Admin-Token": adminToken,
-      }),
+      headers: authHeaders(headers),
       body: JSON.stringify({
         query: cand.query || "",
         summary: cand.summary || "",
@@ -810,24 +831,33 @@ async function adoptCandidate(card, cand, adminToken, ui) {
       if (j.error) msg = j.error;
     } catch (_) {}
     if (resp.status === 403) {
-      localStorage.removeItem(ADMIN_TOKEN_KEY);
-      recoverInput("管理员口令错误，请重新输入");
+      if (adminToken) {
+        // 口令通道被拒：清缓存回到口令输入态
+        localStorage.removeItem(ADMIN_TOKEN_KEY);
+        recoverInput(msg || "管理员口令错误，请重新输入");
+      } else {
+        // 账号通道被拒：角色缓存过期（服务端已不认为是管理员），回按钮态
+        localStorage.removeItem(ROLE_KEY);
+        recoverActions(msg || "当前账号无管理员权限");
+      }
     } else if (resp.status === 503) {
-      recoverActions("服务端未开启入库（未配置 ADMIN_TOKEN）");
+      recoverActions("服务端未开启入库（知识库未加载）");
     } else {
       recoverActions(msg);
     }
     return;
   }
 
-  // ---- 口令正确：进入 SSE 进度流 ----
+  // ---- 鉴权通过：进入 SSE 进度流 ----
   panel.setStage("auth", "done");
   panel.setStage("organize", "active", "等待 AI 响应…");
-  localStorage.setItem(ADMIN_TOKEN_KEY, adminToken);
+  if (adminToken) {
+    localStorage.setItem(ADMIN_TOKEN_KEY, adminToken);
+  }
 
-  // “重试”复用当前卡片与候选，重新走一遍（已缓存口令则免输入）
+  // “重试”复用当前卡片与候选，重新走一遍（管理员账号/已缓存口令均免输入）
   panel.retryBtn.onclick = () =>
-    adoptCandidate(card, cand, getAdminToken() || adminToken, ui);
+    adoptCandidate(card, cand, getAdminToken(), ui);
 
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
@@ -997,6 +1027,7 @@ loginForm.addEventListener("submit", async (e) => {
       if (await verifyToken(token)) {
         localStorage.setItem(TOKEN_KEY, token);
         localStorage.removeItem(USER_KEY);
+        localStorage.removeItem(ROLE_KEY);
         enterChat();
       } else {
         loginError.textContent = "访问码不正确，请重试";
@@ -1005,14 +1036,21 @@ loginForm.addEventListener("submit", async (e) => {
       // 账号模式：登录或注册（注册即登录），成功后保存账号令牌与用户名
       const username = usernameInput.value.trim();
       const password = passwordInput.value;
+      const adminKey = adminKeyInput.value.trim();
       if (!username || !password) {
         loginError.textContent = "请输入用户名和密码";
         return;
       }
-      const reg = await accountAuth(username, password, accountTab === "register");
+      const reg = await accountAuth(username, password, accountTab === "register", adminKey);
       localStorage.setItem(TOKEN_KEY, reg.token);
       localStorage.setItem(USER_KEY, reg.username);
+      if (reg.role === "admin") {
+        localStorage.setItem(ROLE_KEY, "admin");
+      } else {
+        localStorage.removeItem(ROLE_KEY);
+      }
       passwordInput.value = "";
+      adminKeyInput.value = "";
       enterChat();
     }
   } catch (err) {
@@ -1160,6 +1198,7 @@ logoutBtn.addEventListener("click", async () => {
   const hadAccount = !!localStorage.getItem(USER_KEY);
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(ROLE_KEY);
   tokenInput.value = "";
   userBadge.classList.add("hidden");
   if (hadAccount && token) {
@@ -1183,6 +1222,7 @@ logoutBtn.addEventListener("click", async () => {
       }
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(ROLE_KEY);
     } catch (e) {
       // 网络不通时也先进界面，发消息时会给出具体错误，避免登录页直接卡死
       enterChat();

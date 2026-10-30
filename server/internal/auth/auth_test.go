@@ -1,15 +1,18 @@
-package auth
+﻿package auth
 
 import (
+	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	_ "modernc.org/sqlite"
 )
 
 func newTestService(t *testing.T) *Service {
 	t.Helper()
-	s, err := Open(filepath.Join(t.TempDir(), "accounts.db"), time.Hour, true)
+	s, err := Open(filepath.Join(t.TempDir(), "accounts.db"), time.Hour, true, "")
 	if err != nil {
 		t.Fatalf("打开测试库: %v", err)
 	}
@@ -21,7 +24,7 @@ func TestRegisterLoginFlow(t *testing.T) {
 	s := newTestService(t)
 
 	// 注册即登录：拿到令牌与过期时间
-	u, token, exp, err := s.Register("Alice_01", "password123")
+	u, token, exp, err := s.Register("Alice_01", "password123", "")
 	if err != nil {
 		t.Fatalf("注册失败: %v", err)
 	}
@@ -36,7 +39,7 @@ func TestRegisterLoginFlow(t *testing.T) {
 	}
 
 	// 登录：正确密码发新令牌
-	u2, token2, _, err := s.Login("alice_01", "password123") // 用户名大小写不敏感
+	u2, token2, _, err := s.Login("alice_01", "password123", "") // 用户名大小写不敏感
 	if err != nil || u2.ID != u.ID {
 		t.Fatalf("登录失败: %v", err)
 	}
@@ -45,11 +48,11 @@ func TestRegisterLoginFlow(t *testing.T) {
 	}
 
 	// 错误密码：模糊错误（不暴露用户是否存在）
-	if _, _, _, err := s.Login("alice_01", "wrong-password"); err != ErrBadCredentials {
+	if _, _, _, err := s.Login("alice_01", "wrong-password", ""); err != ErrBadCredentials {
 		t.Errorf("错误密码应返回 ErrBadCredentials，得到 %v", err)
 	}
 	// 不存在的用户：同一错误
-	if _, _, _, err := s.Login("nobody", "password123"); err != ErrBadCredentials {
+	if _, _, _, err := s.Login("nobody", "password123", ""); err != ErrBadCredentials {
 		t.Errorf("不存在用户应返回 ErrBadCredentials（模糊提示），得到 %v", err)
 	}
 
@@ -65,66 +68,66 @@ func TestRegisterLoginFlow(t *testing.T) {
 
 func TestRegisterValidation(t *testing.T) {
 	s := newTestService(t)
-	if _, _, _, err := s.Register("ab", "password123"); err != ErrBadUsername { // 2 字符太短
+	if _, _, _, err := s.Register("ab", "password123", ""); err != ErrBadUsername { // 2 字符太短
 		t.Errorf("3字符以下应拒绝: %v", err)
 	}
-	if _, _, _, err := s.Register("有 空格", "password123"); err != ErrBadUsername {
+	if _, _, _, err := s.Register("有 空格", "password123", ""); err != ErrBadUsername {
 		t.Errorf("含空格应拒绝: %v", err)
 	}
-	if _, _, _, err := s.Register("正常名", "1234567"); err != ErrWeakPassword { // 密码 7 字节
+	if _, _, _, err := s.Register("正常名", "1234567", ""); err != ErrWeakPassword { // 密码 7 字节
 		t.Errorf("短密码应拒绝: %v", err)
 	}
-	if _, _, _, err := s.Register("正常名", strings.Repeat("0", 73)); err != ErrWeakPassword {
+	if _, _, _, err := s.Register("正常名", strings.Repeat("0", 73), ""); err != ErrWeakPassword {
 		t.Errorf("超 72 字节密码应拒绝（bcrypt 截断）: %v", err)
 	}
 	// 中文用户名合法
-	if _, _, _, err := s.Register("大黑鹰", "password123"); err != nil {
+	if _, _, _, err := s.Register("大黑鹰", "password123", ""); err != nil {
 		t.Errorf("中文用户名应允许: %v", err)
 	}
 	// 先注册，再试大小写变体 → 归一后重名拒绝
-	if _, _, _, err := s.Register("Alice_01", "password123"); err != nil {
+	if _, _, _, err := s.Register("Alice_01", "password123", ""); err != nil {
 		t.Fatalf("首次注册应成功: %v", err)
 	}
-	if _, _, _, err := s.Register("alice_01", "password456"); err != ErrUserExists {
+	if _, _, _, err := s.Register("alice_01", "password456", ""); err != ErrUserExists {
 		t.Errorf("大小写归一后重名应拒绝: %v", err)
 	}
 }
 
 func TestRegisterClosed(t *testing.T) {
-	s, err := Open(filepath.Join(t.TempDir(), "a.db"), 0, false) // TTL 默认 + 注册关闭
+	s, err := Open(filepath.Join(t.TempDir(), "a.db"), 0, false, "") // TTL 默认 + 注册关闭
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer s.db.Close()
-	if _, _, _, err := s.Register("someone", "password123"); err != ErrRegisterClosed {
+	if _, _, _, err := s.Register("someone", "password123", ""); err != ErrRegisterClosed {
 		t.Errorf("注册关闭时应拒绝: %v", err)
 	}
 }
 
 func TestLoginLockout(t *testing.T) {
 	s := newTestService(t)
-	if _, _, _, err := s.Register("victim", "password123"); err != nil {
+	if _, _, _, err := s.Register("victim", "password123", ""); err != nil {
 		t.Fatal(err)
 	}
 	// 连续 5 次错误密码触发锁定
 	for i := 0; i < lockThreshold; i++ {
-		if _, _, _, err := s.Login("victim", "bad-pass-x"+time.Now().Format("150405")); err != ErrBadCredentials {
+		if _, _, _, err := s.Login("victim", "bad-pass-x"+time.Now().Format("150405"), ""); err != ErrBadCredentials {
 			t.Fatalf("第 %d 次应返回凭据错误: %v", i+1, err)
 		}
 	}
-	if _, _, _, err := s.Login("victim", "password123"); err != ErrLocked {
+	if _, _, _, err := s.Login("victim", "password123", ""); err != ErrLocked {
 		t.Errorf("锁定期内正确密码也应返回 ErrLocked，得到 %v", err)
 	}
 }
 
 func TestTokenExpiry(t *testing.T) {
 	// TTL=-1s：签发即过期（库内时间为 Unix 秒）
-	s, err := Open(filepath.Join(t.TempDir(), "a.db"), -time.Second, true)
+	s, err := Open(filepath.Join(t.TempDir(), "a.db"), -time.Second, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer s.db.Close()
-	_, token, _, err := s.Register("shorty", "password123")
+	_, token, _, err := s.Register("shorty", "password123", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,8 +138,8 @@ func TestTokenExpiry(t *testing.T) {
 
 func TestSessionOwnership(t *testing.T) {
 	s := newTestService(t)
-	ua, _, _, _ := s.Register("userA", "password123")
-	ub, _, _, _ := s.Register("userB", "password123")
+	ua, _, _, _ := s.Register("userA", "password123", "")
+	ub, _, _, _ := s.Register("userB", "password123", "")
 
 	// 无归属 → ok=false
 	if _, ok := s.SessionOwner("sess_none"); ok {
@@ -152,5 +155,103 @@ func TestSessionOwnership(t *testing.T) {
 	owner, ok := s.SessionOwner("sess_x")
 	if !ok || owner != ua.ID {
 		t.Errorf("归属应保持先绑定的 A，得到 owner=%d ok=%v", owner, ok)
+	}
+}
+
+func TestAdminKeyGrantAndClaim(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "a.db")
+	s, err := Open(dbPath, time.Hour, true, "secret-admin-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.db.Close()
+
+	// 1) 注册时带正确密钥 → 管理员角色，令牌验证也带角色
+	ua, token, _, err := s.Register("boss", "password123", "secret-admin-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ua.Role != RoleAdmin {
+		t.Fatalf("带密钥注册应为管理员，得到 %q", ua.Role)
+	}
+	if v, ok := s.VerifyToken(token); !ok || v.Role != RoleAdmin {
+		t.Errorf("令牌验证应返回管理员角色: ok=%v role=%q", ok, v.Role)
+	}
+
+	// 2) 注册时不带密钥 → 普通用户
+	ub, _, _, _ := s.Register("worker", "password123", "")
+	if ub.Role != RoleUser {
+		t.Fatalf("无密钥注册应为普通用户，得到 %q", ub.Role)
+	}
+
+	// 3) 错误密钥 → 拒绝（fail-closed，不静默降级为普通用户）
+	if _, _, _, err := s.Register("evil", "password123", "wrong-key"); err != ErrBadAdminKey {
+		t.Fatalf("错误密钥应返回 ErrBadAdminKey，得到 %v", err)
+	}
+
+	// 4) 存量普通账号登录时带密钥 → 认领管理员
+	uc, _, _, err := s.Login("worker", "password123", "secret-admin-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uc.Role != RoleAdmin {
+		t.Fatalf("持密钥登录应认领管理员，得到 %q", uc.Role)
+	}
+	// 再普通登录 → 角色保持（不降级）
+	ud, _, _, err := s.Login("worker", "password123", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ud.Role != RoleAdmin {
+		t.Fatalf("已认领的管理员普通登录不应降级，得到 %q", ud.Role)
+	}
+
+	// 5) 错误密钥登录 → 直接拒绝整个登录（防"以为拿到管理员实际没拿到"）
+	if _, _, _, err := s.Login("worker", "password123", "wrong-key"); err != ErrBadAdminKey {
+		t.Fatalf("错误密钥登录应返回 ErrBadAdminKey，得到 %v", err)
+	}
+}
+
+func TestAdminKeyNotSet(t *testing.T) {
+	// 服务端未配置密钥：带密钥注册/登录一律 ErrAdminKeyNotSet（不能出现"填了密钥却是普通用户"的歧义）
+	s := newTestService(t)
+	if _, _, _, err := s.Register("somebody", "password123", "any-key"); err != ErrAdminKeyNotSet {
+		t.Fatalf("未配置密钥时应返回 ErrAdminKeyNotSet，得到 %v", err)
+	}
+	if _, _, _, err := s.Login("somebody", "password123", "any-key"); err != ErrAdminKeyNotSet {
+		t.Fatalf("登录同理 fail-closed，得到 %v", err)
+	}
+}
+
+func TestRoleColumnMigration(t *testing.T) {
+	// 手工构造无 role 列的旧库，Open 应自动补列且存量用户默认 user
+	dbPath := filepath.Join(t.TempDir(), "old.db")
+	old, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.Exec(`CREATE TABLE users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT NOT NULL,
+		username_norm TEXT NOT NULL UNIQUE,
+		password_hash TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		updated_at INTEGER NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.Exec(`INSERT INTO users (username, username_norm, password_hash, created_at, updated_at)
+		VALUES ('legacy', 'legacy', 'x', 0, 0)`); err != nil {
+		t.Fatal(err)
+	}
+	old.Close()
+
+	s, err := Open(dbPath, time.Hour, true, "")
+	if err != nil {
+		t.Fatalf("旧库升级应成功: %v", err)
+	}
+	defer s.db.Close()
+	var role string
+	if err := s.db.QueryRow(`SELECT role FROM users WHERE username_norm='legacy'`).Scan(&role); err != nil || role != RoleUser {
+		t.Fatalf("旧用户应迁移为 user，得到 role=%q err=%v", role, err)
 	}
 }

@@ -28,6 +28,34 @@ func uidFromRequest(r *http.Request) int64 {
 	return uid
 }
 
+// requireAdmin 管理员鉴权（联网知识入库、trace 查看共用），双通道满足其一即通过：
+//   - 账号令牌且 role=admin → 直接通过（管理员登录后无需再输任何口令）；
+//   - 传统通道：X-Admin-Token 与 ADMIN_TOKEN 常量时间比对。
+//
+// 自包含设计：自行验证 Bearer 令牌（不依赖 withAuth 预注入的 context），
+// 前置 withAuth 仍负责基础访问码校验，两层职责正交。
+// 两种通道都不满足 → 403。主令牌（匿名身份）必须走 X-Admin-Token 通道。
+func (s *Server) requireAdmin(w http.ResponseWriter, r *http.Request) bool {
+	if s.cfg.Auth != nil {
+		if got := bearerToken(r); got != "" {
+			if u, ok := s.cfg.Auth.VerifyToken(got); ok && u.Role == auth.RoleAdmin {
+				return true
+			}
+		}
+	}
+	if s.cfg.AdminToken != "" {
+		admin := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
+		if subtle.ConstantTimeCompare([]byte(admin), []byte(s.cfg.AdminToken)) == 1 {
+			return true
+		}
+	}
+	writeJSON(w, http.StatusForbidden, map[string]string{
+		"error": "需要管理员权限：请用管理员账号登录，或输入正确的管理员口令",
+		"code":  "admin_required",
+	})
+	return false
+}
+
 // bearerToken 提取 Authorization: Bearer <token>（无前缀返回空串）
 func bearerToken(r *http.Request) string {
 	return strings.TrimSpace(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
@@ -75,11 +103,13 @@ func (s *Server) withUserAuth(next http.HandlerFunc) http.HandlerFunc {
 type credentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	AdminKey string `json:"admin_key"` // 可选：管理员密钥（注册时授予管理员角色/登录时认领）
 }
 
 type authResponse struct {
 	UserID    int64  `json:"user_id"`
 	Username  string `json:"username"`
+	Role      string `json:"role"`
 	Token     string `json:"token"`
 	ExpiresAt string `json:"expires_at"` // RFC3339
 }
@@ -95,13 +125,13 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求参数解析失败"})
 		return
 	}
-	u, token, exp, err := s.cfg.Auth.Register(strings.TrimSpace(c.Username), c.Password)
+	u, token, exp, err := s.cfg.Auth.Register(strings.TrimSpace(c.Username), c.Password, c.AdminKey)
 	if err != nil {
 		s.writeAuthErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, authResponse{
-		UserID: u.ID, Username: u.Username, Token: token, ExpiresAt: exp.Format(time.RFC3339),
+		UserID: u.ID, Username: u.Username, Role: u.Role, Token: token, ExpiresAt: exp.Format(time.RFC3339),
 	})
 }
 
@@ -116,13 +146,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求参数解析失败"})
 		return
 	}
-	u, token, exp, err := s.cfg.Auth.Login(c.Username, c.Password)
+	u, token, exp, err := s.cfg.Auth.Login(c.Username, c.Password, c.AdminKey)
 	if err != nil {
 		s.writeAuthErr(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, authResponse{
-		UserID: u.ID, Username: u.Username, Token: token, ExpiresAt: exp.Format(time.RFC3339),
+		UserID: u.ID, Username: u.Username, Role: u.Role, Token: token, ExpiresAt: exp.Format(time.RFC3339),
 	})
 }
 
@@ -150,6 +180,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id":    u.ID,
 		"username":   u.Username,
+		"role":       u.Role,
 		"created_at": u.CreatedAt.Format(time.RFC3339),
 	})
 }
@@ -167,6 +198,8 @@ func (s *Server) writeAuthErr(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": err.Error()})
 	case errors.Is(err, auth.ErrLocked):
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": err.Error()})
+	case errors.Is(err, auth.ErrAdminKeyNotSet), errors.Is(err, auth.ErrBadAdminKey):
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 	default:
 		// 内部错误（数据库等）只给通用提示，细节进服务端日志由运维排查
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "服务暂时不可用，请稍后再试"})

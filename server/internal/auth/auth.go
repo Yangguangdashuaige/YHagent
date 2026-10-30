@@ -20,6 +20,7 @@ package auth
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/hex"
 	"errors"
@@ -44,6 +45,8 @@ var (
 	ErrWeakPassword    = errors.New("密码强度不足")
 	ErrBadCredentials  = errors.New("用户名或密码错误")
 	ErrLocked          = errors.New("失败次数过多，账号已临时锁定")
+	ErrAdminKeyNotSet  = errors.New("管理员密钥未配置（服务器 .env 设置 AUTH_ADMIN_KEY）")
+	ErrBadAdminKey     = errors.New("管理员密钥错误")
 )
 
 const (
@@ -53,10 +56,17 @@ const (
 	defaultTokenTTL = 30 * 24 * time.Hour
 )
 
+// 角色常量：user=普通用户，admin=管理员（联网知识入库、trace 查看等管理能力）
+const (
+	RoleUser  = "user"
+	RoleAdmin = "admin"
+)
+
 // User 账号信息（不含敏感字段）
 type User struct {
 	ID        int64
 	Username  string
+	Role      string
 	CreatedAt time.Time
 }
 
@@ -65,6 +75,7 @@ type Service struct {
 	db            *sql.DB
 	tokenTTL      time.Duration
 	allowRegister bool
+	adminKey      string // 管理员密钥（.env AUTH_ADMIN_KEY）：注册/登录时提供即授予管理员角色
 
 	mu       sync.Mutex
 	failures map[string]*failRecord // username_norm → 失败记录
@@ -77,8 +88,9 @@ type failRecord struct {
 
 // Open 打开（或初始化）账号数据库。dbPath 的父目录不存在时自动创建。
 // tokenTTL 为 0 时使用默认 30 天（负值原样生效，用于测试瞬时过期）；
-// allowRegister=false 时注册接口拒绝新用户。
-func Open(dbPath string, tokenTTL time.Duration, allowRegister bool) (*Service, error) {
+// allowRegister=false 时注册接口拒绝新用户；
+// adminKey 为管理员密钥（.env AUTH_ADMIN_KEY），空串表示管理员通道关闭。
+func Open(dbPath string, tokenTTL time.Duration, allowRegister bool, adminKey string) (*Service, error) {
 	if dir := filepath.Dir(dbPath); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("创建账号数据库目录: %w", err)
@@ -95,6 +107,7 @@ func Open(dbPath string, tokenTTL time.Duration, allowRegister bool) (*Service, 
 		db:            db,
 		tokenTTL:      tokenTTL,
 		allowRegister: allowRegister,
+		adminKey:      strings.TrimSpace(adminKey),
 		failures:      map[string]*failRecord{},
 	}
 	if s.tokenTTL == 0 {
@@ -138,9 +151,42 @@ CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(user_id);
 	if _, err := s.db.Exec(ddl); err != nil {
 		return fmt.Errorf("初始化账号表: %w", err)
 	}
+	// 旧库升级：补 role 列（SQLite 无 ADD COLUMN IF NOT EXISTS，先查表结构）
+	if err := s.ensureRoleColumn(); err != nil {
+		return err
+	}
 	// 顺带清掉已过期令牌（下次定时清理前先减一次库存）
 	if _, err := s.db.Exec(`DELETE FROM auth_tokens WHERE expires_at < ?`, time.Now().Unix()); err != nil {
 		return fmt.Errorf("清理过期令牌: %w", err)
+	}
+	return nil
+}
+
+// ensureRoleColumn 老库（无 role 列）自动补列，默认全体 user
+func (s *Service) ensureRoleColumn() error {
+	rows, err := s.db.Query(`PRAGMA table_info(users)`)
+	if err != nil {
+		return fmt.Errorf("读取表结构: %w", err)
+	}
+	defer rows.Close()
+	has := false
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull, pk int
+		var dflt any
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &dflt, &pk); err != nil {
+			return fmt.Errorf("解析表结构: %w", err)
+		}
+		if name == "role" {
+			has = true
+		}
+	}
+	if has {
+		return nil
+	}
+	if _, err := s.db.Exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`); err != nil {
+		return fmt.Errorf("补充 role 列: %w", err)
 	}
 	return nil
 }
@@ -200,8 +246,9 @@ func validatePassword(pw string) error {
 
 // ---- 注册 / 登录 ----
 
-// Register 注册并直接签发登录令牌（注册即登录，减少一次往返）
-func (s *Service) Register(username, password string) (User, string, time.Time, error) {
+// Register 注册并直接签发登录令牌（注册即登录，减少一次往返）。
+// adminKey 非空时校验管理员密钥，匹配则新账号直接为管理员角色。
+func (s *Service) Register(username, password, adminKey string) (User, string, time.Time, error) {
 	var u User
 	if !s.allowRegister {
 		return u, "", time.Time{}, ErrRegisterClosed
@@ -212,6 +259,10 @@ func (s *Service) Register(username, password string) (User, string, time.Time, 
 	if err := validatePassword(password); err != nil {
 		return u, "", time.Time{}, err
 	}
+	role, err := s.checkAdminKey(adminKey)
+	if err != nil {
+		return u, "", time.Time{}, err
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 	if err != nil {
 		return u, "", time.Time{}, fmt.Errorf("密码哈希失败: %w", err)
@@ -219,8 +270,8 @@ func (s *Service) Register(username, password string) (User, string, time.Time, 
 	now := time.Now()
 	norm := strings.ToLower(username)
 	res, err := s.db.Exec(
-		`INSERT INTO users (username, username_norm, password_hash, created_at, updated_at) VALUES (?,?,?,?,?)`,
-		username, norm, string(hash), now.Unix(), now.Unix())
+		`INSERT INTO users (username, username_norm, password_hash, role, created_at, updated_at) VALUES (?,?,?,?,?,?)`,
+		username, norm, string(hash), role, now.Unix(), now.Unix())
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
 			return u, "", time.Time{}, ErrUserExists
@@ -231,7 +282,7 @@ func (s *Service) Register(username, password string) (User, string, time.Time, 
 	if err != nil {
 		return u, "", time.Time{}, fmt.Errorf("获取用户ID: %w", err)
 	}
-	u = User{ID: id, Username: username, CreatedAt: now}
+	u = User{ID: id, Username: username, Role: role, CreatedAt: now}
 	token, exp, err := s.issueToken(id)
 	if err != nil {
 		return u, "", time.Time{}, err
@@ -239,8 +290,25 @@ func (s *Service) Register(username, password string) (User, string, time.Time, 
 	return u, token, exp, nil
 }
 
+// checkAdminKey 管理员密钥校验：空入参=普通注册/登录；非空则必须与服务端密钥
+// 常量时间比对匹配（错密钥直接拒绝，防止"以为拿到管理员、实际没拿到"的静默降级）。
+func (s *Service) checkAdminKey(adminKey string) (string, error) {
+	adminKey = strings.TrimSpace(adminKey)
+	if adminKey == "" {
+		return RoleUser, nil
+	}
+	if s.adminKey == "" {
+		return "", ErrAdminKeyNotSet
+	}
+	if subtle.ConstantTimeCompare([]byte(adminKey), []byte(s.adminKey)) != 1 {
+		return "", ErrBadAdminKey
+	}
+	return RoleAdmin, nil
+}
+
 // Login 校验密码并签发令牌。失败计入锁定计数；锁定期内直接拒绝。
-func (s *Service) Login(username, password string) (User, string, time.Time, error) {
+// adminKey 非空且匹配时，把该账号提升为管理员（存量账号认领管理员身份的通道）。
+func (s *Service) Login(username, password, adminKey string) (User, string, time.Time, error) {
 	var u User
 	norm := strings.ToLower(strings.TrimSpace(username))
 	if norm == "" {
@@ -249,15 +317,21 @@ func (s *Service) Login(username, password string) (User, string, time.Time, err
 	if err := s.checkLocked(norm); err != nil {
 		return u, "", time.Time{}, err
 	}
+	// 管理员密钥先行校验（错密钥直接拒绝登录，fail-closed，防静默降级）
+	role, err := s.checkAdminKey(adminKey)
+	if err != nil {
+		return u, "", time.Time{}, err
+	}
 	var (
 		id        int64
 		name      string
 		hash      string
+		existRole string
 		createdAt int64
 	)
-	err := s.db.QueryRow(
-		`SELECT id, username, password_hash, created_at FROM users WHERE username_norm = ?`, norm,
-	).Scan(&id, &name, &hash, &createdAt)
+	err = s.db.QueryRow(
+		`SELECT id, username, password_hash, role, created_at FROM users WHERE username_norm = ?`, norm,
+	).Scan(&id, &name, &hash, &existRole, &createdAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		s.noteFailure(norm)
 		// 不区分"用户不存在/密码错误"，统一模糊提示
@@ -271,7 +345,15 @@ func (s *Service) Login(username, password string) (User, string, time.Time, err
 		return u, "", time.Time{}, ErrBadCredentials
 	}
 	s.clearFailure(norm)
-	u = User{ID: id, Username: name, CreatedAt: time.Unix(createdAt, 0)}
+	// 持密钥登录 → 提升/保持管理员；普通登录 → 保持原角色
+	if role == RoleAdmin && existRole != RoleAdmin {
+		if _, err := s.db.Exec(`UPDATE users SET role = ?, updated_at = ? WHERE id = ?`,
+			RoleAdmin, time.Now().Unix(), id); err != nil {
+			return u, "", time.Time{}, fmt.Errorf("提升管理员: %w", err)
+		}
+		existRole = RoleAdmin
+	}
+	u = User{ID: id, Username: name, Role: existRole, CreatedAt: time.Unix(createdAt, 0)}
 	token, exp, err := s.issueToken(id)
 	if err != nil {
 		return u, "", time.Time{}, err
@@ -307,19 +389,23 @@ func (s *Service) VerifyToken(token string) (User, bool) {
 	var (
 		uid       int64
 		name      string
+		role      string
 		createdAt int64
 	)
 	err := s.db.QueryRow(
-		`SELECT u.id, u.username, u.created_at FROM auth_tokens t JOIN users u ON u.id = t.user_id
+		`SELECT u.id, u.username, u.role, u.created_at FROM auth_tokens t JOIN users u ON u.id = t.user_id
 		 WHERE t.token_hash = ? AND t.expires_at >= ?`,
 		hex.EncodeToString(sum[:]), time.Now().Unix(),
-	).Scan(&uid, &name, &createdAt)
+	).Scan(&uid, &name, &role, &createdAt)
 	if err != nil {
 		return u, false
 	}
 	// 刷新使用时间（审计用，失败不影响校验）
 	s.db.Exec(`UPDATE auth_tokens SET last_used_at = ? WHERE token_hash = ?`, time.Now().Unix(), hex.EncodeToString(sum[:]))
-	return User{ID: uid, Username: name, CreatedAt: time.Unix(createdAt, 0)}, true
+	if role == "" {
+		role = RoleUser // 兜底：极老数据无角色
+	}
+	return User{ID: uid, Username: name, Role: role, CreatedAt: time.Unix(createdAt, 0)}, true
 }
 
 // Logout 注销令牌（幂等：令牌不存在也返回成功）
