@@ -8,23 +8,46 @@
 </head>
 <body class="web">
 
-  <!-- ========== 访问码登录 ========== -->
+  <!-- ========== 登录（访问码 / 账号 双模式） ========== -->
   <div id="loginView" class="login-view">
     <form id="loginForm" class="login-card">
       <div class="login-logo">🎮</div>
       <h1>小小轩 · 三角洲助手</h1>
-      <p class="login-sub">网页版，请输入访问码进入</p>
-      <input id="tokenInput" type="password" placeholder="访问码"
-             autocomplete="current-password" enterkeyhint="done" />
+
+      <div class="login-tabs" id="loginTabs">
+        <button type="button" class="login-tab active" data-mode="code">访问码</button>
+        <button type="button" class="login-tab" data-mode="account">账号登录</button>
+      </div>
+
+      <!-- 访问码模式 -->
+      <div id="codeFields">
+        <p class="login-sub">输入访问码进入</p>
+        <input id="tokenInput" type="password" placeholder="访问码"
+               autocomplete="current-password" enterkeyhint="done" />
+      </div>
+
+      <!-- 账号模式 -->
+      <div id="accountFields" class="hidden">
+        <p class="login-sub" id="accountSub">输入用户名和密码登录</p>
+        <input id="usernameInput" type="text" placeholder="用户名" autocomplete="username"
+               enterkeyhint="next" />
+        <input id="passwordInput" type="password" placeholder="密码（8位以上）"
+               autocomplete="current-password" enterkeyhint="done" />
+      </div>
+
       <div id="loginError" class="login-error"></div>
       <button type="submit" id="loginBtn">进入助手</button>
+      <button type="button" id="accountSwitchBtn" class="account-switch hidden">
+        没有账号？注册一个 →
+      </button>
+      <p class="login-tip">账号登录后，助手会记住你的常用武器与偏好（长期记忆），且会话受归属保护。</p>
     </form>
   </div>
 
   <!-- ========== 聊天主界面 ========== -->
   <div id="chatView" class="app hidden">
     <header class="titlebar">
-      <span class="title">小小轩 · 三角洲助手 <span class="web-tag">网页版</span></span>
+      <span class="title">小小轩 · 三角洲助手 <span class="web-tag">网页版</span><span id="userBadge" class="user-badge hidden"></span></span>
       <div class="actions">
         <button id="clearBtn" class="icon-btn" title="清空对话">🧹</button>
         <button id="logoutBtn" class="icon-btn" title="退出登录">

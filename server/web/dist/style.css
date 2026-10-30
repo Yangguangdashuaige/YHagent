@@ -69,6 +69,75 @@ body {
 #tokenInput:focus {
   border-color: rgba(77, 136, 255, 0.7);
 }
+/* 账号模式输入框与访问码同款 */
+#usernameInput,
+#passwordInput {
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.3);
+  color: #e8ebf2;
+  font-size: 14px;
+  outline: none;
+}
+#usernameInput:focus,
+#passwordInput:focus {
+  border-color: rgba(77, 136, 255, 0.7);
+}
+/* 双 Tab：访问码 / 账号登录 */
+.login-tabs {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+}
+.login-tab {
+  flex: 1;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #8b95ad;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.login-tab.active {
+  background: linear-gradient(135deg, #3b6ff5, #2f5bd0);
+  color: #fff;
+}
+/* 登录/注册切换链接 */
+.account-switch {
+  border: none;
+  background: none;
+  color: #6f9bff;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: center;
+  padding: 2px 0;
+}
+.account-switch:hover {
+  text-decoration: underline;
+}
+.login-tip {
+  margin: 2px 0 0;
+  color: #5d6878;
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.5;
+}
+/* 标题栏账号徽标 */
+.user-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(59, 111, 245, 0.18);
+  color: #8fb0ff;
+  font-size: 11px;
+  vertical-align: 1px;
+}
 .login-error {
   min-height: 18px;
   font-size: 12px;

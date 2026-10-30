@@ -7,6 +7,7 @@
 const TOKEN_KEY = "yh_token";
 const ADMIN_TOKEN_KEY = "yh_admin_token";
 const SESSION_KEY = "yh_session_id";
+const USER_KEY = "yh_username"; // 账号登录时的用户名（访问码模式为空）
 
 // ---------- DOM ----------
 const loginView = document.getElementById("loginView");
@@ -14,6 +15,14 @@ const loginForm = document.getElementById("loginForm");
 const tokenInput = document.getElementById("tokenInput");
 const loginError = document.getElementById("loginError");
 const loginBtn = document.getElementById("loginBtn");
+const loginTabs = document.getElementById("loginTabs");
+const codeFields = document.getElementById("codeFields");
+const accountFields = document.getElementById("accountFields");
+const usernameInput = document.getElementById("usernameInput");
+const passwordInput = document.getElementById("passwordInput");
+const accountSub = document.getElementById("accountSub");
+const accountSwitchBtn = document.getElementById("accountSwitchBtn");
+const userBadge = document.getElementById("userBadge");
 
 const chatView = document.getElementById("chatView");
 const messagesEl = document.getElementById("messages");
@@ -29,6 +38,9 @@ const imagePreview = document.getElementById("imagePreview");
 let busy = false;
 let currentBubble = null;
 let answerText = "";
+// 登录页模式：code=访问码 / account=账号；账号页子模式：login / register
+let loginMode = "code";
+let accountTab = "login";
 // 待发送图片（已压缩的 data URL），二期：截图识别
 let pendingImages = [];
 const MAX_IMAGES = 3;
@@ -270,13 +282,17 @@ function renderImagePreview() {
 function showLogin(msg) {
   chatView.classList.add("hidden");
   loginView.classList.remove("hidden");
+  setLoginMode(loginMode); // 重置到当前 Tab 的初始文案并清空错误
+  if (loginMode === "account") setAccountTab("login");
   loginError.textContent = msg || "";
-  tokenInput.focus();
+  if (loginMode === "code") tokenInput.focus();
 }
 
 async function enterChat() {
   loginView.classList.add("hidden");
   chatView.classList.remove("hidden");
+  // 账号登录则标题栏显示用户名徽标（访问码模式无徽标）
+  refreshUserBadge();
   // 进界面即签发会话ID；网络不通时不阻塞（发消息时会再试并给出具体错误）
   try {
     await ensureSessionId();
@@ -288,12 +304,51 @@ async function enterChat() {
 
 // ---------- 服务端通信 ----------
 
-// 校验访问码是否有效（登录时调用，而不是等发消息才发现 401）
+// 校验访问码/账号令牌是否有效（登录时调用，而不是等发消息才发现 401）
+// 服务端 withAuth 同时接受主令牌与账号令牌，两种身份都能过这个检查
 async function verifyToken(token) {
   const resp = await fetch("/v1/auth/check", {
     headers: { Authorization: "Bearer " + token },
   });
   return resp.ok;
+}
+
+// 账号登录/注册：成功返回 {token, username}，失败 throw Error（服务端中文提示）
+async function accountAuth(username, password, register) {
+  let resp;
+  try {
+    resp = await fetch(register ? "/v1/auth/register" : "/v1/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+  } catch (e) {
+    throw new Error("无法连接服务器，请检查网络后重试");
+  }
+  const j = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    throw new Error(j.error || (register ? "注册失败，请稍后再试" : "用户名或密码错误"));
+  }
+  return { token: j.token, username: j.username };
+}
+
+// 探测当前令牌是否账号身份：是则刷新标题栏用户名徽标（访问码模式无徽标）
+async function refreshUserBadge() {
+  const name = localStorage.getItem(USER_KEY) || "";
+  if (!name) {
+    userBadge.classList.add("hidden");
+    return;
+  }
+  try {
+    const resp = await fetch("/v1/auth/me", { headers: authHeaders({}) });
+    if (resp.ok) {
+      const j = await resp.json();
+      userBadge.textContent = "👤 " + (j.username || name);
+      userBadge.classList.remove("hidden");
+      return;
+    }
+  } catch (e) { /* 网络异常不阻塞进入聊天 */ }
+  userBadge.classList.add("hidden");
 }
 
 // 流式提问：images 为可选的 data URL 数组；onChunk 每收到一段回答文本被回调；
@@ -893,22 +948,75 @@ function stagesSetEmbed(panel, done, total) {
 
 // ---------- 交互 ----------
 
+// 登录页 Tab 切换：访问码 / 账号
+function setLoginMode(mode) {
+  loginMode = mode;
+  loginError.textContent = "";
+  loginTabs.querySelectorAll(".login-tab").forEach((b) => {
+    b.classList.toggle("active", b.dataset.mode === mode);
+  });
+  codeFields.classList.toggle("hidden", mode !== "code");
+  accountFields.classList.toggle("hidden", mode !== "account");
+  accountSwitchBtn.classList.toggle("hidden", mode !== "account");
+  loginBtn.textContent = mode === "code" ? "进入助手" : "登 录";
+  if (mode === "code") tokenInput.focus();
+  else usernameInput.focus();
+}
+
+// 账号页 登录/注册 子模式切换
+function setAccountTab(tab) {
+  accountTab = tab;
+  const reg = tab === "register";
+  accountSub.textContent = reg ? "取个用户名，设置密码（8位以上）" : "输入用户名和密码登录";
+  loginBtn.textContent = reg ? "注 册" : "登 录";
+  accountSwitchBtn.textContent = reg ? "已有账号？去登录 →" : "没有账号？注册一个 →";
+  loginError.textContent = "";
+}
+
+loginTabs.addEventListener("click", (e) => {
+  const btn = e.target.closest(".login-tab");
+  if (btn && btn.dataset.mode !== loginMode) setLoginMode(btn.dataset.mode);
+});
+
+accountSwitchBtn.addEventListener("click", () => {
+  setAccountTab(accountTab === "login" ? "register" : "login");
+});
+
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const token = tokenInput.value.trim();
-  if (!token) return;
   loginBtn.disabled = true;
   loginError.textContent = "校验中…";
   try {
-    if (await verifyToken(token)) {
-      localStorage.setItem(TOKEN_KEY, token);
-      loginBtn.disabled = false;
-      enterChat();
+    if (loginMode === "code") {
+      // 访问码模式：主令牌直接校验
+      const token = tokenInput.value.trim();
+      if (!token) {
+        loginError.textContent = "请输入访问码";
+        return;
+      }
+      if (await verifyToken(token)) {
+        localStorage.setItem(TOKEN_KEY, token);
+        localStorage.removeItem(USER_KEY);
+        enterChat();
+      } else {
+        loginError.textContent = "访问码不正确，请重试";
+      }
     } else {
-      loginError.textContent = "访问码不正确，请重试";
+      // 账号模式：登录或注册（注册即登录），成功后保存账号令牌与用户名
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      if (!username || !password) {
+        loginError.textContent = "请输入用户名和密码";
+        return;
+      }
+      const reg = await accountAuth(username, password, accountTab === "register");
+      localStorage.setItem(TOKEN_KEY, reg.token);
+      localStorage.setItem(USER_KEY, reg.username);
+      passwordInput.value = "";
+      enterChat();
     }
   } catch (err) {
-    loginError.textContent = "无法连接服务器，请稍后再试";
+    loginError.textContent = err.message || "登录失败，请稍后再试";
   } finally {
     loginBtn.disabled = false;
   }
@@ -1046,14 +1154,26 @@ clearBtn.addEventListener("click", async () => {
   inputEl.focus();
 });
 
-// 退出登录：删访问码回到登录页（下次进入需重新输入）
-logoutBtn.addEventListener("click", () => {
+// 退出登录：账号令牌先调服务端注销（失效它），再清本地回到登录页
+logoutBtn.addEventListener("click", async () => {
+  const token = getToken();
+  const hadAccount = !!localStorage.getItem(USER_KEY);
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
   tokenInput.value = "";
+  userBadge.classList.add("hidden");
+  if (hadAccount && token) {
+    try {
+      await fetch("/v1/auth/logout", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+      });
+    } catch (e) { /* 本地已退出，服务端注销失败不影响 */ }
+  }
   showLogin();
 });
 
-// ---------- 启动：已保存访问码则先校验，通过直接进聊天 ----------
+// ---------- 启动：已保存令牌则先校验，通过直接进聊天 ----------
 (async function init() {
   if (getToken()) {
     try {
@@ -1062,6 +1182,7 @@ logoutBtn.addEventListener("click", () => {
         return;
       }
       localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
     } catch (e) {
       // 网络不通时也先进界面，发消息时会给出具体错误，避免登录页直接卡死
       enterChat();
