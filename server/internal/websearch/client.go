@@ -7,8 +7,8 @@
 //	https://console.volcengine.com/common-buy/CC_content_plugin
 //	未开通时上游会返回 code=ToolNotOpen，本包统一转成 ErrNotActivated。
 //
-// 纯 net/http 实现（项目零三方依赖约定），不引入方舟 SDK 里的 Responses 类型
-// （ark-runtime-go v0.6.0 的 Chat 工具只生成了 function 类型，无法表达 web_search）。
+// 纯 net/http 实现（原零依赖约定已解除，保留是因实现足够简单），不引入方舟 SDK
+// 里的 Responses 类型（ark-runtime-go v0.6.0 的 Chat 工具只生成了 function 类型，无法表达 web_search）。
 package websearch
 
 import (

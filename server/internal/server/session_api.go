@@ -19,6 +19,7 @@ package server
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"log"
 	"net/http"
 	"regexp"
 )
@@ -46,14 +47,22 @@ type newSessionResponse struct {
 // handleNewSession 签发一个新的服务端会话标识。
 // 会话实体仍惰性创建（首次 chat 才在 ai.Manager 落位），
 // 这里只发 ID，因此接口极廉价，成本由按 IP 限流兜底。
-func (s *Server) handleNewSession(w http.ResponseWriter, _ *http.Request) {
+// 账号登录（令牌非主令牌）时同步把会话归属到该用户：之后 chat/reset
+// 只认归属者，关闭"拿到 sessionID 就能操作别人对话"的越权面。
+func (s *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		// crypto/rand 读失败只可能是系统熵源异常，极小概率
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "会话初始化失败，请稍后再试"})
 		return
 	}
-	writeJSON(w, http.StatusOK, newSessionResponse{
-		SessionID: issuedSessionPrefix + hex.EncodeToString(b[:]),
-	})
+	sid := issuedSessionPrefix + hex.EncodeToString(b[:])
+	if uid := uidFromRequest(r); uid != 0 && s.cfg.Auth != nil {
+		if err := s.cfg.Auth.BindSession(sid, uid); err != nil {
+			// 归属失败不阻断签发：会话退化为无主（主令牌客户端同款开放态），
+			// 宁可少一层保护也不能让用户开不了对话；错误进日志由运维排查
+			log.Printf("[server] 会话归属绑定失败 uid=%d: %v", uid, err)
+		}
+	}
+	writeJSON(w, http.StatusOK, newSessionResponse{SessionID: sid})
 }

@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"yhagent-server/internal/ai"
+	"yhagent-server/internal/auth"
 	"yhagent-server/internal/config"
 	"yhagent-server/internal/data/cache"
 	"yhagent-server/internal/data/deltaapi"
@@ -179,6 +180,24 @@ func main() {
 			}
 		}
 	}
+	// 账号系统：AUTH_DB 配置后启用（未配置则账号接口 503、鉴权退回纯主令牌，旧客户端零影响）
+	var authService *auth.Service
+	if dbPath := os.Getenv("AUTH_DB"); dbPath != "" {
+		// AUTH_TOKEN_TTL 单位为小时，缺省 720（30 天）
+		ttlHours := 720
+		if raw, ok := os.LookupEnv("AUTH_TOKEN_TTL"); ok {
+			if n, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && n > 0 {
+				ttlHours = n
+			}
+		}
+		allowReg := !strings.EqualFold(strings.TrimSpace(os.Getenv("AUTH_ALLOW_REGISTER")), "false")
+		authService, err = auth.Open(dbPath, time.Duration(ttlHours)*time.Hour, allowReg)
+		if err != nil {
+			log.Fatalf("账号系统初始化失败: %v", err)
+		}
+		defer authService.Close()
+		log.Printf("[server] 账号系统已启用：db=%s 令牌有效期=%dh 注册=%v", dbPath, ttlHours, allowReg)
+	}
 	srv, err := server.New(server.Config{
 		Addr:              os.Getenv("SERVER_ADDR"),
 		Token:             os.Getenv("SERVER_TOKEN"),
@@ -189,6 +208,7 @@ func main() {
 		Tracer:            trace.Default,
 		MaxConcurrentChat: maxConcurrent,
 		ChatRPMPerIP:      rpmPerIP,
+		Auth:              authService,
 	})
 	if err != nil {
 		log.Fatalf("服务初始化失败: %v", err)

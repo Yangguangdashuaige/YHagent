@@ -44,6 +44,7 @@ import (
 	"time"
 
 	"yhagent-server/internal/ai"
+	"yhagent-server/internal/auth"
 	"yhagent-server/internal/trace"
 	"yhagent-server/internal/websearch"
 )
@@ -78,6 +79,10 @@ type Config struct {
 	MaxConcurrentChat int
 	// ChatRPMPerIP 单 IP 每分钟对话类请求（chat/会话签发/重置）上限，<=0 用默认值 30。
 	ChatRPMPerIP int
+	// Auth 账号系统（internal/auth）；nil 时账号接口全部 503、鉴权退回纯主令牌
+	// （已有客户端零改动）。启用后：主令牌=匿名身份（uid=0），账号令牌=注入 UID，
+	// 登录用户签发的会话受归属保护。
+	Auth *auth.Service
 }
 
 // errInvalidSession 会话标识非法时的统一响应体（前端据 code 自动重新签发并重试）
@@ -162,6 +167,11 @@ func New(cfg Config) (*Server, error) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.handleHealth)
+	// 账号系统四件套：注册/登录开放（仅按 IP 限流兜底），登出/查本人需账号令牌
+	mux.HandleFunc("POST /v1/auth/register", s.withRateLimit(s.handleRegister))
+	mux.HandleFunc("POST /v1/auth/login", s.withRateLimit(s.handleLogin))
+	mux.HandleFunc("POST /v1/auth/logout", s.withUserAuth(s.handleLogout))
+	mux.HandleFunc("GET /v1/auth/me", s.withUserAuth(s.handleMe))
 	// 对话类三件套统一叠加鉴权 + 按 IP 限流（中间件从外到内：先鉴权再限流）
 	mux.HandleFunc("POST /v1/chat", s.withAuth(s.withRateLimit(s.handleChat)))
 	mux.HandleFunc("POST /v1/session/new", s.withAuth(s.withRateLimit(s.handleNewSession)))
@@ -203,19 +213,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 // ---- 中间件 ----
-
-// withAuth 校验 Authorization: Bearer <token>，恒定时间比较防时序探测
-func (s *Server) withAuth(next http.HandlerFunc) http.HandlerFunc {
-	want := []byte(s.cfg.Token)
-	return func(w http.ResponseWriter, r *http.Request) {
-		got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if subtle.ConstantTimeCompare([]byte(got), want) != 1 {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "未授权：访问令牌缺失或无效"})
-			return
-		}
-		next(w, r)
-	}
-}
+// withAuth 身份解析中间件已升级支持账号令牌，见 auth_api.go。
 
 // ---- 处理器 ----
 
@@ -290,6 +288,10 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	// 必须在写出 SSE 200 头之前以普通 JSON 400 返回，前端识别 code 后自动换新 ID 重试。
 	if !validSessionID(req.SessionID) {
 		writeJSON(w, http.StatusBadRequest, errInvalidSession())
+		return
+	}
+	// 会话归属：登录用户签发的会话只有归属者本人可用（挡 sessionID 盗用越权）
+	if !s.checkSessionOwnership(w, r, req.SessionID) {
 		return
 	}
 	// 全局并发闸门：满员快速失败（503 + Retry-After），不占着连接排队，
@@ -410,6 +412,10 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
 	if !validSessionID(req.SessionID) {
 		// 非法 ID 无需重置：直接按成功返回，避免向调用方确认 ID 是否存在
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		return
+	}
+	// 归属校验：清空他人会话同样是越权，与 chat 同口径
+	if !s.checkSessionOwnership(w, r, req.SessionID) {
 		return
 	}
 	if err := s.cfg.Chat.Reset(req.SessionID); err != nil {
