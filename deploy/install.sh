@@ -80,6 +80,20 @@ chmod 600 "$ENV_FILE"
 log "安装二进制 ${APP_DIR}/yhagent-server"
 install -m 0755 "$NEW_BIN" "${APP_DIR}/yhagent-server"
 
+# ---- 5.1 安装随包数据文件（知识库索引/改枪配件库；kb-extra 等用户数据绝不覆盖） ----
+for rel in 'index.gob' 'compat/gunparts.json'; do
+    src="${SCRIPT_DIR}/data/${rel}"
+    if [ -f "$src" ]; then
+        dst="${APP_DIR}/data/${rel}"
+        mkdir -p "$(dirname "$dst")"
+        install -m 0644 "$src" "$dst"
+        log "已安装数据文件 data/${rel}"
+    fi
+done
+if [ ! -f "${APP_DIR}/data/index.gob" ]; then
+    warn "未找到 data/index.gob——知识库检索将不可用（部署包由 build.ps1 生成，其中包含该文件）"
+fi
+
 # ---- 6. data 目录归属（补充知识库需要运行时写入） ----
 chown -R "$NAME:$NAME" "${APP_DIR}/data"
 chmod 750 "${APP_DIR}/data" 2>/dev/null || true

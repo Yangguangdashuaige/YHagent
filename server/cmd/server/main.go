@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -92,9 +93,18 @@ func main() {
 		log.Printf("[server] 改枪组合求解器已启用：%d 把武器（数据版本 %s）", gp.WeaponCount(), gp.Version())
 	}
 
-	// 3.1 加载编译期嵌入的静态知识库主索引；再叠加运行时可写的补充知识库
+	// 3.1 加载静态知识库主索引：优先 data/index.gob（部署包分发，产物不进 git），
+	//     回退编译期 embedded 兜底（stub，正常为空）；再叠加运行时可写的补充知识库
 	//     （玩家确认采纳的联网知识存在 KB_EXTRA_DIR，默认 data/kb-extra，重启不丢）。
-	kbStore, kbErr := knowledge.DecodeGOB(embedded.IndexGOB)
+	kbPath := "data/index.gob" // 相对于 systemd WorkingDirectory（部署为 /opt/yhagent）
+	kbBytes, kbErr := knowledge.LoadIndexBytes(kbPath, embedded.IndexGOB)
+	if kbErr == nil && len(kbBytes) == 0 {
+		kbErr = fmt.Errorf("未找到 %s（部署包需携带 data/index.gob，或本地先运行 cmd/indexer 生成）", kbPath)
+	}
+	var kbStore *knowledge.Store
+	if kbErr == nil {
+		kbStore, kbErr = knowledge.DecodeGOB(kbBytes)
+	}
 	var kbSearcher knowledge.Searcher
 	var extraStore *knowledge.ExtraStore
 	var loadErr error

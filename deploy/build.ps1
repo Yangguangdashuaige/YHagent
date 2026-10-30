@@ -73,6 +73,25 @@ Copy-Item (Join-Path $deployDir 'install.sh')      $stage
 Copy-Item (Join-Path $deployDir 'update.sh')       $stage
 Copy-Item (Join-Path $serverDir '.env.example')    $stage
 
+# 运行时数据文件（产物不进 git，必须随包分发）：
+#   data/index.gob          知识库主索引（go run ./cmd/indexer 生成）
+#   data/compat/gunparts.json  改枪配件兼容数据（go run ./cmd/partssync 生成）
+$dataDir   = Join-Path $serverDir 'data'
+$stageData = Join-Path $stage 'data'
+New-Item -ItemType Directory -Force (Join-Path $stageData 'compat') | Out-Null
+$kbIndex = Join-Path $dataDir 'index.gob'
+if (Test-Path $kbIndex) {
+    Copy-Item $kbIndex (Join-Path $stageData 'index.gob')
+} else {
+    Write-Warning "缺少 $kbIndex——部署后知识库检索不可用（先在 server/ 运行 go run ./cmd/indexer）"
+}
+$gunparts = Join-Path $dataDir 'compat\gunparts.json'
+if (Test-Path $gunparts) {
+    Copy-Item $gunparts (Join-Path $stageData 'compat\gunparts.json')
+} else {
+    Write-Warning "缺少 $gunparts——部署后改枪求解器不可用（先在 server/ 运行 go run ./cmd/partssync）"
+}
+
 # 关键：Windows 检出可能是 CRLF，bash 执行 CRLF 脚本会报 '\r' 错误，统一转 LF（无 BOM）
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 foreach ($name in 'install.sh', 'update.sh') {

@@ -5,8 +5,8 @@
 //  1. 读取 data/knowledge/*.md（跳过 README* 和下划线 _ 开头的文件）；
 //  2. 按标题/表格/段落切成约600字的知识切片；
 //  3. 批量调用豆包向量化接口生成向量；
-//  4. 序列化成 index.gob，写入 internal/knowledge/embedded/index.gob，
-//     服务端 go build 时通过 go:embed 编入二进制。
+//  4. 序列化成 index.gob，写入 data/index.gob，服务端运行时从该路径加载
+//     （产物不进 git；deploy/build.ps1 会把它打进部署包）。
 //
 // 用法（在 server/ 目录下）：
 //
@@ -41,7 +41,7 @@ const embedBatchSize = 16
 
 func main() {
 	srcDir := flag.String("src", "data/knowledge", "Markdown 知识文档目录")
-	outPath := flag.String("out", "internal/knowledge/embedded/index.gob", "索引输出路径（go:embed 目录）")
+	outPath := flag.String("out", "data/index.gob", "索引输出路径（服务端运行时从此加载）")
 	fullRebuild := flag.Bool("full", false, "全量重建：忽略旧索引，重新向量化全部切片（默认增量）")
 	flag.Parse()
 

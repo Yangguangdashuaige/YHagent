@@ -3,8 +3,8 @@
 // 知识库向量存储：进程内存中的"切片原文 + 归一化向量"，
 // 检索时做点积（等价余弦相似度）取 TopK。
 // 游戏攻略量级（几百到几千切片）下纯内存扫描毫秒级，无需外部向量数据库。
-// 建库产物用 encoding/gob 序列化成单个文件，由 cmd/indexer 离线生成、
-// 通过 go:embed 编进服务端二进制。
+// 建库产物用 encoding/gob 序列化成单个文件，由 cmd/indexer 离线生成到
+// data/index.gob（产物不进 git，随部署包分发），服务端运行时加载。
 package knowledge
 
 import (
@@ -12,6 +12,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -40,6 +41,21 @@ type Store struct {
 
 // Vec32 稠密向量
 type Vec32 []float32
+
+// LoadIndexBytes 知识库主索引加载优先级：data/index.gob 文件（部署包分发，
+// 产物不进 git）→ 编译期嵌入兜底（embedded.stub，正常为空）。
+// 返回 nil 时调用方应视为"无知识库"。文件存在但读失败会返回错误——
+// 区分"没带数据文件"（降级可用）与"带了但损坏"（应当修，不能静默吞）。
+func LoadIndexBytes(path string, embeddedFallback []byte) ([]byte, error) {
+	if path != "" {
+		if b, err := os.ReadFile(path); err == nil && len(b) > 0 {
+			return b, nil
+		} else if err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("读取知识库索引 %s: %w", path, err)
+		}
+	}
+	return embeddedFallback, nil
+}
 
 // Hit 检索命中结果
 type Hit struct {

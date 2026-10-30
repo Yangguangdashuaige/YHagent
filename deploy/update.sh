@@ -54,6 +54,18 @@ log "已备份旧版本到 ${BAK_BIN}"
 log "安装新二进制"
 install -m 0755 "$NEW_BIN" "$CUR_BIN"
 
+# 随包数据文件一并更新（知识库索引/改枪配件库）；
+# kb-extra（玩家采纳的联网知识）等运行时用户数据不在部署包里，不受影响
+for rel in 'index.gob' 'compat/gunparts.json'; do
+    src="${SCRIPT_DIR}/data/${rel}"
+    if [ -f "$src" ]; then
+        dst="${APP_DIR}/data/${rel}"
+        mkdir -p "$(dirname "$dst")"
+        install -m 0644 "$src" "$dst"
+        log "已更新数据文件 data/${rel}"
+    fi
+done
+
 # unit 文件若包内有更新则一并刷新（ yhagent.service 与脚本同目录 ）
 if [ -f "${SCRIPT_DIR}/yhagent.service" ]; then
     if ! cmp -s "${SCRIPT_DIR}/yhagent.service" "$SERVICE_FILE"; then

@@ -26,8 +26,11 @@ deploy/*.tar.gz
 # 数据帝全物品接口原始响应缓存（20点资源/次，避免重复拉取）
 server/.cache/
 
-# 运行时数据与知识库源文档（内容已编入 index.gob，md 源文件仅存本机）
+# 运行时数据与知识库源文档（index.gob 索引与 md 源文件仅存本机，随部署包分发）
 server/data/
+
+# 知识库索引历史产物已移出 git（历史 blob 由 filter-repo 清理）；防止误加回
+server/internal/knowledge/embedded/index.gob
 
 # ==================== Wails构建产物（客户端位于 client/ 子目录） ====================
 **/build/bin/
