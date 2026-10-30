@@ -370,6 +370,9 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 		writeEvent("tool", ev)
 	})
+	// 账号身份透传：登录用户（账号令牌）的会话注入长期记忆画像、轮末异步提取用户事实；
+	// 主令牌匿名请求 uid=0，长期记忆能力自动关闭，行为与未启用时一致
+	ctx = ai.WithUID(ctx, uidFromRequest(r))
 	err = s.cfg.Chat.ChatWithSessionImages(ctx, req.SessionID, req.Message, images, func(chunk string) {
 		writeEvent("chunk", chunk)
 	})

@@ -69,6 +69,17 @@ func main() {
 		defer st.Close()
 		log.Printf("[server] 会话持久化已启用：db=%s", dbPath)
 	}
+	// 长期记忆：MEMORY_DB 配置后启用（SQLite）。登录用户轮末异步提取用户事实/偏好，
+	// 新会话注入画像块——跨会话"认识"用户；未配置或匿名（主令牌）请求无此能力。
+	if dbPath := os.Getenv("MEMORY_DB"); dbPath != "" {
+		mst, err := ai.NewSQLiteMemoryStore(dbPath)
+		if err != nil {
+			log.Fatalf("长期记忆初始化失败: %v", err)
+		}
+		agentOpts = append(agentOpts, ai.WithMemoryStore(mst))
+		defer mst.Close()
+		log.Printf("[server] 长期记忆已启用：db=%s", dbPath)
+	}
 	agent := ai.NewAgent(aiClient, agentOpts...)
 	deltaapi.RegisterTools(agent.Tools(), deltaClient)
 

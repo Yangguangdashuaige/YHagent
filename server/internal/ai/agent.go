@@ -63,6 +63,7 @@ type Agent struct {
 	tools        *Registry
 	sessions     *Manager
 	systemPrompt string
+	memories     *MemoryService // 长期记忆；nil = 未启用（MEMORY_DB 未配置）
 }
 
 // Option Agent 可选配置
@@ -91,6 +92,16 @@ func WithSessionStore(store SessionStore) Option {
 	return func(a *Agent) {
 		if store != nil {
 			a.sessions.WithStore(store)
+		}
+	}
+}
+
+// WithMemoryStore 挂载长期记忆后端（SQLite 等）：登录用户轮末异步提取用户事实，
+// 新会话创建时注入 system 提示词（匿名/主令牌请求无此能力）
+func WithMemoryStore(store MemoryStore) Option {
+	return func(a *Agent) {
+		if store != nil {
+			a.memories = NewMemoryService(store, a.client)
 		}
 	}
 }
@@ -131,6 +142,15 @@ func (a *Agent) Reset(sessionID string) error {
 	sess.reset(a.systemPrompt)
 	sess.clearPersisted() // 磁盘记录一并清除，否则重启后旧历史诈尸
 	return nil
+}
+
+// systemPromptFor 计算该用户的 system 提示词：登录用户叠加长期记忆画像块。
+// 会话创建/恢复时调用一次——会话存续期内画像快照不刷新（记忆变化慢，新会话生效即可）。
+func (a *Agent) systemPromptFor(uid int64) string {
+	if uid == 0 || a.memories == nil {
+		return a.systemPrompt
+	}
+	return a.systemPrompt + a.memories.ProfileBlock(uid)
 }
 
 // Chat 在默认会话中发起一轮带工具调用能力的流式对话
@@ -185,7 +205,9 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			span.End("")
 		}
 	}()
-	session := a.sessions.GetOrCreate(sessionID, a.systemPrompt)
+	// 长期记忆：登录用户（UID 来自账号令牌）的会话创建时注入画像块；匿名请求原样
+	uid := UIDFromContext(ctx)
+	session := a.sessions.GetOrCreate(sessionID, a.systemPromptFor(uid))
 	// 整轮互斥：同一会话的并发请求直接拒绝（SSE 错误事件推给前端），
 	// 杜绝两个请求交错追加历史导致 tool_calls/tool 消息配对错乱（API 400）。
 	if !session.tryBeginTurn() {
@@ -241,6 +263,11 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			answer := answerBuilder.String()
 			span.AnswerChars(len([]rune(answer)))
 			session.append(NewAssistantTextMessage(answer))
+			// 长期记忆提取（异步、独立超时）：仅登录用户 + 本轮成功时。
+			// 输入只有本轮问答文本——工具调用噪声不进提取器。
+			if uid != 0 && a.memories != nil {
+				a.memories.ExtractAsync(uid, userText, answer)
+			}
 			return nil
 		}
 
