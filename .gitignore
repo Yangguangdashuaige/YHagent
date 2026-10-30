@@ -26,8 +26,18 @@ deploy/*.tar.gz
 # 数据帝全物品接口原始响应缓存（20点资源/次，避免重复拉取）
 server/.cache/
 
-# 运行时数据与知识库源文档（index.gob 索引与 md 源文件仅存本机，随部署包分发）
-server/data/
+# 运行时数据与可再生产物（知识库源文档 data/knowledge/ 已入 git，克隆即得）：
+#   index.gob   = indexer 产物（克隆后本地生成，见 README 快速开始）
+#   compat/     = partssync 产物（可随时重新拉取生成）
+#   kb-extra/   = 运行时采纳的联网知识（用 cmd/kbmerge 回流主库，见 README）
+#   trace/ auth/ sessions/ memory/ = 运行时状态
+server/data/index.gob
+server/data/compat/
+server/data/kb-extra/
+server/data/trace/
+server/data/auth/
+server/data/sessions/
+server/data/memory/
 
 # 知识库索引历史产物已移出 git（历史 blob 由 filter-repo 清理）；防止误加回
 server/internal/knowledge/embedded/index.gob

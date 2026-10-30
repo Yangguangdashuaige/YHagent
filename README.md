@@ -26,7 +26,7 @@
 |智能改枪顾问 | 简称自动补全枪名（`K437` → `K437突击步枪`）、聚合最多 96 个社区方案、解析八维属性按「压枪 / 腰射 / 稳定 / 操控 / 射程 / 均衡 / 省钱 / 热度」排序，输出 Top5 可直接导入的改枪码 |
 |截图识别（二期） | 网页版支持选择 / 粘贴游戏截图，多模态识别改枪界面、仓库、价格页，先确认识别结果再给建议 |
 |双端形态 | Wails 桌面悬浮窗（Windows EXE）+ 浏览器网页版，共用同一套 SSE 接口 |
-|静态知识库 | 内置 Markdown 切片 + 向量检索 RAG 框架（离线建库、索引编入二进制），支持热更新知识库内容 |
+|静态知识库 | 内置 Markdown 切片 + 向量检索 RAG 框架（1970 篇源文档随仓库分发、克隆即得），支持热更新知识库内容 |
 |工程化 | 全用户共享缓存（按上游更新频率分级 TTL + 5000 条 LRU 上限）、singleflight 防击穿、会话空闲自动清理、Bearer 令牌鉴权、零 CGO 单二进制部署 |
 
 ## 整体架构
@@ -120,17 +120,20 @@ wails dev                  # 开发调试
 wails build                # 产出 Windows EXE
 ```
 
-### 3. 构建静态知识库（可选）
+### 3. 构建静态知识库索引（可选但推荐）
 
-将 Markdown 文档放入 `server/data/knowledge/`（以下划线开头的文件会被跳过），然后：
+知识库源文档（1970 篇：物品图鉴 / 官方公告 / 机制详解 / 方法论）**已随仓库分发**，克隆即得。
+首次运行 indexer 生成向量索引 `data/index.gob`（产物不进 git，57MB）：
 
 ```bash
 cd server
-go run ./cmd/indexer      # 调用豆包 Embedding 生成 index.gob
+go run ./cmd/indexer      # 增量建库：全量嵌入一次约几千次调用；此后只对新增/修改切片重嵌
 go run ./cmd/server       # 重启后自动注册 search_knowledge 工具
 ```
 
 > ⚠️ Embedding 模型（默认 `doubao-embedding-vision-251215`）需先在[火山方舟控制台](https://console.volcengine.com/ark/region:ark+cn-beijing/openManagement)开通。
+> 不跑 indexer 也能启动：知识库检索不可用，其余功能不受影响。
+> `data/compat/gunparts.json`（改枪求解器数据）同理可随时用 `go run ./cmd/partssync` 重新生成。
 
 ### 4. 同步 B 站视频到知识库（可选）
 
@@ -147,6 +150,25 @@ go run ./cmd/indexer                          # 增量向量化新文档
 - 正文中的 `[mm:ss]` 对应原片时间点，引用时可直接定位视频
 - 思考型模型首字延迟可能达数分钟，属正常现象；单节失败自动降级为原始分段稿，不阻断同步
 - 无任何中文字幕轨的视频需改走 ASR 路线（抽音频 + 录音文件识别），当前版本未包含
+
+### 5. 联网知识回流（可选，维护者工作流）
+
+线上用户采纳的联网知识会实时存进服务器的 `data/kb-extra/`（运行时补充索引）。要让这些内容**进入 git 与后续所有部署包**（而不是散落在服务器上），定期回流：
+
+```bash
+# 1. 从服务器拉回线上补充库
+scp -r root@server:/opt/yhagent/data/kb-extra ./kb-extra-from-server
+
+# 2. 迁移到静态知识库（同名幂等，可重复执行）
+cd server
+go run ./cmd/kbmerge -src ../kb-extra-from-server
+
+# 3. 版本化 + 增量建库 + 出新部署包
+git add data/knowledge && git commit
+go run ./cmd/indexer
+# 之后 deploy/build.ps1 → 服务器 update.sh；
+# 服务器上按 kbmerge 输出的提示清理旧补充库，避免同一内容双份命中
+```
 
 ## 环境变量
 
