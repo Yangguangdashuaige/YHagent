@@ -34,9 +34,49 @@ type Session struct {
 	turnMu            sync.Mutex
 	id                string
 	messages          []chat.ChatCompletionRequestMessage
-	maxKeep           int // 除 system 消息外最多保留多少条
-	lastActive        time.Time
-	compactBackoffTil time.Time // 摘要压缩失败后的退避截止时间（期间跳过压缩）
+	maxKeep           int           // 除 system 消息外最多保留多少条
+	lastActive        time.Time     // 最近活跃（内存空闲清理依据）
+	compactBackoffTil time.Time     // 摘要压缩失败后的退避截止时间（期间跳过压缩）
+	store             SessionStore  // 持久化后端；nil = 纯内存（未启用 SESSION_DB）
+}
+
+// persist 把当前完整历史落库（整轮结束时调用，失败只记日志不阻断对话）
+func (s *Session) persist() {
+	if s.store == nil {
+		return
+	}
+	s.mu.Lock()
+	msgs := make([]chat.ChatCompletionRequestMessage, len(s.messages))
+	copy(msgs, s.messages)
+	s.mu.Unlock()
+	if err := s.store.Save(s.id, persistableMessages(msgs)); err != nil {
+		log.Printf("[session] 会话 %s 落盘失败（本轮历史丢失风险）: %v", s.id, err)
+	}
+}
+
+// clearPersisted 删除持久化记录（重置语义：内存与磁盘一起清空）
+func (s *Session) clearPersisted() {
+	if s.store == nil {
+		return
+	}
+	if err := s.store.Delete(s.id); err != nil {
+		log.Printf("[session] 会话 %s 持久化记录删除失败: %v", s.id, err)
+	}
+}
+
+// newSessionFromStored 从落库历史恢复会话：system 消息重写为当前提示词（跨版本升级即时生效），
+// 其余消息按原样恢复。stored 为空时等价于新会话。
+func newSessionFromStored(id, systemPrompt string, stored []chat.ChatCompletionRequestMessage, store SessionStore) *Session {
+	s := &Session{
+		id:         id,
+		maxKeep:    defaultMaxHistory,
+		lastActive: time.Now(),
+		store:      store,
+	}
+	s.messages = make([]chat.ChatCompletionRequestMessage, 0, len(stored)+1)
+	s.messages = append(s.messages, newSystemMessage(systemPrompt))
+	s.messages = append(s.messages, stored...)
+	return s
 }
 
 // tryBeginTurn 尝试开始一整轮对话。已有一轮在跑时返回 false，
@@ -169,10 +209,11 @@ func (s *Session) snapshot() []chat.ChatCompletionRequestMessage {
 type Manager struct {
 	mu       sync.RWMutex
 	sessions map[string]*Session
+	store    SessionStore // 可选持久化后端；nil = 纯内存（重启即失忆的旧行为）
 }
 
 // NewSessionManager 初始化内存会话管理器，并启动后台 goroutine 定期清理空闲会话，
-// 避免只增不减的 map 在长期运行后缓慢堆积（后续接入持久化存储时可在这一层扩展）。
+// 避免只增不减的 map 在长期运行后缓慢堆积。
 func NewSessionManager() *Manager {
 	m := &Manager{
 		sessions: make(map[string]*Session),
@@ -181,7 +222,15 @@ func NewSessionManager() *Manager {
 	return m
 }
 
-// GetOrCreate 获取已有会话，不存在则用 systemPrompt 初始化一个新会话
+// WithStore 挂载持久化后端（须在首个请求前调用），返回自身便于链式初始化
+func (m *Manager) WithStore(store SessionStore) *Manager {
+	m.store = store
+	return m
+}
+
+// GetOrCreate 获取已有会话，不存在则用 systemPrompt 初始化一个新会话。
+// 挂载了持久化后端时先尝试从库恢复（重启/淘汰后无感续聊）：
+// 恢复的历史不含落库时的 system 消息——统一重写为当前提示词，升级即时生效。
 func (m *Manager) GetOrCreate(sessionID, systemPrompt string) *Session {
 	m.mu.RLock()
 	s, ok := m.sessions[sessionID]
@@ -199,7 +248,20 @@ func (m *Manager) GetOrCreate(sessionID, systemPrompt string) *Session {
 	if len(m.sessions) >= maxSessions {
 		m.evictOneIdleLocked()
 	}
+	if m.store != nil {
+		stored, ok, err := m.store.Load(sessionID)
+		if err != nil {
+			// 读库失败按新会话兜底：可用性优先，宁可丢历史也不让用户开不了对话
+			log.Printf("[session] 会话 %s 恢复失败，按新会话处理: %v", sessionID, err)
+		} else if ok {
+			s = newSessionFromStored(sessionID, systemPrompt, restoreMessages(stored), m.store)
+			m.sessions[sessionID] = s
+			log.Printf("[session] 会话 %s 已从持久化恢复（%d 条历史）", sessionID, len(s.messages)-1)
+			return s
+		}
+	}
 	s = newSession(sessionID, systemPrompt)
+	s.store = m.store
 	m.sessions[sessionID] = s
 	return s
 }
@@ -221,11 +283,21 @@ func (m *Manager) evictOneIdleLocked() {
 	}
 }
 
-// Delete 清空并删除一个会话
+// Delete 清空并删除一个会话（内存 + 持久化记录一并清除）
 func (m *Manager) Delete(sessionID string) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	s, ok := m.sessions[sessionID]
 	delete(m.sessions, sessionID)
+	store := m.store
+	m.mu.Unlock()
+	if ok && s.store != nil {
+		store = s.store
+	}
+	if store != nil {
+		if err := store.Delete(sessionID); err != nil {
+			log.Printf("[session] 会话 %s 持久化记录删除失败: %v", sessionID, err)
+		}
+	}
 }
 
 // cleanupLoop 后台定期清理空闲超过 sessionIdleTTL 的会话。

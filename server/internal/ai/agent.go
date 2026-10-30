@@ -86,6 +86,15 @@ func WithSessionManager(m *Manager) Option {
 	}
 }
 
+// WithSessionStore 挂载会话持久化后端（SQLite 等）：重启/空闲淘汰后按 sessionID 恢复历史
+func WithSessionStore(store SessionStore) Option {
+	return func(a *Agent) {
+		if store != nil {
+			a.sessions.WithStore(store)
+		}
+	}
+}
+
 // NewAgent 创建 Agent 核心实例，默认自带空工具注册中心和内存会话管理器
 func NewAgent(client *SeedClient, opts ...Option) *Agent {
 	a := &Agent{
@@ -120,6 +129,7 @@ func (a *Agent) Reset(sessionID string) error {
 	}
 	defer sess.endTurn()
 	sess.reset(a.systemPrompt)
+	sess.clearPersisted() // 磁盘记录一并清除，否则重启后旧历史诈尸
 	return nil
 }
 
@@ -183,6 +193,9 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 		return ErrSessionBusy
 	}
 	defer session.endTurn()
+	// 整轮结束落盘（defer LIFO：先 persist 再放轮锁）。轮内 append/压缩/回滚
+	// 由这一份最终快照统一覆盖；失败仅记日志，不影响已完成的回答。
+	defer session.persist()
 	session.append(NewUserMessageWithImages(textForModel, images))
 	log.Printf("[agent] 会话 %s 收到提问（图片%d张）: %s", sessionID, len(images), previewArgs(userText))
 

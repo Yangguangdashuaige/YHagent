@@ -57,7 +57,19 @@ func main() {
 	sharedCache := cache.NewCache()
 	deltaClient.WithCache(sharedCache)
 
-	agent := ai.NewAgent(aiClient)
+	agentOpts := []ai.Option{}
+	// 会话持久化：SESSION_DB 配置后启用（SQLite），重启/空闲淘汰后按 sessionID 无感恢复历史；
+	// 未配置则纯内存（旧行为）。历史图片不落盘（占位文本替代），行保留 7 天。
+	if dbPath := os.Getenv("SESSION_DB"); dbPath != "" {
+		st, err := ai.NewSQLiteSessionStore(dbPath)
+		if err != nil {
+			log.Fatalf("会话持久化初始化失败: %v", err)
+		}
+		agentOpts = append(agentOpts, ai.WithSessionStore(st))
+		defer st.Close()
+		log.Printf("[server] 会话持久化已启用：db=%s", dbPath)
+	}
+	agent := ai.NewAgent(aiClient, agentOpts...)
 	deltaapi.RegisterTools(agent.Tools(), deltaClient)
 
 	// 3.2 改枪组合求解器：数据集 data/compat/gunparts.json 由 cmd/partssync 生成
