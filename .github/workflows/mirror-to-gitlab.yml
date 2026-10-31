@@ -46,8 +46,13 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # 凭据只写进本地 http header 配置，不进入 remote URL，避免出现在日志中
-          git config "http.https://gitlab.com/.extraHeader" "PRIVATE-TOKEN: ${GITLAB_TOKEN}"
+          # 认证方式（2026-11-01 修复）：GitLab 的 git-over-HTTP 只认 Basic Auth
+          # （用户名 oauth2 + PAT 作密码）或 Bearer；PRIVATE-TOKEN 头仅适用于
+          # REST API，git push 不认——9-22 改用 PRIVATE-TOKEN 后流水线连续失败
+          # 14 次的根因。凭据以 Basic 头写入本地 http 配置：不进 remote URL、
+          # 不进命令行参数，日志亦不会出现 token 明文。
+          BASIC=$(printf 'oauth2:%s' "${GITLAB_TOKEN}" | base64)
+          git config "http.https://gitlab.com/.extraHeader" "Authorization: Basic ${BASIC}"
           git remote add gitlab "https://gitlab.com/Yangguangdashuaige/YHagent.git"
           # 常规快进推送；同时同步标签
           git push gitlab master:main --tags
