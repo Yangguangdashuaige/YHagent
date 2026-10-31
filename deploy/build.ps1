@@ -13,7 +13,7 @@
 
 .NOTES
     产物：deploy/yhagent-deploy-linux-<arch>.tar.gz
-    内容：yhagent-server、yhagent.service、install.sh、update.sh、.env.example
+    内容：yhagent-server、yhagent-mcp、yhagent.service、install.sh、update.sh、.env.example
     部署见 README「Linux 部署」一节。
 #>
 [CmdletBinding()]
@@ -58,6 +58,11 @@ try {
     $binPath = Join-Path $stage 'yhagent-server'
     go build -trimpath -ldflags '-s -w' -o $binPath ./cmd/server
     if ($LASTEXITCODE -ne 0) { throw 'go build 失败' }
+    # MCP stdio 服务器（可选能力）：Claude Desktop / Trae 等客户端以子进程拉起，
+    # 共用主服务的工具装配与数据文件（data/），远程形态则直接用主服务 /mcp 路由
+    $mcpPath = Join-Path $stage 'yhagent-mcp'
+    go build -trimpath -ldflags '-s -w' -o $mcpPath ./cmd/mcpserver
+    if ($LASTEXITCODE -ne 0) { throw 'go build mcpserver 失败' }
 }
 finally {
     Pop-Location

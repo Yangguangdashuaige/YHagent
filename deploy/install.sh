@@ -80,6 +80,13 @@ chmod 600 "$ENV_FILE"
 log "安装二进制 ${APP_DIR}/yhagent-server"
 install -m 0755 "$NEW_BIN" "${APP_DIR}/yhagent-server"
 
+# ---- 5.2 MCP stdio 服务器（可选，包内不存在则跳过；远程形态用主服务 /mcp 路由） ----
+MCP_BIN_SRC="${SCRIPT_DIR}/yhagent-mcp"
+if [ -f "$MCP_BIN_SRC" ]; then
+    log "安装 MCP 服务器 ${APP_DIR}/yhagent-mcp（stdio 形态，供 Claude Desktop / Trae 等挂载）"
+    install -m 0755 "$MCP_BIN_SRC" "${APP_DIR}/yhagent-mcp"
+fi
+
 # ---- 5.1 安装随包数据文件（知识库索引/改枪配件库；kb-extra 等用户数据绝不覆盖） ----
 for rel in 'index.gob' 'compat/gunparts.json'; do
     src="${SCRIPT_DIR}/data/${rel}"

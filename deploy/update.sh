@@ -54,6 +54,13 @@ log "已备份旧版本到 ${BAK_BIN}"
 log "安装新二进制"
 install -m 0755 "$NEW_BIN" "$CUR_BIN"
 
+# MCP stdio 服务器：包内有则一并更新（旧部署包无此文件时跳过，不影响主服务）
+MCP_BIN_SRC="${SCRIPT_DIR}/yhagent-mcp"
+if [ -f "$MCP_BIN_SRC" ]; then
+    install -m 0755 "$MCP_BIN_SRC" "${APP_DIR}/yhagent-mcp"
+    log "已更新 MCP 服务器 ${APP_DIR}/yhagent-mcp"
+fi
+
 # 随包数据文件一并更新（知识库索引/改枪配件库）；
 # kb-extra（玩家采纳的联网知识）等运行时用户数据不在部署包里，不受影响
 for rel in 'index.gob' 'compat/gunparts.json'; do
