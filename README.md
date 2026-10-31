@@ -185,6 +185,8 @@ go run ./cmd/indexer
 | `SERVER_ADDR` | 否 | 监听地址，默认 `:8080` |
 | `SERVER_TOKEN` | 是 | 客户端 / 网页版访问令牌，建议 `openssl rand -hex 32`，留空拒绝启动 |
 | `BILI_SESSDATA` | 否 | B 站 Cookie，仅 `cmd/bilisync` 同步视频时需要，AI 字幕必须登录态 |
+| `MCP_TOKEN` | 否 | MCP 服务器令牌，配置后主服务挂 `/mcp` 路由（见「MCP 服务器」一节） |
+| `MCP_EXCLUDE` | 否 | MCP 不暴露的工具名单（逗号分隔），默认 `web_search,plan_and_execute` |
 
 ### 客户端 `client/.env`
 
@@ -203,11 +205,47 @@ go run ./cmd/indexer
 | `GET` | `/v1/auth/check` | 校验令牌有效性（网页版登录用） |
 | `GET` | `/healthz` | 健康检查 |
 
-入口保护：`session_id` 必须为服务端签发格式或历史 UUID v4，非法 ID 在 SSE 建连前返回 `400 {"code":"invalid_session"}`（前端自动换发 ID 重试）；对话类接口按 IP 每分钟限流（默认 30 次），`/v1/chat` 全局并发闸门默认 16（可用 `CHAT_RPM_PER_IP` / `CHAT_MAX_CONCURRENT` 调整）。
+入口保护：`session_id` 必须为服务端签发格式或历史 UUID v4，非法 ID 在 SSE 建连前返回 `400 {"code":"invalid_session"}`（前端自动换发 ID 重试）；对话类接口按 IP 每分钟限流（默认 30 次），`/v1/chat` 全局并发闸门默认 128——满员不拒绝，新请求先到先得排队（默认最长 60s，网页端显示「排队中，前方还有 N 人」），超时才以 SSE error 结束（可用 `CHAT_RPM_PER_IP` / `CHAT_MAX_CONCURRENT` / `CHAT_QUEUE_TIMEOUT` 调整）。
 
-SSE 事件：`event: chunk`（JSON 编码文本片段）、`event: done`、`event: error`，每 25 秒发送 `: ping` 心跳。
+SSE 事件：`event: chunk`（JSON 编码文本片段）、`event: queue`（并发满员时的排队位置，`{"waiting":N}`，0=已入场）、`event: done`、`event: error`，每 25 秒发送 `: ping` 心跳。
 
 截图消息约束：`images` 为 data URL 数组，**最多 3 张、单张 ≤ 4MB、请求体 ≤ 12MB**，支持 JPEG / PNG / WebP / GIF；网页端会自动压缩到 1280px 的 JPEG。
+
+## 🔌 MCP 服务器（把工具集开放给任意 MCP 客户端）
+
+YHagent 的工具集（`search_knowledge` 知识库检索、23 个三角洲数据工具、`gun_combo_solve` 改枪求解器）可整体暴露为标准 MCP 服务器，Claude Desktop / Trae / 其他 Agent 直接挂载使用，工具代码零改动（`internal/mcp` 桥接 + `internal/bootstrap` 共用装配）。两种形态：
+
+**形态一：远程 Streamable HTTP**（推荐，多人共享服务端数据与缓存）
+
+`.env` 配置 `MCP_TOKEN`（长随机串，独立于 SERVER_TOKEN）后主服务自动挂 `/mcp` 路由（带鉴权与按 IP 限流）。客户端配置：
+
+```json
+{
+  "mcpServers": {
+    "yhagent": {
+      "url": "https://你的域名/mcp",
+      "headers": { "Authorization": "Bearer <MCP_TOKEN>" }
+    }
+  }
+}
+```
+
+**形态二：本地 stdio**（部署包内 `yhagent-mcp` 二进制，客户端以子进程拉起）
+
+```json
+{
+  "mcpServers": {
+    "yhagent": {
+      "command": "/opt/yhagent/yhagent-mcp",
+      "env": { "ARK_API_KEY": "ark-xxx", "DELTA_API_KEY": "xxx" }
+    }
+  }
+}
+```
+
+stdio 形态要求工作目录能访问 `data/`（`index.gob`、`kb-extra/`、`compat/gunparts.json`），密钥走进程环境变量；Windows 本地开发用 `go run ./cmd/mcpserver`。
+
+**工具白名单**：`MCP_EXCLUDE` 控制不暴露的工具（逗号分隔），默认排除 `web_search`（消耗方舟联网配额，客户端普遍自带联网）与 `plan_and_execute`（依赖本 Agent 会话循环）。每次工具调用会消耗上游 API（embedding / 三角洲数据），凭据务必用长随机串。
 
 ## 🐧 Linux 部署（交叉编译）
 

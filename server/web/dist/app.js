@@ -192,7 +192,23 @@ function buildStatusBar() {
     }
   };
 
-  return { el, onTool, remove };
+  const onQueue = (ev) => {
+    if (removed || !ev || !thinking.parentNode) return;
+    if (ev.waiting > 1) {
+      thinking.innerHTML =
+        "⏳ 咨询人数较多，排队中（前方还有 " + (ev.waiting - 1) + " 人）" +
+        '<span class="dots"><i></i><i></i><i></i></span>';
+    } else if (ev.waiting === 1) {
+      thinking.innerHTML =
+        '⏳ 排队中，即将进入<span class="dots"><i></i><i></i><i></i></span>';
+    } else {
+      // waiting=0：已入场，恢复思考态（首个 chunk 可能还需数秒）
+      thinking.innerHTML =
+        '🧠 思考中<span class="dots"><i></i><i></i><i></i></span>';
+    }
+  };
+
+  return { el, onTool, onQueue, remove };
 }
 
 function setBusy(b) {
@@ -370,8 +386,10 @@ async function refreshUserBadge() {
 
 // 流式提问：images 为可选的 data URL 数组；onChunk 每收到一段回答文本被回调；
 // onTool 在工具开始/结束时收到进度事件（{name,label,phase,ms,ok}）；
-// onCandidate 在模型联网搜索时收到候选知识卡片；出错时 throw Error（中文信息）
-async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool) {
+// onCandidate 在模型联网搜索时收到候选知识卡片；
+// onQueue 在并发满员排队时收到位置事件（{waiting}，0=已入场）；
+// 出错时 throw Error（中文信息）
+async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool, onQueue) {
   let resp;
   try {
     resp = await fetch("/v1/chat", {
@@ -423,6 +441,7 @@ async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool)
     if (event === "chunk") onChunk(payload || "");
     else if (event === "tool" && onTool && payload) onTool(payload);
     else if (event === "candidate" && onCandidate && payload) onCandidate(payload);
+    else if (event === "queue" && onQueue && payload) onQueue(payload);
     else if (event === "error") errMsg = payload || "服务异常，请稍后再试";
   };
 
@@ -1101,7 +1120,8 @@ async function send() {
           );
           if (!dup) candidates.push(cand);
         },
-        status.onTool
+        status.onTool,
+        status.onQueue
       );
 
     let sid;

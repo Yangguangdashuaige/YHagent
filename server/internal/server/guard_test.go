@@ -13,14 +13,15 @@ import (
 	"yhagent-server/internal/ai"
 )
 
-// newGuardTestServer 用自定义并发/限流参数构造测试服务
-func newGuardTestServer(t *testing.T, chat ai.ChatService, maxConcurrent, rpm int) *Server {
+// newGuardTestServer 用自定义并发/限流/排队参数构造测试服务
+func newGuardTestServer(t *testing.T, chat ai.ChatService, maxConcurrent, rpm int, queueWait time.Duration) *Server {
 	t.Helper()
 	s, err := New(Config{
 		Addr:              "127.0.0.1:0",
 		Token:             "access-token",
 		Chat:              chat,
 		MaxConcurrentChat: maxConcurrent,
+		ChatQueueWait:     queueWait,
 		ChatRPMPerIP:      rpm,
 	})
 	if err != nil {
@@ -80,7 +81,7 @@ func TestValidSessionID(t *testing.T) {
 
 // TestHandleNewSession 签发接口：鉴权 + 每次返回不同的合法 sess_ ID
 func TestHandleNewSession(t *testing.T) {
-	s := newGuardTestServer(t, stubChat{}, 4, 100)
+	s := newGuardTestServer(t, stubChat{}, 4, 100, 0)
 
 	// 无访问码 → 401
 	r := httptest.NewRequest(http.MethodPost, "/v1/session/new", nil)
@@ -112,7 +113,7 @@ func TestHandleNewSession(t *testing.T) {
 
 // TestHandleChatInvalidSession 非法会话ID必须在 SSE 建连前以 400+code 返回
 func TestHandleChatInvalidSession(t *testing.T) {
-	s := newGuardTestServer(t, stubChat{}, 4, 100)
+	s := newGuardTestServer(t, stubChat{}, 4, 100, 0)
 	for _, id := range []string{"default", "1", "sess_xyz"} {
 		body := `{"session_id":"` + id + `","message":"你好"}`
 		w := doJSON(t, s, http.MethodPost, "/v1/chat", body)
@@ -146,10 +147,11 @@ func (b *blockingChat) ChatWithSessionImages(ctx context.Context, sessionID, use
 }
 func (b *blockingChat) Reset(sessionID string) error { return nil }
 
-// TestChatConcurrencyGate 并发上限=1：第一个在途请求占满名额，第二个立即 503
+// TestChatConcurrencyGate 并发上限=1、排队上限 150ms：第一个在途请求占满名额，
+// 第二个不再立即 503，而是 SSE 建连收到 queue 排队事件，等待超时后以 error 事件收尾
 func TestChatConcurrencyGate(t *testing.T) {
 	chat := &blockingChat{entered: make(chan struct{})}
-	s := newGuardTestServer(t, chat, 1, 100)
+	s := newGuardTestServer(t, chat, 1, 100, 150*time.Millisecond)
 
 	// 用可取消的请求承载第一个在途对话（测完 cancel 释放，避免 goroutine 永久泄漏）
 	firstReq := httptest.NewRequest(http.MethodPost, "/v1/chat",
@@ -170,16 +172,169 @@ func TestChatConcurrencyGate(t *testing.T) {
 		t.Fatal("首个请求未进入对话处理")
 	}
 
-	// 名额已满 → 立即 503（不能排队挂起）
+	// 名额已满 → SSE 建连 + queue 排队事件，排队超时后 error 事件（不再 HTTP 503）
 	w := doJSON(t, s, http.MethodPost, "/v1/chat",
 		`{"session_id":"`+validSessID()+`","message":"插队问题"}`)
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatalf("并发满员应 503，实际 %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("满员应 SSE 200 排队，实际 %d: %s", w.Code, w.Body.String())
 	}
-	if w.Header().Get("Retry-After") == "" {
-		t.Fatal("503 应带 Retry-After 提示")
+	body := w.Body.String()
+	if !strings.Contains(w.Header().Get("Content-Type"), "text/event-stream") {
+		t.Fatalf("应为 SSE 响应，实际 Content-Type=%q", w.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(body, "event: queue") {
+		t.Fatalf("排队期间应收到 queue 事件，响应: %s", body)
+	}
+	if !strings.Contains(body, "当前咨询人数较多") {
+		t.Fatalf("排队超时应以 error 事件拒绝，响应: %s", body)
 	}
 	cancel() // 释放第一个在途请求
+}
+
+// countingChat 每次进入对话发一票通知；blocking=true 时进入后阻塞直到 ctx
+// 取消（模拟长对话）。用于验证排队请求在名额释放后入场
+type countingChat struct {
+	entered  chan struct{} // 每次进入各发一票（带缓冲）
+	blocking bool
+}
+
+func (c *countingChat) ChatWithSession(ctx context.Context, sessionID, userText string, onChunk func(string)) error {
+	return c.ChatWithSessionImages(ctx, sessionID, userText, nil, onChunk)
+}
+func (c *countingChat) ChatWithSessionImages(ctx context.Context, sessionID, userText string, images []string, onChunk func(string)) error {
+	c.entered <- struct{}{}
+	if c.blocking {
+		<-ctx.Done()
+	}
+	return nil
+}
+func (c *countingChat) Reset(sessionID string) error { return nil }
+
+// waitQueued 轮询等待至少 n 个请求处于排队状态（消除 goroutine 调度竞态）
+func waitQueued(t *testing.T, s *Server, n int64) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if s.gate.waiting.Load() >= n {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("请求未进入排队状态（waiting=%d）", s.gate.waiting.Load())
+}
+
+// TestChatQueueServedAfterRelease 并发=1：第二个请求排队期间第一个释放名额，
+// 第二个应等到名额入场（而不是被拒），且收到 waiting=0 的入场通知
+func TestChatQueueServedAfterRelease(t *testing.T) {
+	chat := &countingChat{entered: make(chan struct{}, 4), blocking: true}
+	s := newGuardTestServer(t, chat, 1, 100, 5*time.Second)
+
+	// 第一个请求占住唯一名额
+	firstReq := httptest.NewRequest(http.MethodPost, "/v1/chat",
+		strings.NewReader(`{"session_id":"`+validSessID()+`","message":"第一个"}`))
+	firstReq.Header.Set("Content-Type", "application/json")
+	firstReq.Header.Set("Authorization", "Bearer access-token")
+	firstReq.RemoteAddr = "192.0.2.10:54321"
+	ctx1, cancel1 := context.WithCancel(firstReq.Context())
+	firstReq = firstReq.WithContext(ctx1)
+	go func() {
+		w := httptest.NewRecorder()
+		s.http.Handler.ServeHTTP(w, firstReq)
+	}()
+	<-chat.entered // 第一个已入场
+
+	// 第二个请求进入排队（5s 上限内）
+	secondReq := httptest.NewRequest(http.MethodPost, "/v1/chat",
+		strings.NewReader(`{"session_id":"`+validSessID()+`","message":"第二个"}`))
+	secondReq.Header.Set("Content-Type", "application/json")
+	secondReq.Header.Set("Authorization", "Bearer access-token")
+	secondReq.RemoteAddr = "192.0.2.11:54321"
+	ctx2, cancel2 := context.WithCancel(secondReq.Context())
+	secondReq = secondReq.WithContext(ctx2)
+	secondDone := make(chan string, 1)
+	go func() {
+		w := httptest.NewRecorder()
+		s.http.Handler.ServeHTTP(w, secondReq)
+		secondDone <- w.Body.String()
+	}()
+	waitQueued(t, s, 1) // 确认第二个已在排队，再释放名额
+
+	cancel1() // 释放第一个 → 第二个应入场
+	select {
+	case <-chat.entered: // 第二个成功入场
+	case body := <-secondDone:
+		t.Fatalf("排队请求应等到名额入场，实际提前结束: %s", body)
+	case <-time.After(3 * time.Second):
+		t.Fatal("释放名额后排队请求未入场")
+	}
+	// 结束第二个请求，检查入场通知（queue waiting=0）确实推送过
+	cancel2()
+	select {
+	case body := <-secondDone:
+		if !strings.Contains(body, `"waiting":0`) {
+			t.Fatalf("入场后应推送 waiting=0 的 queue 事件，响应: %s", body)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("第二个请求未正常结束")
+	}
+}
+
+// TestChatQueueClientDisconnect 排队期间客户端断连：等待方立即让位，
+// 不占名额也不影响后续请求正常入场
+func TestChatQueueClientDisconnect(t *testing.T) {
+	chat := &countingChat{entered: make(chan struct{}, 4), blocking: true}
+	s := newGuardTestServer(t, chat, 1, 100, 10*time.Second)
+
+	// 第一个请求占住唯一名额
+	firstReq := httptest.NewRequest(http.MethodPost, "/v1/chat",
+		strings.NewReader(`{"session_id":"`+validSessID()+`","message":"第一个"}`))
+	firstReq.Header.Set("Content-Type", "application/json")
+	firstReq.Header.Set("Authorization", "Bearer access-token")
+	firstReq.RemoteAddr = "192.0.2.10:54321"
+	ctx1, cancel1 := context.WithCancel(firstReq.Context())
+	firstReq = firstReq.WithContext(ctx1)
+	go func() {
+		w := httptest.NewRecorder()
+		s.http.Handler.ServeHTTP(w, firstReq)
+	}()
+	<-chat.entered
+
+	// 第二个请求开始排队，随后客户端断连
+	secondReq := httptest.NewRequest(http.MethodPost, "/v1/chat",
+		strings.NewReader(`{"session_id":"`+validSessID()+`","message":"排队后离开"}`))
+	secondReq.Header.Set("Content-Type", "application/json")
+	secondReq.Header.Set("Authorization", "Bearer access-token")
+	secondReq.RemoteAddr = "192.0.2.11:54321"
+	ctx2, cancel2 := context.WithCancel(secondReq.Context())
+	secondReq = secondReq.WithContext(ctx2)
+	go func() {
+		w := httptest.NewRecorder()
+		s.http.Handler.ServeHTTP(w, secondReq)
+	}()
+	waitQueued(t, s, 1) // 确认第二个已进入排队等待
+	cancel2()           // 客户端断连
+
+	// 释放第一个名额：断连的等待方已让位，名额应立即可用（不残留等待）
+	cancel1()
+
+	// 第三个请求应零等待直接入场
+	thirdReq := httptest.NewRequest(http.MethodPost, "/v1/chat",
+		strings.NewReader(`{"session_id":"`+validSessID()+`","message":"第三个"}`))
+	thirdReq.Header.Set("Content-Type", "application/json")
+	thirdReq.Header.Set("Authorization", "Bearer access-token")
+	thirdReq.RemoteAddr = "192.0.2.12:54321"
+	thirdCtx, cancel3 := context.WithCancel(thirdReq.Context())
+	thirdReq = thirdReq.WithContext(thirdCtx)
+	go func() {
+		w := httptest.NewRecorder()
+		s.http.Handler.ServeHTTP(w, thirdReq)
+	}()
+	select {
+	case <-chat.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("断连让位后名额应立即可用")
+	}
+	cancel3()
 }
 
 // busyResetChat Reset 永远返回忙，用于 409 验证
@@ -189,7 +344,7 @@ func (busyResetChat) Reset(sessionID string) error { return ai.ErrSessionBusy }
 
 // TestHandleResetBusy 问答进行中重置会话应返回 409
 func TestHandleResetBusy(t *testing.T) {
-	s := newGuardTestServer(t, busyResetChat{}, 4, 100)
+	s := newGuardTestServer(t, busyResetChat{}, 4, 100, 0)
 	body := `{"session_id":"` + validSessID() + `"}`
 	w := doJSON(t, s, http.MethodPost, "/v1/session/reset", body)
 	if w.Code != http.StatusConflict {
@@ -199,7 +354,7 @@ func TestHandleResetBusy(t *testing.T) {
 
 // TestResetInvalidSessionIdempotent 非法 ID 的重置应幂等成功（不泄露 ID 是否存在）
 func TestResetInvalidSessionIdempotent(t *testing.T) {
-	s := newGuardTestServer(t, stubChat{}, 4, 100)
+	s := newGuardTestServer(t, stubChat{}, 4, 100, 0)
 	w := doJSON(t, s, http.MethodPost, "/v1/session/reset", `{"session_id":"default"}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("非法ID重置应幂等 200，实际 %d", w.Code)
@@ -208,7 +363,7 @@ func TestResetInvalidSessionIdempotent(t *testing.T) {
 
 // TestIPRateLimit 阈值=2：同 IP 第 3 次对话类请求 429，换 IP 放行
 func TestIPRateLimit(t *testing.T) {
-	s := newGuardTestServer(t, stubChat{}, 4, 2)
+	s := newGuardTestServer(t, stubChat{}, 4, 2, 0)
 
 	call := func(ip string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodPost, "/v1/session/new", nil)
@@ -235,7 +390,7 @@ func TestIPRateLimit(t *testing.T) {
 
 // TestIPRateLimitDisabled ChatRPMPerIP=-1 时限流关闭，超阈值仍全部放行
 func TestIPRateLimitDisabled(t *testing.T) {
-	s := newGuardTestServer(t, stubChat{}, 4, -1)
+	s := newGuardTestServer(t, stubChat{}, 4, -1, 0)
 	for i := 0; i < 5; i++ {
 		if w := doJSON(t, s, http.MethodPost, "/v1/session/new", ""); w.Code != http.StatusOK {
 			t.Fatalf("限流关闭时第%d次请求应放行，实际 %d", i+1, w.Code)

@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -30,13 +29,10 @@ import (
 
 	"yhagent-server/internal/ai"
 	"yhagent-server/internal/auth"
+	"yhagent-server/internal/bootstrap"
 	"yhagent-server/internal/config"
-	"yhagent-server/internal/data/cache"
-	"yhagent-server/internal/data/deltaapi"
-	"yhagent-server/internal/gunparts"
 	"yhagent-server/internal/ingest"
-	"yhagent-server/internal/knowledge"
-	"yhagent-server/internal/knowledge/embedded"
+	"yhagent-server/internal/mcp"
 	"yhagent-server/internal/server"
 	"yhagent-server/internal/trace"
 	"yhagent-server/internal/websearch"
@@ -50,13 +46,8 @@ func main() {
 		log.Fatalf("配置加载失败: %v", err)
 	}
 
-	// 2. 初始化豆包客户端 + Agent + 三角洲工具
+	// 2. 初始化豆包客户端（Agent 与工具集共用同一实例）
 	aiClient := ai.NewSeedClient()
-	deltaClient := deltaapi.NewClient(config.AppConfig.DeltaAPIKey, config.AppConfig.DeltaAPIBase)
-
-	// 3. 全用户共享缓存：挂载后所有人命中同一份数据，配合 singleflight 上游调用量与用户数脱钩
-	sharedCache := cache.NewCache()
-	deltaClient.WithCache(sharedCache)
 
 	agentOpts := []ai.Option{}
 	// 会话持久化：SESSION_DB 配置后启用（SQLite），重启/空闲淘汰后按 sessionID 无感恢复历史；
@@ -82,69 +73,13 @@ func main() {
 		log.Printf("[server] 长期记忆已启用：db=%s", dbPath)
 	}
 	agent := ai.NewAgent(aiClient, agentOpts...)
-	deltaapi.RegisterTools(agent.Tools(), deltaClient)
 
-	// 3.2 改枪组合求解器：数据集 data/compat/gunparts.json 由 cmd/partssync 生成
-	//     （生成产物不入 git，需随部署包分发；缺失时工具不注册，其余功能不受影响）
-	if gp, err := gunparts.NewStore("data/compat/gunparts.json"); err != nil {
-		log.Printf("[server] 配件数据集加载失败，gun_combo_solve 未注册（运行 cmd/partssync 生成）: %v", err)
-	} else {
-		gunparts.RegisterTools(agent.Tools(), gp)
-		log.Printf("[server] 改枪组合求解器已启用：%d 把武器（数据版本 %s）", gp.WeaponCount(), gp.Version())
+	// 3.1 业务工具统一装配（cmd/mcpserver 共用 internal/bootstrap，避免两处复制漂移）：
+	//     三角洲 API / 改枪求解器 / 知识库 / 联网搜索，容错语义见 bootstrap 包注释
+	tools, err := bootstrap.AssembleTools(agent.Tools(), aiClient, "", "")
+	if err != nil {
+		log.Fatalf("[server] 工具装配失败: %v", err)
 	}
-
-	// 3.1 加载静态知识库主索引：优先 data/index.gob（部署包分发，产物不进 git），
-	//     回退编译期 embedded 兜底（stub，正常为空）；再叠加运行时可写的补充知识库
-	//     （玩家确认采纳的联网知识存在 KB_EXTRA_DIR，默认 data/kb-extra，重启不丢）。
-	kbPath := "data/index.gob" // 相对于 systemd WorkingDirectory（部署为 /opt/yhagent）
-	kbBytes, kbErr := knowledge.LoadIndexBytes(kbPath, embedded.IndexGOB)
-	if kbErr == nil && len(kbBytes) == 0 {
-		kbErr = fmt.Errorf("未找到 %s（部署包需携带 data/index.gob，或本地先运行 cmd/indexer 生成）", kbPath)
-	}
-	var kbStore *knowledge.Store
-	if kbErr == nil {
-		kbStore, kbErr = knowledge.DecodeGOB(kbBytes)
-	}
-	var kbSearcher knowledge.Searcher
-	var extraStore *knowledge.ExtraStore
-	var loadErr error
-	if kbErr != nil {
-		log.Printf("[server] 知识库主索引加载失败，search_knowledge/web_search 入库能力不可用: %v", kbErr)
-	} else if kbStore.Len() > 0 {
-		extraDir := os.Getenv("KB_EXTRA_DIR")
-		if extraDir == "" {
-			extraDir = "data/kb-extra" // 相对于 systemd WorkingDirectory（部署为 /opt/yhagent）
-		}
-		extraStore, loadErr = knowledge.LoadExtraStore(kbStore, extraDir)
-		if loadErr != nil {
-			log.Fatalf("[server] 补充知识库初始化失败: %v", loadErr)
-		}
-		kbSearcher = extraStore
-		// 检索重排器：配置了 VikingDB AK/SK 走专用重排模型（优先），
-		// 否则配置了 ARK_RERANK_LLM_MODEL 走 LLM 重排；都未配置为 nil（不重排）
-		var reranker ai.Reranker
-		if v := ai.NewVikingReranker(); v != nil {
-			reranker = v
-		} else if l := ai.NewLLMReranker(aiClient); l != nil {
-			reranker = l
-		}
-		if reranker != nil {
-			log.Printf("[server] 知识库检索重排已启用：%s", reranker.Name())
-		}
-		knowledge.RegisterTool(agent.Tools(), kbSearcher, aiClient, reranker)
-		log.Printf("[server] 静态知识库已加载：%d 主切片 + %d 补充切片（%s，%d维）",
-			kbStore.Len(), extraStore.ExtraLen(), kbStore.Model, kbStore.Dimension)
-	} else {
-		log.Printf("[server] 静态知识库为空，search_knowledge 未注册（放文档后运行 cmd/indexer 建库）")
-	}
-
-	// 3.2 注册联网搜索工具（需在火山方舟控制台开通「联网内容插件」，未开通时工具返回友好错误）
-	webClient := websearch.New(
-		config.AppConfig.DoubaoAPIKey,
-		config.AppConfig.DoubaoBaseURL,
-		config.AppConfig.DoubaoEndpoint,
-	)
-	websearch.RegisterTool(agent.Tools(), webClient)
 
 	// 3.2b Plan-and-Execute 元工具（可选）：对比/多实体类任务由模型自主选择
 	// 一次性下发计划并行执行；默认关闭，AGENT_PLAN_TOOL=1 启用（A/B 对比实验开关）
@@ -155,8 +90,23 @@ func main() {
 
 	// 3.3 联网知识采纳入库服务：候选摘要经 AI 整理成 md 后写入补充索引
 	var ingester server.Ingester
-	if extraStore != nil {
-		ingester = ingestAdapter{s: ingest.New(extraStore, aiClient, aiClient)}
+	if tools.ExtraStore != nil {
+		ingester = ingestAdapter{s: ingest.New(tools.ExtraStore, aiClient, aiClient)}
+	}
+
+	// 3.5 MCP 服务（可选）：MCP_TOKEN 配置后主服务挂 /mcp 路由（Streamable HTTP），
+	//     Claude Desktop / Trae 等外部 MCP 客户端可远程挂载 YHagent 工具集；
+	//     令牌独立于 SERVER_TOKEN，工具白名单由 MCP_EXCLUDE 控制（默认排除
+	//     web_search / plan_and_execute）。本地子进程形态见 cmd/mcpserver。
+	var mcpHandler http.Handler
+	if tok := strings.TrimSpace(os.Getenv("MCP_TOKEN")); tok != "" {
+		mcpServer := mcp.NewServer()
+		n, err := mcp.Mount(mcpServer, agent.Tools(), mcp.ExcludeSet(os.Getenv("MCP_EXCLUDE")))
+		if err != nil {
+			log.Fatalf("[server] MCP 工具挂载失败: %v", err)
+		}
+		mcpHandler = mcp.NewHTTPHandler(mcpServer)
+		log.Printf("[server] MCP 服务已启用：/mcp（Streamable HTTP，暴露 %d 个工具）", n)
 	}
 
 	// 3.4 请求级 trace 记录器：JSONL 按天轮转落盘（默认 data/trace，保留 7 天）；
@@ -196,11 +146,17 @@ func main() {
 		log.Fatalf("网页资源加载失败: %v", err)
 	}
 	// 入口保护（可选环境变量，留空走内置默认值）：
-	// CHAT_MAX_CONCURRENT 全局在途对话上限（默认 16）；CHAT_RPM_PER_IP 单 IP 每分钟请求上限（默认 30，=0 可关）
-	maxConcurrent, rpmPerIP := 0, 0
+	// CHAT_MAX_CONCURRENT 全局在途对话上限（默认 128）；CHAT_QUEUE_TIMEOUT 满员后
+	// 排队等待上限秒数（默认 60，超时才拒绝）；CHAT_RPM_PER_IP 单 IP 每分钟请求上限（默认 30，=0 可关）
+	maxConcurrent, rpmPerIP, queueWait := 0, 0, time.Duration(0)
 	if v := os.Getenv("CHAT_MAX_CONCURRENT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			maxConcurrent = n
+		}
+	}
+	if v := strings.TrimSpace(os.Getenv("CHAT_QUEUE_TIMEOUT")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			queueWait = time.Duration(n) * time.Second
 		}
 	}
 	// 显式 =0 表示关闭按 IP 限流（配置值映射为 -1 传入）；不配置则为 0 走默认阈值
@@ -242,8 +198,11 @@ func main() {
 		Ingester:          ingester,
 		Tracer:            trace.Default,
 		MaxConcurrentChat: maxConcurrent,
+		ChatQueueWait:     queueWait,
 		ChatRPMPerIP:      rpmPerIP,
 		Auth:              authService,
+		MCP:               mcpHandler,
+		MCPToken:          os.Getenv("MCP_TOKEN"),
 	})
 	if err != nil {
 		log.Fatalf("服务初始化失败: %v", err)

@@ -1,8 +1,9 @@
 // internal/server/guard.go
 //
 // 服务端入口保护：
-//   - chatGate：全局限流并发闸门。LLM 调用按并发线性烧钱，单实例必须给
-//     /v1/chat 的在途请求设硬上限，防止异常流量打爆上游 RPM 限额与本机内存；
+//   - chatGate：全局并发闸门（带界排队）。给 /v1/chat 的在途请求设硬上限，
+//     防止异常流量打爆上游 RPM 限额与本机内存；满员后新请求不再立刻 503，
+//     而是先到先得排队等待（上限 waitLimit），把瞬时尖峰削成平滑曲线；
 //   - ipLimiter：按来源 IP 的每分钟固定窗口计数（含会话签发/重置接口），
 //     抬高频刷接口与批量撞库 sessionID 的成本。
 //
@@ -12,35 +13,52 @@
 package server
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const (
 	// defaultMaxConcurrentChat 未配置时的全局对话并发上限。
-	// 单轮对话平均占用 LLM 连接数秒到数十秒，16 并发对万级日活的问答类
-	// 流量足够（请求排队在用户侧表现为短暂等待），同时把成本上限钉死。
-	defaultMaxConcurrentChat = 16
+	// 每路在途对话 = 1 个 goroutine + 1 条 SSE 流，本机开销极小，真正的约束是
+	// 上游 LLM 的 RPM/并发配额。128 路可吸收数百人同时提问的尖峰（超出部分排队），
+	// 上游配额紧张时用 CHAT_MAX_CONCURRENT 下调。
+	defaultMaxConcurrentChat = 128
 	// defaultChatRPMPerIP 单 IP 每分钟最多请求次数（chat / session/new / reset 共用窗口）。
 	defaultChatRPMPerIP = 30
+	// defaultChatQueueWait 满员后新请求最长排队等待时间，超时才拒绝。
+	// 期间请求以 SSE 建连并持续收到心跳与排队位置，反代不会误判超时掐线。
+	defaultChatQueueWait = 60 * time.Second
 )
 
-// chatGate 全局并发闸门：带缓冲通道即信号量，取空位非阻塞、满了立刻 503
+// chatGate 全局并发闸门：带缓冲通道即信号量。
+// 名额充足时 tryAcquire 零等待直接放行；满员后 acquire 排队等待
+// （Go channel 对阻塞发送方天然 FIFO，先到先得），等待期内客户端断连
+// 立即让位，超过 waitLimit 返回 false 由调用方拒绝。
 type chatGate struct {
-	sem chan struct{}
+	sem       chan struct{}
+	waitLimit time.Duration
+	waiting   atomic.Int64 // 当前排队中的请求数（含自己），用于推送排队位置
 }
 
-func newChatGate(maxConcurrent int) *chatGate {
+func newChatGate(maxConcurrent int, queueWait time.Duration) *chatGate {
 	if maxConcurrent <= 0 {
 		maxConcurrent = defaultMaxConcurrentChat
 	}
-	return &chatGate{sem: make(chan struct{}, maxConcurrent)}
+	if queueWait <= 0 {
+		queueWait = defaultChatQueueWait
+	}
+	return &chatGate{
+		sem:       make(chan struct{}, maxConcurrent),
+		waitLimit: queueWait,
+	}
 }
 
-// tryAcquire 非阻塞抢占一个对话名额，满了返回 false
+// tryAcquire 非阻塞抢占一个对话名额，满了返回 false（快路径）
 func (g *chatGate) tryAcquire() bool {
 	select {
 	case g.sem <- struct{}{}:
@@ -50,7 +68,36 @@ func (g *chatGate) tryAcquire() bool {
 	}
 }
 
-// release 归还名额（与 tryAcquire 严格配对，建议 defer）
+// acquire 排队等待名额（慢路径）：最多等 waitLimit，入队时与之后每 5s 各回调一次
+// onWait（参数为当前排队人数，含自己）供调用方推送排队位置；
+// ctx 取消（客户端断连）立即返回 false。返回 true 表示拿到名额。
+func (g *chatGate) acquire(ctx context.Context, onWait func(waiting int64)) bool {
+	g.waiting.Add(1)
+	defer g.waiting.Add(-1)
+	if onWait != nil {
+		onWait(g.waiting.Load()) // 入队即推一次位置，前端不用等首个 tick
+	}
+	timer := time.NewTimer(g.waitLimit)
+	defer timer.Stop()
+	tick := time.NewTicker(5 * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case g.sem <- struct{}{}:
+			return true
+		case <-timer.C:
+			return false
+		case <-ctx.Done():
+			return false
+		case <-tick.C:
+			if onWait != nil {
+				onWait(g.waiting.Load())
+			}
+		}
+	}
+}
+
+// release 归还名额（与 tryAcquire/acquire 严格配对，建议 defer）
 func (g *chatGate) release() {
 	<-g.sem
 }

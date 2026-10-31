@@ -29,6 +29,7 @@ package server
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -74,15 +75,25 @@ type Config struct {
 	// Tracer 请求级 trace 记录器（internal/trace）；nil 时 /v1/traces 查看接口关闭。
 	// trace 写入本身在 Agent 内部完成，此处只用于查看端读取。
 	Tracer *trace.Recorder
-	// MaxConcurrentChat /v1/chat 全局在途对话上限（并发闸门），<=0 用默认值 16。
-	// 把上游 LLM 并发成本钉死在可预期范围，满了快速返回 503 而非排队拖死。
+	// MaxConcurrentChat /v1/chat 全局在途对话上限（并发闸门），<=0 用默认值 128。
+	// 满员后新请求进入有界排队（ChatQueueWait）而非立刻拒绝，把流量尖峰削平；
+	// 该值主要保护上游 LLM 的 RPM/并发配额，按方舟配额调整。
 	MaxConcurrentChat int
+	// ChatQueueWait 并发满员后新请求的最长排队等待，<=0 用默认值 60s；
+	// 排队期间以 SSE 建连并持续推送心跳与排队位置，超时才拒绝。
+	ChatQueueWait time.Duration
 	// ChatRPMPerIP 单 IP 每分钟对话类请求（chat/会话签发/重置）上限，<=0 用默认值 30。
 	ChatRPMPerIP int
 	// Auth 账号系统（internal/auth）；nil 时账号接口全部 503、鉴权退回纯主令牌
 	// （已有客户端零改动）。启用后：主令牌=匿名身份（uid=0），账号令牌=注入 UID，
 	// 登录用户签发的会话受归属保护。
 	Auth *auth.Service
+	// MCP Streamable HTTP 形态的 MCP 服务处理器（internal/mcp 构造）；
+	// 与 MCPToken 同时非空时挂 /mcp 路由，供 Claude Desktop / Trae 等外部
+	// MCP 客户端远程挂载 YHagent 工具集。两者任一为空则路由不启用（旧行为）。
+	MCP http.Handler
+	// MCPToken MCP 客户端访问令牌，独立于 SERVER_TOKEN（Bearer，恒定时间比较）。
+	MCPToken string
 }
 
 // errInvalidSession 会话标识非法时的统一响应体（前端据 code 自动重新签发并重试）
@@ -145,6 +156,20 @@ func (s *Server) withRateLimit(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// withMCPToken /mcp 路由的 MCP 令牌校验中间件：独立于主令牌与账号体系
+// （MCP 客户端只有这一种凭据），恒定时间比较防时序侧信道
+func (s *Server) withMCPToken(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		got := bearerToken(r)
+		if subtle.ConstantTimeCompare([]byte(got), []byte(s.cfg.MCPToken)) != 1 {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "MCP 访问令牌无效"})
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
 // New 创建服务端实例，token 为空时返回错误（避免把自己的服务器变成开放代理）
 func New(cfg Config) (*Server, error) {
 	if strings.TrimSpace(cfg.Token) == "" {
@@ -158,7 +183,7 @@ func New(cfg Config) (*Server, error) {
 	}
 	s := &Server{
 		cfg:  cfg,
-		gate: newChatGate(cfg.MaxConcurrentChat),
+		gate: newChatGate(cfg.MaxConcurrentChat, cfg.ChatQueueWait),
 	}
 	// ChatRPMPerIP：0=默认阈值；负数=显式关闭限流
 	if cfg.ChatRPMPerIP >= 0 {
@@ -183,6 +208,12 @@ func New(cfg Config) (*Server, error) {
 	mux.HandleFunc("GET /v1/auth/check", s.withAuth(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}))
+	// MCP 服务（可选）：Streamable HTTP 形态，独立令牌 + 按 IP 限流，
+	// 每次工具调用都会消耗上游 API（embedding/三角洲数据），不能裸奔
+	if cfg.MCP != nil && strings.TrimSpace(cfg.MCPToken) != "" {
+		s.cfg.MCPToken = strings.TrimSpace(cfg.MCPToken)
+		mux.Handle("/mcp", s.withRateLimit(s.withMCPToken(cfg.MCP)))
+	}
 
 	// 网页入口：根路径提供静态页面。
 	// ServeMux 按最长前缀匹配，/v1/、/healthz 等更具体的路由优先命中，API 不受影响。
@@ -225,6 +256,12 @@ type chatRequest struct {
 	SessionID string   `json:"session_id"`
 	Message   string   `json:"message"`
 	Images    []string `json:"images"` // 可选，元素为 data URL：data:image/jpeg;base64,...
+}
+
+// queueEvent SSE queue 事件载荷：Waiting>0 = 正在排队（含自己在内的人数），
+// =0 = 已入场。前端据此显示「排队中，前方约 N-1 人」并恢复思考态。
+type queueEvent struct {
+	Waiting int64 `json:"waiting"`
 }
 
 // validateImages 校验图片数量、data URL 形态与解码后大小，返回清洗后的列表
@@ -294,23 +331,15 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	if !s.checkSessionOwnership(w, r, req.SessionID) {
 		return
 	}
-	// 全局并发闸门：满员快速失败（503 + Retry-After），不占着连接排队，
-	// 也防止流量尖峰把上游 LLM RPM 配额与本机内存一起打爆。
-	if !s.gate.tryAcquire() {
-		w.Header().Set("Retry-After", "5")
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
-			"error": "当前咨询人数较多，请稍后再试",
-		})
-		return
-	}
-	defer s.gate.release()
-
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "服务器不支持流式响应"})
 		return
 	}
 
+	// 校验通过即建立 SSE 连接：并发满员时请求也不再快速失败，而是在
+	// 心跳保活下持续收到排队位置推送（queue 事件），直到入场或等待超时
+	// （不认识 queue 事件的旧客户端只表现为稍长的等待，行为向后兼容）。
 	h := w.Header()
 	h.Set("Content-Type", "text/event-stream; charset=utf-8")
 	h.Set("Cache-Control", "no-cache")
@@ -356,6 +385,22 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 		return true
 	}
+
+	// 全局并发闸门：快路径直接抢名额（多数请求零等待）；满员则 FIFO 排队，
+	// 期间每 5s 推一次 queue 事件（waiting 含自己在内的排队人数），
+	// 客户端断连立即让位，超过 ChatQueueWait 才拒绝（SSE error 事件）。
+	if !s.gate.tryAcquire() {
+		if !s.gate.acquire(r.Context(), func(waiting int64) {
+			writeEvent("queue", queueEvent{Waiting: waiting})
+		}) {
+			log.Printf("[server] 会话 %s 排队等待未获名额（上限 %s，超时或客户端断连）", req.SessionID, s.gate.waitLimit)
+			writeEvent("error", "当前咨询人数较多，请稍后重试")
+			return
+		}
+		// 已入场：通知前端把「排队中」恢复成「思考中」（首个 chunk 可能还需数秒）
+		writeEvent("queue", queueEvent{Waiting: 0})
+	}
+	defer s.gate.release()
 
 	// 客户端断连时 r.Context() 会取消，上游豆包调用随之终止，不白烧 token。
 	// 注入候选知识回调：Agent 调用 web_search 时，把候选卡片通过 SSE 推给网页端。
