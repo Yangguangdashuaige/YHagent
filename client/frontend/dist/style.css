@@ -11,8 +11,27 @@ body {
   color: #e8ebf2;
   font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   font-size: 14px;
+  /* 暗色主题：WebView2 默认控件（含 textarea 滚动条）渲染成深色 */
+  color-scheme: dark;
   overflow: hidden;
   user-select: none;
+}
+
+/* ==================== 统一滚动条样式（细条 + 圆角 + 无箭头） ==================== */
+/* 覆盖 WebView2 默认经典滚动条（白底 + 上下箭头），输入框与消息区共用 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .app {
@@ -89,13 +108,6 @@ body {
   gap: 10px;
   user-select: text;
 }
-.messages::-webkit-scrollbar {
-  width: 6px;
-}
-.messages::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-}
 
 .msg {
   display: flex;
@@ -171,7 +183,8 @@ body {
   flex: 1;
   resize: none;
   max-height: 96px;
-  padding: 9px 12px;
+  /* 右侧多留 4px：滚动条出现时不贴字、不遮行尾 */
+  padding: 9px 16px 9px 12px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.28);

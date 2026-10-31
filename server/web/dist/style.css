@@ -12,9 +12,32 @@ body {
   color: #e8ebf2;
   font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
   font-size: 14px;
+  /* 暗色主题：默认控件（表单/滚动条）也渲染成深色，避免白底经典滚动条 */
+  color-scheme: dark;
   /* 浏览器里窗口不是透明的，用深色渐变作为页面背景 */
   background: radial-gradient(1200px 800px at 20% -10%, #1d2742 0%, #0e121b 55%, #0a0d14 100%);
   overflow: hidden;
+}
+
+/* ==================== 统一滚动条样式（细条 + 圆角 + 无箭头） ==================== */
+/* Firefox 标准属性；Chrome/Edge/Safari 走下面的 ::-webkit-scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 .hidden {
   display: none !important;
@@ -164,9 +187,9 @@ body {
   inset: 0;
   margin: auto;
   width: 100%;
-  max-width: 480px;
+  max-width: 720px;
   height: 100vh;
-  max-height: 820px;
+  max-height: 900px;
   display: flex;
   flex-direction: column;
   background: rgba(17, 20, 28, 0.92);
@@ -176,12 +199,12 @@ body {
   overflow: hidden;
 }
 /* 宽屏时卡片四周留出背景；窄屏（手机）铺满全屏 */
-@media (min-width: 520px) {
+@media (min-width: 760px) {
   .app {
     height: calc(100vh - 40px);
   }
 }
-@media (max-width: 519px) {
+@media (max-width: 759px) {
   .app {
     border: none;
     border-radius: 0;
@@ -246,13 +269,6 @@ body {
   gap: 10px;
   user-select: text;
   -webkit-overflow-scrolling: touch;
-}
-.messages::-webkit-scrollbar {
-  width: 6px;
-}
-.messages::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
 }
 
 .msg {
@@ -357,6 +373,22 @@ body {
   color: #b9c2d6;
   white-space: nowrap;
 }
+/* 停止排队按钮：并发满员排队时出现在状态条，入场即移除 */
+.queue-cancel-btn {
+  margin-left: 8px;
+  padding: 2px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  border: 1px solid rgba(255, 120, 120, 0.45);
+  border-radius: 12px;
+  background: rgba(255, 90, 90, 0.12);
+  color: #ff9c9c;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.queue-cancel-btn:hover {
+  background: rgba(255, 90, 90, 0.25);
+}
 .tool-chip .t {
   font-weight: normal;
   color: #8fa0c0;
@@ -448,7 +480,8 @@ body {
   flex: 1;
   resize: none;
   max-height: 96px;
-  padding: 9px 12px;
+  /* 右侧多留 4px：滚动条出现时不贴字、不遮行尾 */
+  padding: 9px 16px 9px 12px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.28);

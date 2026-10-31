@@ -32,8 +32,9 @@ func Load() (*Config, error) {
 		RemoteBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("REMOTE_BASE_URL")), "/"),
 		RemoteToken:   strings.TrimSpace(os.Getenv("REMOTE_TOKEN")),
 
-		DefaultWidth:  420,
-		DefaultHeight: 650,
+		// 悬浮窗默认尺寸：稍放大提升阅读体验（可在前端自由缩放，Min 360x480 兜底）
+		DefaultWidth:  460,
+		DefaultHeight: 700,
 	}
 
 	if cfg.RemoteBaseURL == "" {
