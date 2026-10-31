@@ -147,7 +147,8 @@ func main() {
 	}
 	// 入口保护（可选环境变量，留空走内置默认值）：
 	// CHAT_MAX_CONCURRENT 全局在途对话上限（默认 128）；CHAT_QUEUE_TIMEOUT 满员后
-	// 排队等待上限秒数（默认 60，超时才拒绝）；CHAT_RPM_PER_IP 单 IP 每分钟请求上限（默认 30，=0 可关）
+	// 排队等待上限秒数（默认不限时——排队时长由用户决定，网页端可随时「停止排队」；
+	// 设置后超时自动拒绝）；CHAT_RPM_PER_IP 单 IP 每分钟请求上限（默认 30，=0 可关）
 	maxConcurrent, rpmPerIP, queueWait := 0, 0, time.Duration(0)
 	if v := os.Getenv("CHAT_MAX_CONCURRENT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {

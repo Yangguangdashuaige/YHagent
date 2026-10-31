@@ -30,9 +30,10 @@ const (
 	defaultMaxConcurrentChat = 128
 	// defaultChatRPMPerIP 单 IP 每分钟最多请求次数（chat / session/new / reset 共用窗口）。
 	defaultChatRPMPerIP = 30
-	// defaultChatQueueWait 满员后新请求最长排队等待时间，超时才拒绝。
-	// 期间请求以 SSE 建连并持续收到心跳与排队位置，反代不会误判超时掐线。
-	defaultChatQueueWait = 60 * time.Second
+	// defaultChatQueueWait 满员后排队等待上限，0 = 不限时（默认）。
+	// 排队时长交给用户决定：网页端「停止排队」随时退出（断连即让位）；
+	// 需要服务端强制兜底时用 CHAT_QUEUE_TIMEOUT 配置秒数上限。
+	defaultChatQueueWait = 0
 )
 
 // chatGate 全局并发闸门：带缓冲通道即信号量。
@@ -49,7 +50,7 @@ func newChatGate(maxConcurrent int, queueWait time.Duration) *chatGate {
 	if maxConcurrent <= 0 {
 		maxConcurrent = defaultMaxConcurrentChat
 	}
-	if queueWait <= 0 {
+	if queueWait < 0 {
 		queueWait = defaultChatQueueWait
 	}
 	return &chatGate{
@@ -68,24 +69,29 @@ func (g *chatGate) tryAcquire() bool {
 	}
 }
 
-// acquire 排队等待名额（慢路径）：最多等 waitLimit，入队时与之后每 5s 各回调一次
-// onWait（参数为当前排队人数，含自己）供调用方推送排队位置；
-// ctx 取消（客户端断连）立即返回 false。返回 true 表示拿到名额。
+// acquire 排队等待名额（慢路径）：waitLimit>0 时最多等该时长（nil 定时器通道
+// 表示不限时等待）；入队时与之后每 5s 各回调一次 onWait（参数为当前排队人数，
+// 含自己）供调用方推送排队位置；ctx 取消（客户端点「停止排队」断连）立即返回
+// false。返回 true 表示拿到名额。
 func (g *chatGate) acquire(ctx context.Context, onWait func(waiting int64)) bool {
 	g.waiting.Add(1)
 	defer g.waiting.Add(-1)
 	if onWait != nil {
 		onWait(g.waiting.Load()) // 入队即推一次位置，前端不用等首个 tick
 	}
-	timer := time.NewTimer(g.waitLimit)
-	defer timer.Stop()
+	var timeout <-chan time.Time
+	if g.waitLimit > 0 {
+		timer := time.NewTimer(g.waitLimit)
+		defer timer.Stop()
+		timeout = timer.C
+	}
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
 	for {
 		select {
 		case g.sem <- struct{}{}:
 			return true
-		case <-timer.C:
+		case <-timeout:
 			return false
 		case <-ctx.Done():
 			return false

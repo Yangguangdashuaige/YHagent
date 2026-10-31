@@ -223,11 +223,12 @@ func waitQueued(t *testing.T, s *Server, n int64) {
 	t.Fatalf("请求未进入排队状态（waiting=%d）", s.gate.waiting.Load())
 }
 
-// TestChatQueueServedAfterRelease 并发=1：第二个请求排队期间第一个释放名额，
-// 第二个应等到名额入场（而不是被拒），且收到 waiting=0 的入场通知
+// TestChatQueueServedAfterRelease 并发=1、排队不限时（waitLimit=0）：第二个请求
+// 排队期间第一个释放名额，第二个应等到名额入场（而不是被拒），
+// 且收到 waiting=0 的入场通知
 func TestChatQueueServedAfterRelease(t *testing.T) {
 	chat := &countingChat{entered: make(chan struct{}, 4), blocking: true}
-	s := newGuardTestServer(t, chat, 1, 100, 5*time.Second)
+	s := newGuardTestServer(t, chat, 1, 100, 0)
 
 	// 第一个请求占住唯一名额
 	firstReq := httptest.NewRequest(http.MethodPost, "/v1/chat",
@@ -279,11 +280,11 @@ func TestChatQueueServedAfterRelease(t *testing.T) {
 	}
 }
 
-// TestChatQueueClientDisconnect 排队期间客户端断连：等待方立即让位，
-// 不占名额也不影响后续请求正常入场
+// TestChatQueueClientDisconnect 排队不限时（waitLimit=0）期间客户端断连：
+// 等待方立即让位，不占名额也不影响后续请求正常入场
 func TestChatQueueClientDisconnect(t *testing.T) {
 	chat := &countingChat{entered: make(chan struct{}, 4), blocking: true}
-	s := newGuardTestServer(t, chat, 1, 100, 10*time.Second)
+	s := newGuardTestServer(t, chat, 1, 100, 0)
 
 	// 第一个请求占住唯一名额
 	firstReq := httptest.NewRequest(http.MethodPost, "/v1/chat",

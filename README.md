@@ -204,8 +204,10 @@ go run ./cmd/indexer
 | `POST` | `/v1/session/reset` | 清空指定会话上下文；问答进行中返回 409 |
 | `GET` | `/v1/auth/check` | 校验令牌有效性（网页版登录用） |
 | `GET` | `/healthz` | 健康检查 |
+ui
 
-入口保护：`session_id` 必须为服务端签发格式或历史 UUID v4，非法 ID 在 SSE 建连前返回 `400 {"code":"invalid_session"}`（前端自动换发 ID 重试）；对话类接口按 IP 每分钟限流（默认 30 次），`/v1/chat` 全局并发闸门默认 128——满员不拒绝，新请求先到先得排队（默认最长 60s，网页端显示「排队中，前方还有 N 人」），超时才以 SSE error 结束（可用 `CHAT_RPM_PER_IP` / `CHAT_MAX_CONCURRENT` / `CHAT_QUEUE_TIMEOUT` 调整）。
+
+入口保护：`session_id` 必须为服务端签发格式或历史 UUID v4，非法 ID 在 SSE 建连前返回 `400 {"code":"invalid_session"}`（前端自动换发 ID 重试）；对话类接口按 IP 每分钟限流（默认 30 次），`/v1/chat` 全局并发闸门默认 128——满员不拒绝，新请求先到先得排队：排队时长由用户决定（网页端显示「排队中，前方还有 N 人」+「停止排队」按钮，随时退出且断连即让位；默认不限时，`CHAT_QUEUE_TIMEOUT` 可设服务端兜底上限），超时才以 SSE error 结束（可用 `CHAT_RPM_PER_IP` / `CHAT_MAX_CONCURRENT` / `CHAT_QUEUE_TIMEOUT` 调整）。
 
 SSE 事件：`event: chunk`（JSON 编码文本片段）、`event: queue`（并发满员时的排队位置，`{"waiting":N}`，0=已入场）、`event: done`、`event: error`，每 25 秒发送 `: ping` 心跳。
 

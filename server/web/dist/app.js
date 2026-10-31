@@ -144,8 +144,10 @@ function addMessage(role, text, images) {
 
 // 构造回答气泡里的执行状态条：🧠思考中 → 每个工具一枚进度 chip（旋转+实时计时）
 // → 工具完成变 ✓+耗时；回答正文渲染在独立 span，状态条不会被流式重绘冲掉。
-// onTool 由 streamChat 的 SSE tool 事件驱动；remove() 停掉所有计时器并移除节点。
-function buildStatusBar() {
+// onTool 由 streamChat 的 SSE tool 事件驱动；onQueue 由 queue 事件驱动（并发满员
+// 排队时显示位置 + 「停止排队」按钮，onCancelQueue 由调用方注入 abort 动作）；
+// remove() 停掉所有计时器并移除节点。
+function buildStatusBar(onCancelQueue) {
   const el = document.createElement("div");
   el.className = "status-bar";
   const thinking = document.createElement("span");
@@ -163,6 +165,15 @@ function buildStatusBar() {
     chips.forEach((c) => clearInterval(c.timerId));
     el.remove();
   };
+
+  // 停止排队按钮：仅排队期间出现，入场（waiting=0）即移除
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "queue-cancel-btn";
+  cancelBtn.textContent = "停止排队";
+  cancelBtn.addEventListener("click", () => {
+    if (onCancelQueue) onCancelQueue();
+  });
 
   const onTool = (ev) => {
     if (removed || !ev || !ev.name) return;
@@ -193,16 +204,21 @@ function buildStatusBar() {
   };
 
   const onQueue = (ev) => {
-    if (removed || !ev || !thinking.parentNode) return;
-    if (ev.waiting > 1) {
-      thinking.innerHTML =
-        "⏳ 咨询人数较多，排队中（前方还有 " + (ev.waiting - 1) + " 人）" +
-        '<span class="dots"><i></i><i></i><i></i></span>';
-    } else if (ev.waiting === 1) {
-      thinking.innerHTML =
-        '⏳ 排队中，即将进入<span class="dots"><i></i><i></i><i></i></span>';
+    if (removed || !ev) return;
+    if (ev.waiting > 0) {
+      // 排队中：显示位置 + 停止排队按钮（点击后调用方 abort 请求，SSE 断开）
+      if (!cancelBtn.parentNode && thinking.parentNode) el.appendChild(cancelBtn);
+      if (ev.waiting > 1) {
+        thinking.innerHTML =
+          "⏳ 咨询人数较多，排队中（前方还有 " + (ev.waiting - 1) + " 人）" +
+          '<span class="dots"><i></i><i></i><i></i></span>';
+      } else {
+        thinking.innerHTML =
+          '⏳ 排队中，即将进入<span class="dots"><i></i><i></i><i></i></span>';
+      }
     } else {
-      // waiting=0：已入场，恢复思考态（首个 chunk 可能还需数秒）
+      // waiting=0：已入场，撤掉按钮并恢复思考态（首个 chunk 可能还需数秒）
+      if (cancelBtn.parentNode) cancelBtn.remove();
       thinking.innerHTML =
         '🧠 思考中<span class="dots"><i></i><i></i><i></i></span>';
     }
@@ -388,8 +404,9 @@ async function refreshUserBadge() {
 // onTool 在工具开始/结束时收到进度事件（{name,label,phase,ms,ok}）；
 // onCandidate 在模型联网搜索时收到候选知识卡片；
 // onQueue 在并发满员排队时收到位置事件（{waiting}，0=已入场）；
+// signal 可选（AbortSignal）：用于「停止排队」——abort 后 fetch 抛 AbortError；
 // 出错时 throw Error（中文信息）
-async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool, onQueue) {
+async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool, onQueue, signal) {
   let resp;
   try {
     resp = await fetch("/v1/chat", {
@@ -400,8 +417,10 @@ async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool,
         message: text,
         images: images || [],
       }),
+      signal,
     });
   } catch (e) {
+    if (e && e.name === "AbortError") throw e; // 停止排队：原样上抛，调用方按取消处理
     throw new Error("无法连接服务器，请检查网络后重试");
   }
 
@@ -1092,7 +1111,9 @@ async function send() {
   setBusy(true);
 
   currentBubble = addMessage("assistant", "");
-  const status = buildStatusBar();
+  // AbortController：排队期间用户点「停止排队」→ abort → fetch 抛 AbortError
+  const queueController = new AbortController();
+  const status = buildStatusBar(() => queueController.abort());
   currentBubble.appendChild(status.el);
   // 回答正文渲染在独立 span：流式重绘只更新它，状态条/候选卡片不被冲掉
   const textSpan = document.createElement("span");
@@ -1121,7 +1142,8 @@ async function send() {
           if (!dup) candidates.push(cand);
         },
         status.onTool,
-        status.onQueue
+        status.onQueue,
+        queueController.signal
       );
 
     let sid;
@@ -1147,8 +1169,13 @@ async function send() {
     if (candidates.length) scrollToBottom();
   } catch (e) {
     status.remove();
-    currentBubble.classList.add("error");
-    textSpan.textContent = "⚠️ " + (e && e.message ? e.message : String(e));
+    if (e && e.name === "AbortError") {
+      // 用户主动停止排队：不算错误，给出中性提示
+      textSpan.textContent = "已停止排队，需要时可重新提问";
+    } else {
+      currentBubble.classList.add("error");
+      textSpan.textContent = "⚠️ " + (e && e.message ? e.message : String(e));
+    }
   } finally {
     currentBubble = null;
     answerText = "";

@@ -79,8 +79,8 @@ type Config struct {
 	// 满员后新请求进入有界排队（ChatQueueWait）而非立刻拒绝，把流量尖峰削平；
 	// 该值主要保护上游 LLM 的 RPM/并发配额，按方舟配额调整。
 	MaxConcurrentChat int
-	// ChatQueueWait 并发满员后新请求的最长排队等待，<=0 用默认值 60s；
-	// 排队期间以 SSE 建连并持续推送心跳与排队位置，超时才拒绝。
+	// ChatQueueWait 并发满员后排队等待的时长上限，<=0（默认）= 不限时——排队时长
+	// 交给用户决定（网页端「停止排队」随时退出）；配置后超时以 SSE error 拒绝。
 	ChatQueueWait time.Duration
 	// ChatRPMPerIP 单 IP 每分钟对话类请求（chat/会话签发/重置）上限，<=0 用默认值 30。
 	ChatRPMPerIP int
@@ -387,13 +387,14 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 全局并发闸门：快路径直接抢名额（多数请求零等待）；满员则 FIFO 排队，
-	// 期间每 5s 推一次 queue 事件（waiting 含自己在内的排队人数），
-	// 客户端断连立即让位，超过 ChatQueueWait 才拒绝（SSE error 事件）。
+	// 期间每 5s 推一次 queue 事件（waiting 含自己在内的排队人数）。
+	// 排队时长由用户决定：网页端「停止排队」随时退出（断连即让位）；
+	// 配置了 ChatQueueWait 时超时也会拒绝（SSE error 事件）。
 	if !s.gate.tryAcquire() {
 		if !s.gate.acquire(r.Context(), func(waiting int64) {
 			writeEvent("queue", queueEvent{Waiting: waiting})
 		}) {
-			log.Printf("[server] 会话 %s 排队等待未获名额（上限 %s，超时或客户端断连）", req.SessionID, s.gate.waitLimit)
+			log.Printf("[server] 会话 %s 退出排队（用户停止排队/断连，或超过上限 %s）", req.SessionID, s.gate.waitLimit)
 			writeEvent("error", "当前咨询人数较多，请稍后重试")
 			return
 		}
