@@ -8,9 +8,12 @@
 #      - Name: GITLAB_TOKEN
 #      - Secret: 粘贴上一步生成的 GitLab Token
 #
-# 注意：GitLab 的 main 为受保护分支，只要 GitLab 侧 main 始终是 GitHub master
-# 的祖先（本工作流常规推送，非强制覆盖），Maintainer/Owner 的 Token 即可推送成功。
-# 不要在 GitLab 上直接往 main 提交，否则会导致非快进而同步失败。
+# 注意：本工作流为单向镜像（GitHub master 为唯一事实源）：分叉时先在日志里
+# 记录 GitLab main 独有的提交，再以 force-with-lease 覆盖对齐。若 GitLab 侧
+# main 是受保护分支且未放开 force push，覆盖会被拒绝——到 GitLab 项目
+# Settings → Repository → Protected branches 临时打开 main 的
+# "Allowed to force push"，手动触发一次本工作流后再关掉即可。
+# 日常请勿在 GitLab 上直接往 main 提交，否则每次镜像都会产生覆盖告警。
 name: Mirror to GitLab
 
 on:
@@ -58,5 +61,15 @@ jobs:
           # 外层单引号让 ${GITLAB_TOKEN} 延迟到 helper 运行时才展开，不落入 config 文件。
           git config credential.helper '!f() { echo username=oauth2; echo password="${GITLAB_TOKEN}"; }; f'
           git remote add gitlab "https://gitlab.com/Yangguangdashuaige/YHagent.git"
-          # 常规快进推送；同时同步标签。强制 HTTP/1.1 规避 runner curl 的 h2 怪癖
-          git -c http.version=HTTP/1.1 push gitlab master:main --tags
+          # 先取回 GitLab main，把分叉内容打进日志（万一覆盖了有用提交，可从日志回溯）。
+          # 分叉成因：Run #1（9-22）之后有人在 GitLab main 上直接提交过
+          # （Run #17 实测非快进被拒）。GitHub 为唯一事实源，镜像语义 = 覆盖对齐。
+          git -c http.version=HTTP/1.1 fetch gitlab main
+          DIVERGENT=$(git log --oneline HEAD..FETCH_HEAD)
+          if [ -n "${DIVERGENT}" ]; then
+            echo "::warning::GitLab main 存在 GitHub master 没有的提交，本次镜像将覆盖："
+            echo "${DIVERGENT}"
+          fi
+          # force-with-lease：仅当远端仍是刚才 fetch 到的版本才覆盖，
+          # 防并发推送意外冲掉新内容；同时同步标签。HTTP/1.1 规避 runner curl 的 h2 怪癖
+          git -c http.version=HTTP/1.1 push --force-with-lease=main:"$(git rev-parse FETCH_HEAD)" gitlab master:main --tags
