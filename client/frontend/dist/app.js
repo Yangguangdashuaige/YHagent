@@ -122,6 +122,10 @@ async function send() {
 sendBtn.addEventListener("click", send);
 
 inputEl.addEventListener("keydown", (e) => {
+  // IME 组合期间（敲拼音/选候选词）的按键不触发发送：
+  // 组合中按回车是"上屏候选词"，此时 isComposing=true / keyCode=229，
+  // 若不放过会 preventDefault 阻断上屏并把拼音原文误发出去
+  if (e.isComposing || e.keyCode === 229) return;
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     send();
