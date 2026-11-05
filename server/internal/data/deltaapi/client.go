@@ -52,7 +52,7 @@ const (
 	pathAmmoPack          = "/v1/sjz_api/ammo_pack"         // 子弹自选包收益
 	pathAmmoDay           = "/v1/sjz_api/ammo_day"          // 今日倒子弹低价预测
 	pathGunBuildCode      = "/v1/sjz_api/gun_gqm"           // 改枪码 - 烽火
-	pathSeasonTaskS11     = "/v1/sjz_api/task_s11"          // 赛季任务 - S11
+	pathSeasonTaskS12     = "/v1/sjz_api/task_s12"          // 赛季任务 - S12
 	pathMapPassword       = "/v1/sjz_api/map_pwd"           // 今日密码
 	pathMarket            = "/v1/sjz_api/market"            // 当前市集所需物品
 )
@@ -492,9 +492,9 @@ func (c *Client) GunBuildCode(ctx context.Context, p GunBuildCodeParams) (json.R
 	return c.doGet(ctx, pathGunBuildCode, q, cacheBuildTTL)
 }
 
-// SeasonTaskS11 赛季任务 - S11（单次消耗10点资源，随赛季更新）
-func (c *Client) SeasonTaskS11(ctx context.Context) (json.RawMessage, error) {
-	return c.doGet(ctx, pathSeasonTaskS11, queryValues(), cacheSeasonTTL)
+// SeasonTaskS12 赛季任务 - S12（单次消耗10点资源，随赛季更新）
+func (c *Client) SeasonTaskS12(ctx context.Context) (json.RawMessage, error) {
+	return c.doGet(ctx, pathSeasonTaskS12, queryValues(), cacheSeasonTTL)
 }
 
 // MapPassword 今日密码（消耗1点资源）

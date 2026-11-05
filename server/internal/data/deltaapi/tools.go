@@ -466,14 +466,14 @@ func RegisterTools(reg *ai.Registry, c *Client) {
 		},
 	))
 
-	// 21. 赛季任务 S11
+	// 21. 赛季任务 S12
 	reg.Register(ai.NewFunctionTool(
-		"delta_season_task_s11",
-		"【单次消耗10点资源】查询当前赛季（S11）全部赛季任务数据。用户问赛季任务进度/攻略清单时使用。",
+		"delta_season_task_s12",
+		"【单次消耗10点资源】查询当前赛季（S12）全部赛季任务数据。用户问赛季任务进度/攻略清单时使用。",
 		map[string]any{},
 		nil,
 		func(ctx context.Context, raw json.RawMessage) (any, error) {
-			data, err := c.SeasonTaskS11(ctx)
+			data, err := c.SeasonTaskS12(ctx)
 			if err != nil {
 				return nil, err
 			}
