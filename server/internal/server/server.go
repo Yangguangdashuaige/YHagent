@@ -38,6 +38,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -75,6 +76,10 @@ type Config struct {
 	// Tracer 请求级 trace 记录器（internal/trace）；nil 时 /v1/traces 查看接口关闭。
 	// trace 写入本身在 Agent 内部完成，此处只用于查看端读取。
 	Tracer *trace.Recorder
+	// Feedback 反馈闭环服务（internal/ai.FeedbackService）；nil 时 POST /v1/feedback
+	// 返回 503。收集 👍👎 反馈：点赞问答自动进 few-shot 案例库（Agent 侧注入），
+	// 点踩与 trace_id 关联落库供失败模式分析。
+	Feedback *ai.FeedbackService
 	// MaxConcurrentChat /v1/chat 全局在途对话上限（并发闸门），<=0 用默认值 128。
 	// 满员后新请求进入有界排队（ChatQueueWait）而非立刻拒绝，把流量尖峰削平；
 	// 该值主要保护上游 LLM 的 RPM/并发配额，按方舟配额调整。
@@ -201,6 +206,12 @@ func New(cfg Config) (*Server, error) {
 	mux.HandleFunc("POST /v1/chat", s.withAuth(s.withRateLimit(s.handleChat)))
 	mux.HandleFunc("POST /v1/session/new", s.withAuth(s.withRateLimit(s.handleNewSession)))
 	mux.HandleFunc("POST /v1/session/reset", s.withAuth(s.withRateLimit(s.handleReset)))
+	mux.HandleFunc("GET /v1/session/history", s.withAuth(s.withRateLimit(s.handleSessionHistory)))
+	// 多会话管理：列表（批量摘要）+ 删除单个会话；「开新对话」复用 /v1/session/new
+	mux.HandleFunc("GET /v1/sessions", s.withAuth(s.withRateLimit(s.handleSessions)))
+	mux.HandleFunc("DELETE /v1/session", s.withAuth(s.withRateLimit(s.handleSessionDelete)))
+	// 反馈闭环：回答气泡 👍👎 落库（点赞进案例库、点踩关联 trace 供分析）
+	mux.HandleFunc("POST /v1/feedback", s.withAuth(s.withRateLimit(s.handleFeedback)))
 	mux.HandleFunc("POST /v1/knowledge/ingest", s.withAuth(s.handleKnowledgeIngest))
 	// 请求级 trace 查看接口（调用链路观测，需管理员口令，见 handleTraces）
 	mux.HandleFunc("GET /v1/traces", s.withAuth(s.handleTraces))
@@ -209,10 +220,16 @@ func New(cfg Config) (*Server, error) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}))
 	// MCP 服务（可选）：Streamable HTTP 形态，独立令牌 + 按 IP 限流，
-	// 每次工具调用都会消耗上游 API（embedding/三角洲数据），不能裸奔
+	// 每次工具调用都会消耗上游 API（embedding/三角洲数据），不能裸奔。
+	// 注意必须按方法显式注册：全方法 "/mcp" 会与 "GET /" 静态页兜底
+	// 模式冲突（Go 1.22 ServeMux 规则，New 直接 panic）；
+	// Streamable HTTP 协议只用 POST（上行消息）/ GET（SSE 下行流）/ DELETE（会话终止）
 	if cfg.MCP != nil && strings.TrimSpace(cfg.MCPToken) != "" {
 		s.cfg.MCPToken = strings.TrimSpace(cfg.MCPToken)
-		mux.Handle("/mcp", s.withRateLimit(s.withMCPToken(cfg.MCP)))
+		mcpHandler := s.withRateLimit(s.withMCPToken(cfg.MCP))
+		mux.Handle("POST /mcp", mcpHandler)
+		mux.Handle("GET /mcp", mcpHandler)
+		mux.Handle("DELETE /mcp", mcpHandler)
 	}
 
 	// 网页入口：根路径提供静态页面。
@@ -408,13 +425,31 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	ctx := websearch.WithCandidateFunc(r.Context(), func(cand websearch.Candidate) {
 		writeEvent("candidate", cand)
 	})
-	// 注入工具状态回调：每个工具开始/结束时推 tool 事件，网页端据此显示
-	// 「联网搜索中… 3.2s」实时进度，消除工具执行期的静默体感
+	// 注入工具状态回调：每个工具开始/结束时推 tool 事件（含入参摘要与轮次），
+	// 网页端据此显示「联网搜索: M14改枪… 3.2s」实时进度
 	ctx = ai.WithToolEventFunc(ctx, func(ev ai.ToolEvent) {
 		if ev.Phase == "start" {
 			ev.Label = toolLabel(ev.Name)
 		}
 		writeEvent("tool", ev)
+	})
+	// 注入进度回调：轮次状态（第 N 轮思考/执行工具）、思考模型推理流、计划步骤
+	// 实时推给网页端（event: round / thought / plan），等待期不再只有一个不动的进度条
+	ctx = ai.WithProgressFunc(ctx, func(ev ai.ProgressEvent) {
+		switch ev.Kind {
+		case ai.ProgressRound:
+			writeEvent("round", ev)
+		case ai.ProgressThought:
+			writeEvent("thought", ev)
+		case ai.ProgressPlan:
+			writeEvent("plan", ev)
+		case ai.ProgressTrace:
+			// 本轮 trace 标识：前端反馈接口据此关联观测数据（trace 未启用时不推）
+			writeEvent("trace", ev)
+		case ai.ProgressClarify:
+			// ask_user 候选选项：前端渲染选项卡（玩家点选或自定义输入）
+			writeEvent("clarify", ev)
+		}
 	})
 	// 账号身份透传：登录用户（账号令牌）的会话注入长期记忆画像、轮末异步提取用户事实；
 	// 主令牌匿名请求 uid=0，长期记忆能力自动关闭，行为与未启用时一致
@@ -432,6 +467,47 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 
 type resetRequest struct {
 	SessionID string `json:"session_id"`
+}
+
+// feedbackRequest 反馈提交入参（前端回答气泡 👍👎 按钮）
+type feedbackRequest struct {
+	TraceID   string `json:"trace_id"`  // 可选：本轮 trace 标识（trace 未启用/桌面端为空）
+	SessionID string `json:"session_id"`
+	Rating    int    `json:"rating"`    // 1=赞 / -1=踩
+	Question  string `json:"question"`  // 本轮用户提问原文（案例库检索键）
+	Answer    string `json:"answer"`    // 本轮回答原文（点赞时进案例库）
+}
+
+// handleFeedback 收集回答反馈：点赞问答对自动进入 few-shot 案例库（后续相似
+// 问题注入成功答法），点踩与 trace_id 关联落库供失败模式汇总分析。
+// 带鉴权 + 按 IP 限流；反馈是增值能力，任何失败都不影响对话主链路。
+func (s *Server) handleFeedback(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Feedback == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "反馈功能未启用"})
+		return
+	}
+	var req feedbackRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求参数解析失败"})
+		return
+	}
+	if req.Rating != 1 && req.Rating != -1 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "rating 只支持 1（赞）或 -1（踩）"})
+		return
+	}
+	if err := s.cfg.Feedback.Submit(ai.Feedback{
+		TraceID:   req.TraceID,
+		SessionID: req.SessionID,
+		UID:       uidFromRequest(r),
+		Rating:    req.Rating,
+		Question:  req.Question,
+		Answer:    req.Answer,
+	}); err != nil {
+		log.Printf("[server] 反馈落库失败: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "反馈记录失败，请稍后再试"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // toolLabel 工具名 → 网页端进度条展示的中文标签（未命中映射的 delta 工具按前缀归并）
@@ -475,6 +551,95 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "清空会话失败"})
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// handleSessionHistory 返回会话的客户端可见历史（网页刷新后恢复对话用）。
+// GET /v1/session/history?session_id=xxx。
+// 会话正在问答中时也允许读取：拿到的是「截至上一轮完成」的历史，
+// 进行中的回答由前端流式通道继续接收，两不冲突。
+func (s *Server) handleSessionHistory(w http.ResponseWriter, r *http.Request) {
+	sid := r.URL.Query().Get("session_id")
+	if sid == "" || !validSessionID(sid) {
+		// 非法/缺失 ID：按空历史返回而不是报错——前端刷新流程拿空列表
+		// 走欢迎语分支即可，不必弹错误打扰用户
+		writeJSON(w, http.StatusOK, historyResponse{Messages: []ai.HistoryMessage{}})
+		return
+	}
+	if !s.checkSessionOwnership(w, r, sid) {
+		return
+	}
+	writeJSON(w, http.StatusOK, historyResponse{
+		Messages: s.cfg.Chat.SessionHistory(uidFromRequest(r), sid),
+	})
+}
+
+// historyResponse 历史查询响应
+type historyResponse struct {
+	Messages []ai.HistoryMessage `json:"messages"`
+}
+
+// handleSessions 多会话列表：GET /v1/sessions?ids=sess_a,sess_b。
+// 客户端上报自己本地记录的 sid 集合（登录用户也可换设备后拿服务端归属
+// 重新发现，但当前实现以客户端记录为准），服务端逐个做归属过滤后返回
+// 批量摘要（标题/最后活跃/消息数），按最后活跃倒序。
+func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
+	raw := strings.TrimSpace(r.URL.Query().Get("ids"))
+	var sids []string
+	if raw != "" {
+		sids = strings.Split(raw, ",")
+	}
+	if len(sids) > 50 {
+		sids = sids[:50]
+	}
+	uid := uidFromRequest(r)
+	allowed := make([]string, 0, len(sids))
+	for _, sid := range sids {
+		sid = strings.TrimSpace(sid)
+		if !validSessionID(sid) {
+			continue
+		}
+		// 归属过滤：绑定了他人账号的会话不进列表（静默跳过，不泄露存在性）
+		if s.cfg.Auth != nil {
+			if owner, ok := s.cfg.Auth.SessionOwner(sid); ok && owner != uid {
+				continue
+			}
+		}
+		allowed = append(allowed, sid)
+	}
+	items := s.cfg.Chat.SessionSummaries(allowed)
+	if items == nil {
+		items = []ai.SessionSummary{}
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].UpdatedAt > items[j].UpdatedAt })
+	writeJSON(w, http.StatusOK, map[string]any{"sessions": items})
+}
+
+// handleSessionDelete 删除单个会话：DELETE /v1/session?session_id=xxx。
+// 语义 = 原地清空并移除（内存上下文 + 磁盘落库 + 账号归属解绑）；
+// 「开新对话不动旧档」由客户端直接换新 sid 实现（POST /v1/session/new），
+// 不走本接口。会话问答中返回 409，与 reset 同口径。
+func (s *Server) handleSessionDelete(w http.ResponseWriter, r *http.Request) {
+	sid := strings.TrimSpace(r.URL.Query().Get("session_id"))
+	if sid == "" || !validSessionID(sid) {
+		// 非法/缺失 ID 按成功返回，不向调用方确认 ID 是否存在
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		return
+	}
+	if !s.checkSessionOwnership(w, r, sid) {
+		return
+	}
+	if err := s.cfg.Chat.Reset(sid); err != nil {
+		if errors.Is(err, ai.ErrSessionBusy) {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "对话正在进行中，请稍后再删除"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "删除会话失败"})
+		return
+	}
+	if s.cfg.Auth != nil {
+		s.cfg.Auth.UnbindSession(sid)
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

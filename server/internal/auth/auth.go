@@ -437,6 +437,11 @@ func (s *Service) SessionOwner(sessionID string) (int64, bool) {
 	return uid, true
 }
 
+// UnbindSession 解除会话归属（删除会话时调用，顺带清掉死绑定行；幂等）
+func (s *Service) UnbindSession(sessionID string) {
+	s.db.Exec(`DELETE FROM user_sessions WHERE session_id = ?`, sessionID)
+}
+
 // ---- 登录失败锁定 ----
 
 func (s *Service) checkLocked(norm string) error {

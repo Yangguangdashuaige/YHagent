@@ -187,11 +187,11 @@ body {
   inset: 0;
   margin: auto;
   width: 100%;
-  max-width: 720px;
+  max-width: 920px; /* 加宽：左侧多会话侧边栏 + 右侧对话主区 */
   height: 100vh;
   max-height: 900px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row; /* 侧边栏 + 主区横向排列 */
   background: rgba(17, 20, 28, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 14px;
@@ -209,7 +209,111 @@ body {
     border: none;
     border-radius: 0;
     max-height: none;
+    max-width: none;
   }
+  /* 窄屏隐藏会话侧边栏：单列恢复原有聊天体验（多会话在宽屏/桌面用） */
+  .session-sidebar {
+    display: none;
+  }
+}
+
+/* ===== 会话侧边栏（多会话管理） ===== */
+.session-sidebar {
+  width: 210px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(12, 14, 20, 0.65);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 10px 8px;
+  overflow: hidden;
+}
+.new-chat-btn {
+  width: 100%;
+  padding: 9px 0;
+  border-radius: 10px;
+  border: 1px solid rgba(122, 162, 255, 0.35);
+  background: rgba(122, 162, 255, 0.14);
+  color: #cfd9ff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.new-chat-btn:hover {
+  background: rgba(122, 162, 255, 0.24);
+}
+.session-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 9px;
+  margin-bottom: 2px;
+  cursor: pointer;
+}
+.session-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.session-item.active {
+  background: rgba(122, 162, 255, 0.16);
+}
+.session-info {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+}
+.session-title {
+  font-size: 12.5px;
+  color: #d4dbeb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-item.active .session-title {
+  color: #fff;
+}
+.session-meta {
+  font-size: 10.5px;
+  color: #7d89a6;
+  margin-top: 2px;
+}
+.session-del {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-right: 4px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #7d89a6;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.session-item:hover .session-del {
+  opacity: 1;
+}
+.session-del:hover {
+  background: rgba(255, 82, 82, 0.18);
+  color: #ff9b9b;
+}
+
+/* 对话主区（侧边栏右侧） */
+.chat-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ===== 标题栏（网页中不可拖动） ===== */
@@ -295,10 +399,97 @@ body {
   border-top-right-radius: 4px;
   color: #fff;
 }
+/* 流式输出期间的纯文本节点：保留换行，等 done 后统一渲染 Markdown */
+.stream-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .bubble.error {
   background: rgba(255, 82, 82, 0.16);
   border-color: rgba(255, 82, 82, 0.4);
   color: #ff9b9b;
+}
+
+/* ===== 助手回答的 Markdown 渲染 ===== */
+/* 小节条：# 标题不渲染成大 H1，而是带强调条的小节标题，贴近游戏攻略排版 */
+.md-h {
+  position: relative;
+  margin: 10px 0 6px;
+  padding: 2px 0 2px 10px;
+  font-weight: 700;
+  font-size: 14.5px;
+  color: #9db8ff;
+  border-left: 3px solid #3b6ff5;
+}
+.md-h:first-child {
+  margin-top: 2px;
+}
+.md-p {
+  margin: 4px 0;
+}
+.md-list {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+.md-list li {
+  margin: 3px 0;
+}
+.md-quote {
+  margin: 6px 0;
+  padding: 6px 10px;
+  border-left: 3px solid rgba(255, 190, 90, 0.8);
+  border-radius: 4px;
+  background: rgba(255, 190, 90, 0.08);
+  color: #ffd9a0;
+}
+.md-code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12.5px;
+  color: #ffb59b;
+}
+.md-hr {
+  margin: 10px 0;
+  border-top: 1px dashed rgba(255, 255, 255, 0.15);
+}
+.bubble a {
+  color: #7dA6ff;
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(125, 166, 255, 0.6);
+}
+/* 数据表：紧凑内边距、表头强调底、斑马纹行 */
+.md-table {
+  margin: 8px 0;
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.md-table th {
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 700;
+  color: #cdd9ff;
+  background: rgba(59, 111, 245, 0.25);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+}
+.md-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #dfe4f2;
+}
+.md-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+.md-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 /* “正在思考”打字指示 */
@@ -372,6 +563,70 @@ body {
   background: rgba(255, 255, 255, 0.07);
   color: #b9c2d6;
   white-space: nowrap;
+}
+/* 工具入参摘要：查询词等，弱化展示 */
+.tool-chip .args {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #7f8aa5;
+  font-size: 11px;
+}
+/* 推理过程（思考模型 reasoning 流）：暗色小字滚动区，点标题折叠 */
+.thought-box {
+  margin: 6px 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+.thought-head {
+  padding: 4px 10px;
+  font-size: 11.5px;
+  color: #8b95ad;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(255, 255, 255, 0.03);
+}
+.thought-head:hover { color: #b9c2d6; }
+.thought-head.collapsed::after { content: " ▸"; }
+.thought-head:not(.collapsed)::after { content: " ▾"; }
+.thought-body {
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: #9aa6bf;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* 执行计划（plan_and_execute）：步骤列表 */
+.plan-box {
+  margin: 6px 0;
+  border: 1px solid rgba(130, 170, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(130, 170, 255, 0.07);
+  padding: 6px 10px;
+}
+.plan-head {
+  font-size: 11.5px;
+  color: #a8c4ff;
+  margin-bottom: 4px;
+}
+.plan-step {
+  font-size: 12px;
+  color: #cdd6ea;
+  line-height: 1.7;
+}
+.plan-step b {
+  color: #a8c4ff;
+  margin-right: 2px;
+}
+.plan-step .plan-tool {
+  color: #7f8aa5;
+  font-size: 11px;
+  margin-left: 4px;
 }
 /* 停止排队按钮：并发满员排队时出现在状态条，入场即移除 */
 .queue-cancel-btn {
@@ -612,6 +867,133 @@ body {
 .kb-btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* 交互式澄清选项卡（ask_user）：候选方案按钮 + 自定义输入 */
+.clarify-card {
+  max-width: 520px;
+  margin: 6px 0 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(122, 162, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(122, 162, 255, 0.08);
+}
+.clarify-q {
+  font-size: 13.5px;
+  color: #d4ddff;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.clarify-meta {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: #7fa8ff;
+}
+.clarify-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.clarify-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(17, 20, 28, 0.5);
+  color: #e8ebf2;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: left;
+}
+.clarify-opt b {
+  font-size: 13px;
+}
+.clarify-opt span {
+  font-size: 11.5px;
+  color: #8b95ad;
+}
+.clarify-opt:hover:not(:disabled) {
+  border-color: rgba(122, 162, 255, 0.6);
+  background: rgba(122, 162, 255, 0.14);
+}
+.clarify-opt:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.clarify-opt.chosen {
+  opacity: 1;
+  border-color: rgba(122, 162, 255, 0.8);
+  background: rgba(122, 162, 255, 0.22);
+}
+.clarify-other {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.clarify-input {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(17, 20, 28, 0.5);
+  color: #e8ebf2;
+  font-size: 13px;
+  outline: none;
+}
+.clarify-input:focus {
+  border-color: rgba(122, 162, 255, 0.55);
+}
+.clarify-send {
+  padding: 7px 14px;
+  border-radius: 9px;
+  border: none;
+  background: rgba(122, 162, 255, 0.75);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.clarify-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 回答反馈条（👍👎）：点赞进 few-shot 案例库（自学习），点踩供失败模式分析 */
+.feedback-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.fb-btn {
+  padding: 2px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: #e8ebf2;
+  font-size: 13px;
+  line-height: 1.5;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.fb-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+.fb-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.fb-btn.voted {
+  opacity: 1;
+  border-color: rgba(122, 162, 255, 0.6);
+  background: rgba(122, 162, 255, 0.16);
+}
+.fb-hint {
+  font-size: 12px;
+  color: #8b95ad;
 }
 .kb-status {
   color: #8b95ad;

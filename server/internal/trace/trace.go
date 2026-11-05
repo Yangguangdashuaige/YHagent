@@ -37,6 +37,12 @@ const queryPreviewMax = 256
 // argsPreviewMax 工具入参摘要长度（字节），与 agent 日志的 previewArgs 口径一致
 const argsPreviewMax = 300
 
+// errPreviewMax 工具失败原因摘要长度（字节）
+const errPreviewMax = 160
+
+// answerPreviewMax 回答预览长度（字节），观测页看回答质量够用
+const answerPreviewMax = 320
+
 // defaultKeepDays trace 文件保留天数（TRACE_KEEP_DAYS 可覆盖）
 const defaultKeepDays = 7
 
@@ -47,16 +53,18 @@ type LLMRound struct {
 	PromptTokens     int32 `json:"prompt_tokens,omitempty"`     // 输入 token（上游未返回 usage 时为 0）
 	CompletionTokens int32 `json:"completion_tokens,omitempty"` // 输出 token
 	TotalTokens      int32 `json:"total_tokens,omitempty"`
+	ReasoningChars   int   `json:"reasoning_chars,omitempty"` // 思考模型推理流字符数（普通模型为 0）
 }
 
 // ToolCall 一次工具调用的观测数据
 type ToolCall struct {
-	Round       int    `json:"round"`               // 发生在第几轮 LLM 调用
+	Round       int    `json:"round"`               // 发生在第几轮 LLM 调用（0 = plan_and_execute 内部步骤）
 	Name        string `json:"name"`                // 工具名
 	Args        string `json:"args,omitempty"`      // 入参摘要（截断）
 	MS          int64  `json:"ms"`                  // 执行耗时
 	ResultBytes int    `json:"result_bytes"`        // 结果 JSON 字节数
 	OK          bool   `json:"ok"`                  // 是否成功（失败/超时/截断降级均为 false）
+	Error       string `json:"error,omitempty"`     // 失败原因摘要（成功为空）
 	CacheHit    *bool  `json:"cache_hit,omitempty"` // 三角洲缓存命中（非 delta 工具无此字段）
 }
 
@@ -88,6 +96,7 @@ type Record struct {
 	CacheMisses int          `json:"cache_misses"`      // delta 缓存未命中次数
 	StaleServed int          `json:"stale_served"`      // 上游失败回吐过期缓存次数
 	AnswerChars int          `json:"answer_chars"`      // 最终回答字符数
+	AnswerText  string       `json:"answer_text,omitempty"` // 回答预览（前 ~160 字符，观测页直接看回答质量）
 }
 
 // Span 请求级 trace 累积器。Agent 在请求入口 Start，结束时 End 落盘；
@@ -109,7 +118,8 @@ type Span struct {
 	cacheHits   int
 	cacheMiss   int
 	staleServed int
-	answer      int // 回答字符数
+	answer      int    // 回答字符数
+	answerPrev  string // 回答预览（前 ~160 字符）
 }
 
 type spanKey struct{}
@@ -149,8 +159,19 @@ func FromContext(ctx context.Context) *Span {
 	return span
 }
 
-// LLMRound 记录一轮 LLM 调用（耗时 + usage）
-func (s *Span) LLMRound(ms int64, prompt, completion, total int32) {
+// ID 返回本次请求的 trace 标识（Span 为 nil 即 trace 未启用时返回空串）。
+// 前端反馈接口带此 ID 落库，反馈数据即可与 trace 观测指标关联分析。
+func (s *Span) ID() string {
+	if s == nil {
+		return ""
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.traceID
+}
+
+// LLMRound 记录一轮 LLM 调用（耗时 + usage + 思考模型推理字符数）
+func (s *Span) LLMRound(ms int64, prompt, completion, total, reasoningChars int32) {
 	if s == nil {
 		return
 	}
@@ -162,6 +183,7 @@ func (s *Span) LLMRound(ms int64, prompt, completion, total int32) {
 		PromptTokens:     prompt,
 		CompletionTokens: completion,
 		TotalTokens:      total,
+		ReasoningChars:   int(reasoningChars),
 	})
 }
 
@@ -177,8 +199,8 @@ func (s *Span) FirstToken() {
 	}
 }
 
-// ToolCall 记录一次工具调用
-func (s *Span) ToolCall(round int, name, args string, ms int64, resultBytes int, ok bool) {
+// ToolCall 记录一次工具调用（errMsg 为失败原因摘要，成功传空）
+func (s *Span) ToolCall(round int, name, args string, ms int64, resultBytes int, ok bool, errMsg string) {
 	if s == nil {
 		return
 	}
@@ -191,6 +213,7 @@ func (s *Span) ToolCall(round int, name, args string, ms int64, resultBytes int,
 		MS:          ms,
 		ResultBytes: resultBytes,
 		OK:          ok,
+		Error:       textPreview(errMsg, errPreviewMax),
 	})
 }
 
@@ -254,6 +277,17 @@ func (s *Span) AnswerChars(n int) {
 	s.answer = n
 }
 
+// Answer 记录最终回答（字符数 + 预览文本一并落 trace，观测页直接看回答质量）
+func (s *Span) Answer(text string) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.answer = len([]rune(text))
+	s.answerPrev = textPreview(strings.TrimSpace(text), answerPreviewMax)
+}
+
 // End 结束请求并落盘。errMsg 非空表示请求失败。
 func (s *Span) End(errMsg string) {
 	if s == nil {
@@ -278,6 +312,7 @@ func (s *Span) End(errMsg string) {
 		CacheMisses: s.cacheMiss,
 		StaleServed: s.staleServed,
 		AnswerChars: s.answer,
+		AnswerText:  s.answerPrev,
 	}
 	if !s.firstChunk.IsZero() {
 		rec.FirstTokMS = s.firstChunk.Sub(s.start).Milliseconds()
@@ -288,6 +323,7 @@ func (s *Span) End(errMsg string) {
 
 // preview 压缩空白并按字节截断（UTF-8 边界对齐到合法字符）
 func preview(s string, max int) string {
+	// JSON 入参摘要：压缩全部空白（与 agent 日志口径一致）
 	s = strings.Join(strings.Fields(s), "")
 	if len(s) <= max {
 		return s
@@ -295,6 +331,19 @@ func preview(s string, max int) string {
 	cut := s[:max]
 	// 尾部最多只有一个被截断的多字节字符，回退最多 3 字节即可恢复合法边界；
 	// 若入参本身含非法 UTF-8（极端用户输入），回退 3 次后交由 JSON 编码兜底替换
+	for i := 0; i < 3 && len(cut) > 0 && !utf8.ValidString(cut); i++ {
+		cut = cut[:len(cut)-1]
+	}
+	return cut + "…(截断)"
+}
+
+// textPreview 自然语言预览（错误原因/回答文本）：换行折叠为单空格但保留词间空格
+func textPreview(s string, max int) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if len(s) <= max {
+		return s
+	}
+	cut := s[:max]
 	for i := 0; i < 3 && len(cut) > 0 && !utf8.ValidString(cut); i++ {
 		cut = cut[:len(cut)-1]
 	}

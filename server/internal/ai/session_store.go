@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/volcengine/ark-runtime-go/arkruntime/model/chat"
@@ -134,6 +135,86 @@ func (s *SQLiteSessionStore) cleanupLoop() {
 			continue // 下个周期再试
 		}
 	}
+}
+
+// ---- 会话摘要（多会话列表用） ----
+
+// SessionSummary 会话列表项：标题取首条用户消息（截断），MsgCount 为落库消息总数
+type SessionSummary struct {
+	SessionID string `json:"session_id"`
+	Title     string `json:"title"`
+	UpdatedAt int64  `json:"updated_at"`
+	MsgCount  int    `json:"msg_count"`
+}
+
+// maxSummaryIDs 单次批量查询的会话数上限（列表接口的保险丝）
+const maxSummaryIDs = 50
+
+// Summaries 批量读取会话摘要（多会话列表）。不存在的 sid 静默跳过；
+// 标题解析失败降级为"新对话"。会话实体在服务端惰性创建（签发了 ID 但
+// 还没聊过 = 无落库行），列表里自然不出现——客户端凭本地记录补一个占位即可。
+func (s *SQLiteSessionStore) Summaries(sids []string) ([]SessionSummary, error) {
+	if len(sids) == 0 {
+		return nil, nil
+	}
+	if len(sids) > maxSummaryIDs {
+		sids = sids[:maxSummaryIDs]
+	}
+	args := make([]any, len(sids))
+	ph := make([]string, len(sids))
+	for i, id := range sids {
+		args[i] = id
+		ph[i] = "?"
+	}
+	rows, err := s.db.Query(
+		`SELECT session_id, messages, updated_at FROM chat_sessions WHERE session_id IN (`+
+			strings.Join(ph, ",")+`)`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("批量读取会话摘要: %w", err)
+	}
+	defer rows.Close()
+	out := make([]SessionSummary, 0, len(sids))
+	for rows.Next() {
+		var sid string
+		var blob []byte
+		var su SessionSummary
+		if err := rows.Scan(&sid, &blob, &su.UpdatedAt); err != nil {
+			continue // 单行异常跳过，不废掉整份列表
+		}
+		su.SessionID = sid
+		su.Title, su.MsgCount = summarizeBlob(blob)
+		out = append(out, su)
+	}
+	return out, rows.Err()
+}
+
+// summarizeBlob 从落库消息 JSON 提取标题（首条 user 消息文本截断）与消息数。
+// 任何解析问题都收敛为兜底值，绝不向上抛错。
+func summarizeBlob(blob []byte) (title string, count int) {
+	var msgs []json.RawMessage
+	if err := json.Unmarshal(blob, &msgs); err != nil {
+		return "新对话", 0
+	}
+	count = len(msgs)
+	title = "新对话"
+	for _, raw := range msgs {
+		var obj map[string]any
+		if json.Unmarshal(raw, &obj) != nil {
+			continue
+		}
+		if role, _ := obj["role"].(string); role != "user" {
+			continue
+		}
+		if t := strings.TrimSpace(contentText(obj["content"])); t != "" {
+			rs := []rune(t)
+			if len(rs) > 24 {
+				rs = rs[:24]
+			}
+			title = string(rs)
+			break
+		}
+	}
+	return title, count
 }
 
 // ---- 序列化与瘦身 ----

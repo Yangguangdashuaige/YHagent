@@ -178,17 +178,22 @@ func (s *Session) idleFor(now time.Time) time.Duration {
 	return now.Sub(s.lastActive)
 }
 
-// popLast 移除最后一条消息，用于整轮调用失败时回滚刚追加的用户消息
-func (s *Session) popLast() {
+// endsWithToolResult 判断历史最后一条是否为工具结果消息（上游中断收尾用）：
+// 是则说明本轮在工具执行后的下一轮 LLM 调用处失败，需要补一条 assistant
+// 消息收尾，避免 tool 结果后面直接跟下一轮的用户消息。
+func (s *Session) endsWithToolResult() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.messages) > 1 {
-		s.messages = s.messages[:len(s.messages)-1]
+	if len(s.messages) == 0 {
+		return false
 	}
+	return isToolResultMessage(s.messages[len(s.messages)-1])
 }
 
 // snapshot 返回发送给模型的消息窗口：
 // system 消息始终保留，后面只取最近 maxKeep 条，避免历史无限增长。
+// 窗口起点不允许落在 tool 结果消息上——它的发起者（assistant tool_calls）
+// 被截掉后，tool 消息找不到对应 tool_call_id，API 会直接 400。
 func (s *Session) snapshot() []chat.ChatCompletionRequestMessage {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -198,11 +203,22 @@ func (s *Session) snapshot() []chat.ChatCompletionRequestMessage {
 		copy(out, s.messages)
 		return out
 	}
-	// 保留第 0 条 system + 最近 maxKeep 条
-	out := make([]chat.ChatCompletionRequestMessage, 0, s.maxKeep+1)
+	// 保留第 0 条 system + 最近 maxKeep 条；起点若是 tool 消息则向后推进
+	// 到最近的非 tool 消息（宁可少带几条，不能带残缺的工具调用序列）
+	start := len(s.messages) - s.maxKeep
+	for start < len(s.messages) && isToolResultMessage(s.messages[start]) {
+		start++
+	}
+	out := make([]chat.ChatCompletionRequestMessage, 0, len(s.messages)-start+1)
 	out = append(out, s.messages[0])
-	out = append(out, s.messages[len(s.messages)-s.maxKeep:]...)
+	out = append(out, s.messages[start:]...)
 	return out
+}
+
+// isToolResultMessage 判断是否为工具结果消息（snapshot 窗口边界与压缩切点共用）
+func isToolResultMessage(msg chat.ChatCompletionRequestMessage) bool {
+	r, _, _ := messageText(msg)
+	return r == "tool"
 }
 
 // Manager 会话管理器，按 sessionID 维护多个独立会话（Wails 每个窗口/标签页一个ID即可）

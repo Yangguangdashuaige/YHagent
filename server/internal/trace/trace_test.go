@@ -16,9 +16,9 @@ func TestSpanNilSafe(t *testing.T) {
 	if span != nil {
 		t.Fatalf("Default 未装配时 Start 应返回 nil")
 	}
-	span.LLMRound(100, 10, 20, 30)
+	span.LLMRound(100, 10, 20, 30, 0)
 	span.FirstToken()
-	span.ToolCall(1, "delta_price", "{}", 5, 100, true)
+	span.ToolCall(1, "delta_price", "{}", 5, 100, true, "")
 	span.NoteCacheHit()
 	span.NoteCacheMiss()
 	span.AnswerChars(42)
@@ -46,8 +46,8 @@ func TestRecorderWriteAndRecent(t *testing.T) {
 		query: "K437 压枪方案", images: 1,
 		start: time.Now(),
 	}
-	span.LLMRound(2100, 1523, 35, 1558)
-	span.ToolCall(1, "search_knowledge", `{"query":"K437"}`, 450, 3210, true)
+	span.LLMRound(2100, 1523, 35, 1558, 640)
+	span.ToolCall(1, "search_knowledge", `{"query":"K437"}`, 450, 3210, true, "")
 	hit := true
 	span.tools[0].CacheHit = &hit
 	span.NoteCacheHit()
@@ -56,9 +56,10 @@ func TestRecorderWriteAndRecent(t *testing.T) {
 	span.FirstToken()
 	span.End("")
 
-	// 写一条失败的 trace（error 路径）
+	// 写一条失败的 trace（error 路径；工具失败原因应落 Error 字段）
 	s2 := &Span{rec: r, traceID: "t_err", sessionID: "s2", query: "测试", start: time.Now()}
-	s2.LLMRound(50, 0, 0, 0)
+	s2.LLMRound(50, 0, 0, 0, 0)
+	s2.ToolCall(1, "web_search", `{"query":"测试"}`, 30, 48, false, "upstream timeout")
 	s2.End("豆包AI响应超时，请检查网络后稍后再试")
 
 	recs := r.Recent(10)
@@ -76,11 +77,15 @@ func TestRecorderWriteAndRecent(t *testing.T) {
 	if got.TraceID != "t_test" || !got.OK {
 		t.Fatalf("成功 trace 字段异常: %+v", got)
 	}
-	if got.LLMRounds != 1 || len(got.LLM) != 1 || got.LLM[0].PromptTokens != 1523 {
+	if got.LLMRounds != 1 || len(got.LLM) != 1 || got.LLM[0].PromptTokens != 1523 || got.LLM[0].ReasoningChars != 640 {
 		t.Fatalf("LLM 轮次记录异常: %+v", got.LLM)
 	}
 	if len(got.Tools) != 1 || got.Tools[0].ResultBytes != 3210 || got.Tools[0].CacheHit == nil || !*got.Tools[0].CacheHit {
 		t.Fatalf("工具调用记录异常: %+v", got.Tools)
+	}
+	// 失败 trace 的工具失败原因应落 Error 字段
+	if recs[0].Tools[0].Error != "upstream timeout" {
+		t.Fatalf("失败工具的 Error 字段异常: %+v", recs[0].Tools[0])
 	}
 	if got.CacheHits != 1 || got.CacheMisses != 1 {
 		t.Fatalf("缓存计数异常: hits=%d misses=%d", got.CacheHits, got.CacheMisses)

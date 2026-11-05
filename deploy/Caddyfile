@@ -1,0 +1,32 @@
+# yhagent.club 反向代理配置（Caddy）
+#
+# 由 install.sh / update.sh 自动应用：
+#   - 本文件安装为 /etc/caddy/conf.d/yhagent.caddy（片段，不动其他站点）
+#   - 主 /etc/caddy/Caddyfile 自动追加 import conf.d/*.caddy（幂等）
+#   - caddy validate 通过后 systemctl reload caddy
+#
+# Caddy 安装（Ubuntu/Debian，官方源，装完重跑 install.sh 即自动挂载）：
+#   sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+#   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+#   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+#   sudo apt update && sudo apt install -y caddy
+#
+# 证书由 Caddy 自动向 Let's Encrypt 申请续期（要求 yhagent.club 的 A 记录
+# 已指向本机公网 IP，且云安全组放行 80/443）。
+#
+# 【2026-11 现状：本文件暂不使用】火山引擎按 SNI/Host 拦截未备案域名
+# （80/443/8443 全拦，302 跳 webblock.volcengine.com 或 TLS 握手重置），
+# 当前生产走纯 IP 直连 8080（SERVER_ADDR=:8080，Caddy 已停用）。
+# 域名备案下来后：启动 caddy → 重跑 update.sh 应用本文件 →
+# 安全组放行 80/443 → 客户端改回 https://yhagent.club。
+
+yhagent.club {
+	# SSE 流式响应：立即透传每个 chunk，禁用缓冲；
+	# 长连接兜底——SSE 对话可持续数分钟，传输体不设闲置超时
+	reverse_proxy 127.0.0.1:8080 {
+		flush_interval -1
+		transport http {
+			response_header_timeout 10m
+		}
+	}
+}

@@ -7,6 +7,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -24,9 +25,13 @@ type Config struct {
 	DefaultHeight int
 }
 
-// Load 从环境变量（本地开发可放 client/.env）加载配置，必填项缺失时直接报错
+// Load 加载配置：按优先级依次尝试 exe 同目录、当前工作目录的 .env
+// （双击运行时工作目录是 exe 所在目录，但用户可能从快捷方式/其他目录启动，
+// 两处都找才能保证单文件发布开箱即用），必填项缺失时直接报错
 func Load() (*Config, error) {
-	_ = godotenv.Load()
+	for _, p := range envPaths() {
+		_ = godotenv.Load(p)
+	}
 
 	cfg := &Config{
 		RemoteBaseURL: strings.TrimRight(strings.TrimSpace(os.Getenv("REMOTE_BASE_URL")), "/"),
@@ -41,7 +46,18 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("REMOTE_BASE_URL 未配置，请在 client/.env 或系统环境变量中指定远端服务地址")
 	}
 	if cfg.RemoteToken == "" {
-		return nil, fmt.Errorf("REMOTE_TOKEN 未配置，请在 client/.env 或系统环境变量中指定访问令牌")
+		return nil, fmt.Errorf("REMOTE_TOKEN 未配置，请在 exe 同目录 .env 或系统环境变量中指定访问令牌")
 	}
 	return cfg, nil
+}
+
+// envPaths .env 候选路径：exe 同目录优先（双击/快捷方式启动的工作目录不确定），
+// 其次当前工作目录（go run / wails dev 开发态）
+func envPaths() []string {
+	var paths []string
+	if exe, err := os.Executable(); err == nil {
+		paths = append(paths, filepath.Join(filepath.Dir(exe), ".env"))
+	}
+	paths = append(paths, ".env")
+	return paths
 }

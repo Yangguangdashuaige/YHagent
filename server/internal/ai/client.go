@@ -37,6 +37,8 @@ func NewSeedClient() *SeedClient {
 // 参数预留了Function Call工具位，后续对接三角洲API时不需要修改核心逻辑。
 // onUsage 在上游返回 usage 时回调一次（请求已开启 stream_options.include_usage，
 // 末 chunk 携带 token 用量；上游未返回时不回调），可为 nil。
+// onReasoning 在思考模型产出 reasoning_content 分片时回调（可为 nil）：
+// 用于把模型推理流实时透传给前端进度区（思考模型才有内容，普通模型不回调）。
 func (c *SeedClient) ChatStream(
 	ctx context.Context,
 	history []chat.ChatCompletionRequestMessage,
@@ -44,6 +46,7 @@ func (c *SeedClient) ChatStream(
 	onChunk func(content string),
 	onToolCall func(calls []chat.ChatCompletionMessageToolCall) error,
 	onUsage func(u chat.CompletionUsage),
+	onReasoning func(reasoning string),
 ) error {
 	temp := chat.NewOptFloat64(0.1)
 	optTrue := chat.NewOptBool(true)
@@ -120,6 +123,13 @@ func (c *SeedClient) ChatStream(
 			continue
 		}
 		choice := recv.Choices[0]
+		// 0. 思考模型推理流分片（reasoning_content）：先于正文产出，
+		//    透传给进度回调（前端「推理过程」实时展示）；不进对话历史
+		if onReasoning != nil {
+			if r, ok := choice.Delta.ReasoningContent.Get(); ok && r != "" {
+				onReasoning(r)
+			}
+		}
 		// 1. 处理普通文本分片，安全访问OptString值
 		if content, ok := choice.Delta.Content.Get(); ok && content != "" {
 			onChunk(content)
@@ -215,7 +225,7 @@ func (c *SeedClient) SimpleChatStream(ctx context.Context, system, user string, 
 		if onChunk != nil {
 			onChunk(chunk)
 		}
-	}, func(_ []chat.ChatCompletionMessageToolCall) error { return nil }, nil)
+	}, func(_ []chat.ChatCompletionMessageToolCall) error { return nil }, nil, nil)
 	if err != nil {
 		return "", err
 	}

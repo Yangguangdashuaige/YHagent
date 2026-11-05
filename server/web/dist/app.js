@@ -30,11 +30,12 @@ const chatView = document.getElementById("chatView");
 const messagesEl = document.getElementById("messages");
 const inputEl = document.getElementById("input");
 const sendBtn = document.getElementById("sendBtn");
-const clearBtn = document.getElementById("clearBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const imageInput = document.getElementById("imageInput");
 const attachBtn = document.getElementById("attachBtn");
 const imagePreview = document.getElementById("imagePreview");
+const newChatBtn = document.getElementById("newChatBtn");
+const sessionListEl = document.getElementById("sessionList");
 
 // ---------- 会话状态 ----------
 let busy = false;
@@ -61,7 +62,145 @@ function escapeHtml(s) {
 }
 
 function scrollToBottom() {
+  // 智能跟随：仅当用户本来就在底部附近时才跟随流式输出滚动；
+  // 用户主动上滚回看历史时不打扰，滚回底部后自动恢复跟随
+  if (!stickBottom) return;
   messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// 用户上滚超过阈值 → 暂停跟随；回到距底 80px 内 → 恢复跟随
+let stickBottom = true;
+messagesEl.addEventListener("scroll", () => {
+  const nearBottom =
+    messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 80;
+  stickBottom = nearBottom;
+});
+
+// ---------- 轻量 Markdown 渲染（聊天面板专用） ----------
+// 覆盖：标题/加粗/行内代码/表格/列表/引用/分隔线/链接。
+// 输入先整体 escapeHtml，杜绝注入；链接仅放行 http(s)。
+// 标题不用 <h1>/<h2>（视觉过大），渲染为带强调条的小节条，贴近游戏攻略排版。
+
+function mdInline(s) {
+  return s
+    .replace(/`([^`]+)`/g, '<code class="md-code">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '$1（<a href="$2" target="_blank" rel="noopener">链接</a>）');
+}
+
+function mdParseTableRow(line) {
+  // 返回单元格数组；非表格行返回 null
+  if (!/^\s*\|/.test(line)) return null;
+  let cells = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+  return cells.map((c) => c.trim());
+}
+
+function renderMarkdown(src) {
+  const lines = escapeHtml(src).split("\n");
+  let html = "";
+  let i = 0;
+  const isBlockStart = (l) =>
+    /^\s*(#{1,6}\s|[-*]\s|\d+\.\s|>|&gt;|\|)/.test(l) || /^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(l);
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // 分隔线
+    if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+      html += '<div class="md-hr"></div>';
+      i++;
+      continue;
+    }
+
+    // 标题 # ~ ######：渲染为小节条而非大标题
+    const hm = line.match(/^\s*#{1,6}\s+(.*)$/);
+    if (hm) {
+      html += '<div class="md-h">' + mdInline(hm[1]) + "</div>";
+      i++;
+      continue;
+    }
+
+    // 表格：当前行是表格行，且下一行是 |---|---| 分隔行
+    const headCells = mdParseTableRow(line);
+    if (
+      headCells &&
+      i + 1 < lines.length &&
+      /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1]) &&
+      lines[i + 1].includes("-")
+    ) {
+      let rows = [];
+      let j = i + 2;
+      while (j < lines.length) {
+        const cells = mdParseTableRow(lines[j]);
+        if (!cells) break;
+        rows.push(cells);
+        j++;
+      }
+      html += '<table class="md-table"><thead><tr>';
+      headCells.forEach((c) => {
+        html += "<th>" + mdInline(c) + "</th>";
+      });
+      html += "</tr></thead><tbody>";
+      rows.forEach((cells) => {
+        html += "<tr>";
+        headCells.forEach((_, ci) => {
+          html += "<td>" + mdInline(cells[ci] || "") + "</td>";
+        });
+        html += "</tr>";
+      });
+      html += "</tbody></table>";
+      i = j;
+      continue;
+    }
+
+    // 引用块（escapeHtml 已把 > 转成 &gt;，两种都识别）
+    if (/^\s*(>|&gt;)/.test(line)) {
+      let buf = [];
+      while (i < lines.length && /^\s*(>|&gt;)/.test(lines[i])) {
+        buf.push(lines[i].replace(/^\s*(>|&gt;)\s?/, ""));
+        i++;
+      }
+      html += '<div class="md-quote">' + mdInline(buf.join("<br>")) + "</div>";
+      continue;
+    }
+
+    // 无序 / 有序列表
+    if (/^\s*[-*]\s+/.test(line)) {
+      html += '<ul class="md-list">';
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+        html += "<li>" + mdInline(lines[i].replace(/^\s*[-*]\s+/, "")) + "</li>";
+        i++;
+      }
+      html += "</ul>";
+      continue;
+    }
+    if (/^\s*\d+\.\s+/.test(line)) {
+      html += '<ol class="md-list">';
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+        html += "<li>" + mdInline(lines[i].replace(/^\s*\d+\.\s+/, "")) + "</li>";
+        i++;
+      }
+      html += "</ol>";
+      continue;
+    }
+
+    // 空行
+    if (!line.trim()) {
+      i++;
+      continue;
+    }
+
+    // 普通段落：连续普通行合并为一段（行间 <br>，符合聊天阅读习惯）
+    let buf = [];
+    while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i])) {
+      buf.push(lines[i]);
+      i++;
+    }
+    if (buf.length) {
+      html += '<div class="md-p">' + mdInline(buf.join("<br>")) + "</div>";
+    }
+  }
+  return html;
 }
 
 function getToken() {
@@ -95,6 +234,7 @@ async function mintSessionId() {
   const j = await resp.json();
   if (!j || !j.session_id) throw new Error("会话初始化失败，请稍后再试");
   localStorage.setItem(SESSION_KEY, j.session_id);
+  rememberSid(j.session_id);
   return j.session_id;
 }
 
@@ -119,7 +259,152 @@ async function refreshSessionId() {
   return ensureSessionId();
 }
 
-function addMessage(role, text, images) {
+// ---------- 多会话管理（侧边栏） ----------
+// 会话列表存在 localStorage（yh_session_ids，JSON 数组，新→旧）：
+// 服务端不主动枚举用户全部会话（匿名访问码身份无归属可查），由客户端
+// 上报自己记录的 sid 集合，服务端返回摘要并做归属过滤。
+const SESSIONS_KEY = "yh_session_ids";
+
+function loadSids() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(SESSIONS_KEY) || "[]");
+    return Array.isArray(arr) ? arr.filter((s) => typeof s === "string") : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveSids(sids) {
+  // 上限 50（与服务端批量摘要上限一致）：超出丢最旧的
+  if (sids.length > 50) sids = sids.slice(0, 50);
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sids));
+}
+
+function rememberSid(sid) {
+  if (!sid) return;
+  const sids = loadSids().filter((s) => s !== sid);
+  sids.unshift(sid);
+  saveSids(sids);
+}
+
+function forgetSid(sid) {
+  saveSids(loadSids().filter((s) => s !== sid));
+}
+
+// 相对时间展示（侧边栏会话项）
+function fmtTimeAgo(ts) {
+  if (!ts) return "";
+  const diff = Date.now() / 1000 - ts;
+  if (diff < 60) return "刚刚";
+  if (diff < 3600) return Math.floor(diff / 60) + " 分钟前";
+  if (diff < 86400) return Math.floor(diff / 3600) + " 小时前";
+  return Math.floor(diff / 86400) + " 天前";
+}
+
+// 拉取并渲染会话列表：服务端有记录的显示摘要（标题/时间），
+// 本地有但服务端无记录的（刚签发还没聊/过期清理）显示"新对话"占位。
+// 渲染失败静默（列表是增值能力，不阻塞聊天）。
+async function renderSessions() {
+  const sids = loadSids();
+  if (!sids.length) {
+    sessionListEl.innerHTML = "";
+    return;
+  }
+  let items = sids.map((sid) => ({ session_id: sid, title: "新对话", updated_at: 0, msg_count: 0 }));
+  try {
+    const resp = await fetch("/v1/sessions?ids=" + encodeURIComponent(sids.join(",")), {
+      headers: authHeaders(),
+    });
+    if (resp.ok) {
+      const j = await resp.json();
+      const byId = new Map((j.sessions || []).map((s) => [s.session_id, s]));
+      items = sids.map((sid) => byId.get(sid) || { session_id: sid, title: "新对话", updated_at: 0, msg_count: 0 });
+    }
+  } catch (e) { /* 网络异常：退回占位列表 */ }
+  let activeSid = null;
+  try {
+    activeSid = localStorage.getItem(SESSION_KEY);
+  } catch (e) { /* ignore */ }
+  sessionListEl.innerHTML = "";
+  items.forEach((it) => {
+    const li = document.createElement("li");
+    li.className = "session-item" + (it.session_id === activeSid ? " active" : "");
+    const info = document.createElement("div");
+    info.className = "session-info";
+    const title = document.createElement("div");
+    title.className = "session-title";
+    title.textContent = it.title || "新对话";
+    title.title = it.title || "新对话";
+    const meta = document.createElement("div");
+    meta.className = "session-meta";
+    meta.textContent = it.updated_at ? fmtTimeAgo(it.updated_at) : "未开始";
+    info.appendChild(title);
+    info.appendChild(meta);
+    info.addEventListener("click", () => switchSession(it.session_id));
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "session-del";
+    del.title = "删除该对话";
+    del.textContent = "×";
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteSession(it.session_id);
+    });
+    li.appendChild(info);
+    li.appendChild(del);
+    sessionListEl.appendChild(li);
+  });
+}
+
+// 切换会话：换当前 sid、清空消息区、拉取该会话历史
+async function switchSession(sid) {
+  if (busy || sid === localStorage.getItem(SESSION_KEY)) return;
+  localStorage.setItem(SESSION_KEY, sid);
+  sessionIdPromise = null;
+  messagesEl.innerHTML = "";
+  renderSessions();
+  await loadHistory();
+  // 无历史的会话（未开始/已过期）显示欢迎语
+  if (!messagesEl.children.length) {
+    addMessage("assistant", "切换到了一个新对话，有什么可以帮你？");
+  }
+  inputEl.focus();
+}
+
+// 开新对话：签发新 sid（旧会话原样保留在列表里，随时切回）
+async function newChat() {
+  if (busy) return;
+  try {
+    await refreshSessionId();
+  } catch (e) {
+    /* 签发失败：保留当前会话继续聊，发送时还有一次重试路径 */
+  }
+  messagesEl.innerHTML = "";
+  addMessage("assistant", "新对话开始～\n可以问我：价格、密码、钥匙卡、战备配装、改枪方案等。");
+  renderSessions();
+  inputEl.focus();
+}
+
+// 删除会话：服务端清上下文+落库+解绑，本地列表移除；删的是当前会话则自动开新对话
+async function deleteSession(sid) {
+  if (busy) return;
+  try {
+    await fetch("/v1/session?session_id=" + encodeURIComponent(sid), {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+  } catch (e) { /* 删除失败也先移除本地记录，避免死条目反复出现 */ }
+  forgetSid(sid);
+  if (sid === localStorage.getItem(SESSION_KEY)) {
+    await newChat();
+  } else {
+    renderSessions();
+  }
+}
+
+// opts.markdown=true 时正文按 Markdown 渲染（历史恢复的 assistant 消息用），
+// 默认纯文本转 <br>（用户消息与即时提示）。
+function addMessage(role, text, images, opts) {
   const wrap = document.createElement("div");
   wrap.className = "msg " + role;
   const bubble = document.createElement("div");
@@ -133,7 +418,11 @@ function addMessage(role, text, images) {
   });
   if (text) {
     const span = document.createElement("span");
-    span.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
+    if (opts && opts.markdown) {
+      span.innerHTML = renderMarkdown(text);
+    } else {
+      span.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
+    }
     bubble.appendChild(span);
   }
   wrap.appendChild(bubble);
@@ -142,10 +431,11 @@ function addMessage(role, text, images) {
   return bubble;
 }
 
-// 构造回答气泡里的执行状态条：🧠思考中 → 每个工具一枚进度 chip（旋转+实时计时）
-// → 工具完成变 ✓+耗时；回答正文渲染在独立 span，状态条不会被流式重绘冲掉。
-// onTool 由 streamChat 的 SSE tool 事件驱动；onQueue 由 queue 事件驱动（并发满员
-// 排队时显示位置 + 「停止排队」按钮，onCancelQueue 由调用方注入 abort 动作）；
+// 构造回答气泡里的执行状态条：🧠第N轮思考中 → 推理过程（思考模型）→ 📋计划步骤
+// → 每个工具一枚进度 chip（旋转+实时计时+入参摘要）→ 工具完成变 ✓+耗时；
+// 回答正文渲染在独立 span，状态条不会被流式重绘冲掉。
+// onTool 由 SSE tool 事件驱动；onQueue 由 queue 事件驱动（并发满员排队时显示
+// 位置 + 「停止排队」按钮）；onProgress 由 round/thought/plan 事件驱动；
 // remove() 停掉所有计时器并移除节点。
 function buildStatusBar(onCancelQueue) {
   const el = document.createElement("div");
@@ -156,8 +446,72 @@ function buildStatusBar(onCancelQueue) {
     '🧠 思考中<span class="dots"><i></i><i></i><i></i></span>';
   el.appendChild(thinking);
 
+  const setThinking = (html) => {
+    thinking.innerHTML = html + '<span class="dots"><i></i><i></i><i></i></span>';
+    thinking.style.display = "";
+  };
+
   const chips = new Map(); // 工具名 -> {row, label, timerId}
   let removed = false;
+
+  // 推理过程（思考模型 reasoning 流）：默认展开实时滚动，可点标题折叠
+  let thoughtBox = null;
+  let thoughtBody = null;
+  let thoughtCollapsed = false;
+  const ensureThoughtBox = () => {
+    if (thoughtBox || removed) return;
+    thoughtBox = document.createElement("div");
+    thoughtBox.className = "thought-box";
+    const head = document.createElement("div");
+    head.className = "thought-head";
+    head.innerHTML = "🧩 推理过程";
+    head.addEventListener("click", () => {
+      thoughtCollapsed = !thoughtCollapsed;
+      thoughtBody.style.display = thoughtCollapsed ? "none" : "block";
+      head.classList.toggle("collapsed", thoughtCollapsed);
+    });
+    thoughtBody = document.createElement("div");
+    thoughtBody.className = "thought-body";
+    thoughtBox.appendChild(head);
+    thoughtBox.appendChild(thoughtBody);
+    el.appendChild(thoughtBox);
+  };
+
+  // 计划步骤（plan_and_execute）：① 查… ② 查… 每步一行
+  const renderPlan = (steps) => {
+    const box = document.createElement("div");
+    box.className = "plan-box";
+    box.innerHTML =
+      '<div class="plan-head">📋 执行计划（' + steps.length + " 步）</div>" +
+      steps
+        .map(
+          (s) =>
+            '<div class="plan-step"><b>' + s.index + ".</b> " +
+            escapeHtml(s.purpose || s.tool) +
+            ' <span class="plan-tool">' + escapeHtml(s.tool || "") + "</span></div>"
+        )
+        .join("");
+    el.appendChild(box);
+  };
+
+  const onProgress = (kind, ev) => {
+    if (removed || !ev) return;
+    if (kind === "round") {
+      if (ev.phase === "thinking") {
+        setThinking("🧠 第 " + ev.round + " 轮思考中");
+      } else if (ev.phase === "tools") {
+        setThinking("⚙️ 第 " + ev.round + " 轮 · 执行 " + (ev.count || 1) + " 个工具");
+        thinking.style.display = "none"; // 工具 chip 即将出现，避免双行提示
+      }
+    } else if (kind === "thought") {
+      ensureThoughtBox();
+      if (removed || !thoughtBody) return;
+      thoughtBody.appendChild(document.createTextNode(ev.text || ""));
+      thoughtBody.scrollTop = thoughtBody.scrollHeight; // 跟随最新推理
+    } else if (kind === "plan") {
+      if (ev.steps && ev.steps.length) renderPlan(ev.steps);
+    }
+  };
 
   const remove = () => {
     if (removed) return;
@@ -178,27 +532,40 @@ function buildStatusBar(onCancelQueue) {
   const onTool = (ev) => {
     if (removed || !ev || !ev.name) return;
     if (ev.phase === "start") {
-      if (thinking.parentNode) thinking.remove();
+      // 同名工具同轮可能多次调用：以 name#round 区分 chip
+      const key = ev.name + "#" + (ev.round || 0) + "#" + chips.size;
+      thinking.style.display = "none";
       const row = document.createElement("span");
       row.className = "tool-chip running";
+      row.dataset.name = ev.name;
       const label = ev.label || ev.name;
       row.innerHTML =
-        '<i class="spin"></i>' + escapeHtml(label) + '<b class="t">0.0s</b>';
+        '<i class="spin"></i>' + escapeHtml(label) +
+        (ev.args ? '<span class="args">' + escapeHtml(ev.args) + "</span>" : "") +
+        '<b class="t">0.0s</b>';
       el.appendChild(row);
       const t = row.querySelector(".t");
       const startTs = Date.now();
       const timerId = setInterval(() => {
         t.textContent = ((Date.now() - startTs) / 1000).toFixed(1) + "s";
       }, 100);
-      chips.set(ev.name, { row, label, timerId });
+      chips.set(key, { row, label, timerId });
     } else if (ev.phase === "end") {
-      const c = chips.get(ev.name);
-      if (!c) return;
-      clearInterval(c.timerId);
-      c.row.className = "tool-chip " + (ev.ok ? "done" : "fail");
+      // end 事件只带 name/round：找该工具第一枚仍在运行中的 chip
+      let target = null;
+      chips.forEach((c) => {
+        if (!target && c.row.classList.contains("running") &&
+            c.row.dataset.name === ev.name) target = c;
+      });
+      if (!target) return;
+      clearInterval(target.timerId);
+      target.row.className = "tool-chip " + (ev.ok ? "done" : "fail");
       const sec = ev.ms != null ? (ev.ms / 1000).toFixed(1) + "s" : "";
-      c.row.innerHTML =
-        (ev.ok ? "✓ " : "✗ ") + escapeHtml(c.label) +
+      target.row.innerHTML =
+        (ev.ok ? "✓ " : "✗ ") + escapeHtml(target.label) +
+        (target.row.querySelector(".args")
+          ? '<span class="args">' + target.row.querySelector(".args").innerHTML + "</span>"
+          : "") +
         (sec ? '<b class="t">' + sec + "</b>" : "");
     }
   };
@@ -207,24 +574,20 @@ function buildStatusBar(onCancelQueue) {
     if (removed || !ev) return;
     if (ev.waiting > 0) {
       // 排队中：显示位置 + 停止排队按钮（点击后调用方 abort 请求，SSE 断开）
-      if (!cancelBtn.parentNode && thinking.parentNode) el.appendChild(cancelBtn);
+      if (!cancelBtn.parentNode) el.appendChild(cancelBtn);
       if (ev.waiting > 1) {
-        thinking.innerHTML =
-          "⏳ 咨询人数较多，排队中（前方还有 " + (ev.waiting - 1) + " 人）" +
-          '<span class="dots"><i></i><i></i><i></i></span>';
+        setThinking("⏳ 咨询人数较多，排队中（前方还有 " + (ev.waiting - 1) + " 人）");
       } else {
-        thinking.innerHTML =
-          '⏳ 排队中，即将进入<span class="dots"><i></i><i></i><i></i></span>';
+        setThinking("⏳ 排队中，即将进入");
       }
     } else {
       // waiting=0：已入场，撤掉按钮并恢复思考态（首个 chunk 可能还需数秒）
       if (cancelBtn.parentNode) cancelBtn.remove();
-      thinking.innerHTML =
-        '🧠 思考中<span class="dots"><i></i><i></i><i></i></span>';
+      setThinking("🧠 思考中");
     }
   };
 
-  return { el, onTool, onQueue, remove };
+  return { el, onTool, onQueue, onProgress, remove };
 }
 
 function setBusy(b) {
@@ -322,6 +685,51 @@ function showLogin(msg) {
   if (loginMode === "code") tokenInput.focus();
 }
 
+// 拉取并恢复当前会话的历史消息（刷新/重开网页后对话不丢）：
+// 服务端返回 user/assistant 的可见文本（图片折叠为 [图片] 占位）。
+// 有历史时替换掉 index.html 里的静态欢迎语；无历史（新会话/未配置持久化）
+// 保持欢迎语不动。任何失败都静默降级为欢迎语态，不阻塞进入聊天。
+async function loadHistory() {
+  let sid;
+  try {
+    sid = await ensureSessionId();
+  } catch (e) {
+    return; // 网络问题：发消息时还有一次报错路径
+  }
+  let resp;
+  try {
+    resp = await fetch(
+      "/v1/session/history?session_id=" + encodeURIComponent(sid),
+      { headers: authHeaders() }
+    );
+  } catch (e) {
+    return;
+  }
+  if (!resp.ok) return; // 401 等场景：主流程 verifyToken 已处理，这里不重复弹登录
+  const j = await resp.json().catch(() => null);
+  const msgs = j && Array.isArray(j.messages) ? j.messages : [];
+  if (!msgs.length) return;
+  messagesEl.innerHTML = ""; // 移除静态欢迎语，改为完整历史
+  let lastUserText = ""; // 反馈条需要关联"这条回答对应的问题"
+  msgs.forEach((m) => {
+    if (!m || !m.content) return;
+    if (m.role === "user") {
+      lastUserText = m.content;
+      addMessage("user", m.content);
+    } else if (m.role === "assistant") {
+      const bubble = addMessage("assistant", m.content, null, { markdown: true });
+      // 历史消息无 trace_id（服务端不回传），反馈按 session+问答文本落库
+      appendFeedbackBar(bubble, {
+        sessionId: sid,
+        traceId: "",
+        question: lastUserText,
+        answer: m.content,
+      });
+    }
+  });
+  scrollToBottom();
+}
+
 async function enterChat() {
   loginView.classList.add("hidden");
   chatView.classList.remove("hidden");
@@ -333,6 +741,10 @@ async function enterChat() {
   } catch (e) {
     /* 忽略：发送时还有一次获取/报错路径 */
   }
+  // 恢复上次会话历史（刷新/重开网页后仍能看到之前的问答结果）
+  loadHistory();
+  // 侧边栏会话列表（多会话管理）
+  renderSessions();
   inputEl.focus();
 }
 
@@ -406,7 +818,8 @@ async function refreshUserBadge() {
 // onQueue 在并发满员排队时收到位置事件（{waiting}，0=已入场）；
 // signal 可选（AbortSignal）：用于「停止排队」——abort 后 fetch 抛 AbortError；
 // 出错时 throw Error（中文信息）
-async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool, onQueue, signal) {
+// onProgress 接收执行进度事件（round/thought/plan）：轮次状态、思考模型推理流、计划步骤
+async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool, onQueue, onProgress, signal) {
   let resp;
   try {
     resp = await fetch("/v1/chat", {
@@ -446,6 +859,7 @@ async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool,
   const decoder = new TextDecoder();
   let buffer = "";
   let errMsg = "";
+  let traceId = ""; // 本轮请求的 trace 标识（反馈接口据此关联观测数据）
 
   // SSE 以空行（\n\n）分隔事件；心跳行 ": ping" 没有 event 字段，直接跳过
   const handleBlock = (block) => {
@@ -461,7 +875,10 @@ async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool,
     else if (event === "tool" && onTool && payload) onTool(payload);
     else if (event === "candidate" && onCandidate && payload) onCandidate(payload);
     else if (event === "queue" && onQueue && payload) onQueue(payload);
-    else if (event === "error") errMsg = payload || "服务异常，请稍后再试";
+    else if (event === "trace" && payload && payload.trace_id) traceId = payload.trace_id;
+    else if (onProgress && (event === "round" || event === "thought" || event === "plan" || event === "clarify") && payload) {
+      onProgress(event, payload);
+    } else if (event === "error") errMsg = payload || "服务异常，请稍后再试";
   };
 
   while (true) {
@@ -478,20 +895,165 @@ async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool,
   if (buffer.trim()) handleBlock(buffer);
 
   if (errMsg) throw new Error(errMsg);
+  return traceId;
 }
 
-async function resetSession() {
-  try {
-    const sid = await ensureSessionId().catch(() => null);
-    if (!sid) return;
-    await fetch("/v1/session/reset", {
-      method: "POST",
-      headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ session_id: sid }),
-    });
-  } catch (e) {
-    /* 清空本地上下文即可，重置失败不阻塞界面 */
+// ---------- 交互式澄清（ask_user 选项卡） ----------
+// 模型对需求拿不准时推送 clarify 事件：渲染问题 + 候选按钮 + 自定义输入。
+// 玩家点选或提交输入后，文本填入主输入框并触发发送（复用完整发送链路，
+// 模型在历史里能看到 ask_user 调用与玩家的明示选择）。选完卡片固化防重复。
+// 竞态处理：clarify 事件到达时流仍在进行（模型在输出收尾语，busy=true），
+// 玩家立刻点选不吞——排队 pendingClarifyText，流结束（finally）后自动发送。
+let pendingClarifyText = null;
+
+function appendClarifyCard(ev) {
+  const opts = Array.isArray(ev.options) ? ev.options.filter((o) => o && o.label) : [];
+  if (!opts.length) return;
+  const card = document.createElement("div");
+  card.className = "clarify-card";
+  const q = document.createElement("div");
+  q.className = "clarify-q";
+  q.textContent = "❓ " + (ev.text || "想先确认一下你的需求：");
+  card.appendChild(q);
+  const btns = document.createElement("div");
+  btns.className = "clarify-btns";
+  card.appendChild(btns);
+
+  let used = false;
+  const choose = (text, btn) => {
+    if (used) return;
+    used = true;
+    card.querySelectorAll("button").forEach((b) => (b.disabled = true));
+    if (btn) btn.classList.add("chosen");
+    if (busy) {
+      // 回答还在收尾：排队，done 后自动发送
+      pendingClarifyText = text;
+      const tip = document.createElement("div");
+      tip.className = "clarify-meta";
+      tip.textContent = "✓ 已选择，将在本轮回答结束后自动发送";
+      card.appendChild(tip);
+      return;
+    }
+    inputEl.value = text;
+    sendBtn.click();
+  };
+
+  opts.forEach((o) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "clarify-opt";
+    const label = document.createElement("b");
+    label.textContent = o.label;
+    b.appendChild(label);
+    if (o.description) {
+      const d = document.createElement("span");
+      d.textContent = o.description;
+      b.appendChild(d);
+    }
+    b.addEventListener("click", () => choose(o.label, b));
+    btns.appendChild(b);
+  });
+
+  // 自定义输入：都不满意时玩家自己写
+  const other = document.createElement("div");
+  other.className = "clarify-other";
+  const inp = document.createElement("input");
+  inp.type = "text";
+  inp.className = "clarify-input";
+  inp.placeholder = "都不合适？直接输入你的想法…";
+  const send = document.createElement("button");
+  send.type = "button";
+  send.className = "clarify-send";
+  send.textContent = "发送";
+  send.addEventListener("click", () => {
+    const t = inp.value.trim();
+    if (t) choose(t, null);
+  });
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      const t = inp.value.trim();
+      if (t) choose(t, null);
+    }
+  });
+  other.appendChild(inp);
+  other.appendChild(send);
+  card.appendChild(other);
+
+  // 插到当前 assistant 气泡所在消息之后（流式文本继续在气泡内追加，互不影响）
+  const wrap = currentBubble ? currentBubble.parentElement : null;
+  if (wrap && wrap.parentNode) {
+    wrap.parentNode.insertBefore(card, wrap.nextSibling);
+  } else {
+    messagesEl.appendChild(card);
   }
+  scrollToBottom();
+}
+
+// ---------- 回答反馈（👍👎 自学习闭环） ----------
+// 点赞：该问答对自动进入服务端 few-shot 案例库，之后相似问题会注入这条成功答法；
+// 点踩：连同 trace_id 落库，供与观测指标（轮数/工具/耗时）关联的失败分析。
+// 提交后按钮固化防重复；失败只给轻提示，不影响任何主流程。
+
+function appendFeedbackBar(bubble, info) {
+  if (!bubble || !info || !info.answer) return;
+  const bar = document.createElement("div");
+  bar.className = "feedback-bar";
+  const up = document.createElement("button");
+  up.type = "button";
+  up.className = "fb-btn";
+  up.title = "这条回答有帮助";
+  up.textContent = "👍";
+  const down = document.createElement("button");
+  down.type = "button";
+  down.className = "fb-btn";
+  down.title = "这条回答有问题";
+  down.textContent = "👎";
+  const hint = document.createElement("span");
+  hint.className = "fb-hint";
+  bar.appendChild(up);
+  bar.appendChild(down);
+  bar.appendChild(hint);
+  bubble.appendChild(bar);
+
+  let voted = false;
+  const vote = (rating, btn) => {
+    if (voted) return;
+    voted = true;
+    up.disabled = true;
+    down.disabled = true;
+    btn.classList.add("voted");
+    hint.textContent = "提交中…";
+    sendFeedback({
+      sessionId: info.sessionId,
+      traceId: info.traceId,
+      rating: rating,
+      question: info.question || "",
+      answer: info.answer || "",
+    })
+      .then(() => {
+        hint.textContent = rating > 0 ? "已记录，谢谢！" : "已记录，我们会改进";
+      })
+      .catch(() => {
+        hint.textContent = "记录失败（不影响使用）";
+      });
+  };
+  up.addEventListener("click", () => vote(1, up));
+  down.addEventListener("click", () => vote(-1, down));
+}
+
+async function sendFeedback(payload) {
+  const resp = await fetch("/v1/feedback", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      session_id: payload.sessionId || "",
+      trace_id: payload.traceId || "",
+      rating: payload.rating,
+      question: (payload.question || "").slice(0, 2000),
+      answer: (payload.answer || "").slice(0, 8000),
+    }),
+  });
+  if (!resp.ok) throw new Error("feedback failed");
 }
 
 // ---------- 联网知识候选卡片 ----------
@@ -1104,6 +1666,7 @@ async function send() {
   const images = pendingImages.slice();
   if ((!text && !images.length) || busy) return;
 
+  stickBottom = true; // 用户发出新消息 → 恢复跟随到底部
   addMessage("user", text, images);
   inputEl.value = "";
   inputEl.style.height = "auto";
@@ -1121,6 +1684,15 @@ async function send() {
   currentBubble.appendChild(textSpan);
   answerText = "";
   const candidates = [];
+  // clarify（ask_user 选项卡）：流中收到即插入当前气泡之后；玩家点选/输入
+  // → 作为新消息发送（sendBtn.click 复用完整发送链路）
+  const onProgressAll = (kind, ev) => {
+    if (kind === "clarify" && ev) {
+      appendClarifyCard(ev);
+    } else {
+      status.onProgress(kind, ev);
+    }
+  };
 
   try {
     // 抽出单次执行体：旧会话ID失效（服务端重启/脏ID，HTTP 400 code=invalid_session）
@@ -1132,7 +1704,11 @@ async function send() {
         images,
         (chunk) => {
           answerText += chunk;
-          textSpan.innerHTML = escapeHtml(answerText).replace(/\n/g, "<br>");
+          // 性能关键路径：流式期间只追加文本节点（O(1)），不逐 chunk 重渲染
+          // Markdown（全量重解析 + DOM 重建是 O(n²)，长回答直接卡死页面）。
+          // done 后统一 renderMarkdown 一次，排版不丢。
+          textSpan.classList.add("stream-text");
+          textSpan.appendChild(document.createTextNode(chunk));
           scrollToBottom();
         },
         (cand) => {
@@ -1144,22 +1720,28 @@ async function send() {
         },
         status.onTool,
         status.onQueue,
+        onProgressAll,
         queueController.signal
       );
 
     let sid;
+    let traceId = "";
     try {
       sid = await ensureSessionId();
-      await streamOnce(sid);
+      traceId = await streamOnce(sid);
     } catch (e) {
       if (e && e.code === "invalid_session") {
         sid = await refreshSessionId();
-        await streamOnce(sid);
+        traceId = await streamOnce(sid);
       } else {
         throw e;
       }
     }
     status.remove(); // 结束后才移除：保留各工具完成耗时供玩家回看
+    // 流结束：一次性渲染成 Markdown 排版（替换流式期间的纯文本节点）
+    textSpan.classList.remove("stream-text");
+    textSpan.innerHTML = renderMarkdown(answerText);
+    scrollToBottom();
     if (!answerText) {
       textSpan.textContent = "（没有收到回复内容，请再试一次）";
     }
@@ -1168,6 +1750,15 @@ async function send() {
       currentBubble.appendChild(buildCandidateCard(cand));
     });
     if (candidates.length) scrollToBottom();
+    // 反馈条（👍👎）：点赞进 few-shot 案例库，点踩关联 trace 落库
+    appendFeedbackBar(currentBubble, {
+      sessionId: sid,
+      traceId: traceId,
+      question: text,
+      answer: answerText,
+    });
+    // 本轮落库后刷新侧边栏（标题从首条提问生成、活跃时间更新）
+    renderSessions();
   } catch (e) {
     status.remove();
     if (e && e.name === "AbortError") {
@@ -1177,11 +1768,23 @@ async function send() {
       currentBubble.classList.add("error");
       textSpan.textContent = "⚠️ " + (e && e.message ? e.message : String(e));
     }
+    // 出错/中止时排队的选择不自动发送（防错误风暴）：留在输入框由玩家决定
+    if (pendingClarifyText) {
+      inputEl.value = pendingClarifyText;
+      pendingClarifyText = null;
+    }
   } finally {
     currentBubble = null;
     answerText = "";
     setBusy(false);
     inputEl.focus();
+    // busy 期间玩家点了 clarify 选项：流结束后自动发送（不吞点击）
+    if (pendingClarifyText) {
+      const t = pendingClarifyText;
+      pendingClarifyText = null;
+      inputEl.value = t;
+      send();
+    }
   }
 }
 
@@ -1231,18 +1834,8 @@ inputEl.addEventListener("input", () => {
   inputEl.style.height = Math.min(inputEl.scrollHeight, 96) + "px";
 });
 
-// 清空对话：同时清掉服务端会话上下文，并本地换新会话ID
-clearBtn.addEventListener("click", async () => {
-  await resetSession();
-  // 本地换发服务端签发的新会话ID（旧上下文随服务端空闲过期自动回收）
-  await refreshSessionId().catch(() => {});
-  messagesEl.innerHTML = "";
-  addMessage(
-    "assistant",
-    "对话已清空，我们重新开始吧～\n可以问我：价格、密码、钥匙卡、战备配装等。"
-  );
-  inputEl.focus();
-});
+// 新对话：旧会话保留在侧边栏列表中，随时可以切回（不再原地清空历史）
+newChatBtn.addEventListener("click", newChat);
 
 // 退出登录：账号令牌先调服务端注销（失效它），再清本地回到登录页
 logoutBtn.addEventListener("click", async () => {

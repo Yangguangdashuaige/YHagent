@@ -95,6 +95,12 @@ func newPlanTool(registry *Registry, dispatch func(context.Context, chat.ChatCom
 
 			start := time.Now()
 			results := make([]string, len(args.Steps))
+			// 进度事件：把模型下发的计划步骤实时推给前端（「📋 计划：①… ②…」）
+			stepsInfo := make([]PlanStepInfo, len(args.Steps))
+			for i, s := range args.Steps {
+				stepsInfo[i] = PlanStepInfo{Index: i + 1, Tool: s.Tool, Purpose: s.Purpose}
+			}
+			emitProgress(ctx, ProgressEvent{Kind: ProgressPlan, Steps: stepsInfo})
 			wg := &sync.WaitGroup{}
 			for i, s := range args.Steps {
 				wg.Add(1)

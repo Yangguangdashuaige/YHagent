@@ -108,7 +108,7 @@ func RegisterTools(reg *ai.Registry, st *Store) {
 				},
 				"top_solutions": res.Top,
 				"slot_insight":  res.Slots,
-				"note":          fmt.Sprintf("共 %d 种组合满足『%s%s%d』（已枚举 %d 种组合，剪枝 %d 次）。top_solutions 为最优方案（每槽配件名）；slot_insight.feasible 为该槽在满足约束组合中出现过的选项数。",
+				"note":          fmt.Sprintf("共 %d 种组合满足『%s%s%d』（已枚举 %d 种组合，剪枝 %d 次）。top_solutions 为最优方案（每槽配件名）；slot_insight.feasible 为该槽在满足约束组合中出现过的选项数。配件名为「出厂固定件（不可更换）」的槽位是出厂默认且玩家无法改装（数值贡献为0）：不要向玩家推荐安装、不要计入加成来源、也不要调用其他工具反查其名称。",
 					res.Matches, attrName, sym, *p.Value, res.Evaluated, res.Pruned),
 			}, nil
 		},

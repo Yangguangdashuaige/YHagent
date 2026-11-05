@@ -24,6 +24,36 @@ BAK_BIN="${APP_DIR}/releases/yhagent-server-${TS}"
 log()  { printf '\033[1;32m[update]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
 die()  { printf '\033[1;31m[error]\033[0m %s\n' "$*" >&2; exit 1; }
+info() { printf '\033[1;36m[info]\033[0m %s\n' "$*"; }
+
+# sync_caddy Caddy 反代片段同步（装有 Caddy 且包内带 Caddyfile 时）：
+#   - 片段从未装过 → 安装 + 主配置幂等补 import（补装 Caddy 后重跑脚本即挂载）
+#   - 内容有变化   → 覆盖后 validate + reload；没变不折腾
+#   - 校验失败     → 保持旧配置并警告（主服务不受影响）
+sync_caddy() {
+    local frag="/etc/caddy/conf.d/yhagent.caddy"
+    command -v caddy >/dev/null 2>&1 || return 0
+    [ -f "${SCRIPT_DIR}/Caddyfile" ] || return 0
+    if [ ! -f "$frag" ]; then
+        mkdir -p /etc/caddy/conf.d
+        install -m 0644 "${SCRIPT_DIR}/Caddyfile" "$frag"
+        if ! grep -qE '^[[:space:]]*import[[:space:]]+conf\.d/' /etc/caddy/Caddyfile 2>/dev/null; then
+            printf '\n# 站点片段（install.sh / update.sh 维护）\nimport conf.d/*.caddy\n' >> /etc/caddy/Caddyfile
+        fi
+        log "已安装 Caddy 反代片段 ${frag}"
+    elif cmp -s "${SCRIPT_DIR}/Caddyfile" "$frag"; then
+        return 0
+    else
+        install -m 0644 "${SCRIPT_DIR}/Caddyfile" "$frag"
+        log "Caddy 反代片段有变化，已更新 ${frag}"
+    fi
+    if caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1; then
+        systemctl reload caddy 2>/dev/null || systemctl start caddy
+        info "Caddy 已重载：https://yhagent.club"
+    else
+        warn "Caddy 配置校验失败，反代保持旧配置：journalctl -u caddy -n 20"
+    fi
+}
 
 [ "$(id -u)" -eq 0 ] || die "请用 root 执行：sudo bash update.sh"
 [ -f "$NEW_BIN" ] || die "找不到新二进制 ${NEW_BIN}，请先解压新部署包并进入 yhagent-deploy 目录"
@@ -42,7 +72,10 @@ log "新版本：  $(stat -c '%s 字节  %y' "$NEW_BIN" 2>/dev/null || stat -f '
 OLD_SUM="$(sha256sum "$CUR_BIN" | awk '{print $1}')"
 NEW_SUM="$(sha256sum "$NEW_BIN" | awk '{print $1}')"
 if [ "$OLD_SUM" = "$NEW_SUM" ]; then
-    die "新旧二进制 SHA256 完全相同，无需更新（${NEW_SUM:0:16}...）。"
+    # 二进制没变也允许重跑：常见于补装 Caddy 后重挂反代片段（只同步，不动服务）
+    warn "新旧二进制 SHA256 相同，跳过二进制更新，仅同步 Caddy 反代片段（${NEW_SUM:0:16}...）"
+    sync_caddy
+    exit 0
 fi
 
 # ---- 3. 备份当前版本 ----
@@ -100,6 +133,9 @@ if systemctl is-active --quiet "$NAME"; then
         rm -f "$old"
         warn "已清理过期备份：$old"
     done
+
+    # ---- 6. Caddy 反代片段同步（未装 Caddy 时静默跳过） ----
+    sync_caddy
     exit 0
 fi
 

@@ -131,3 +131,30 @@ else
     systemctl --no-pager --full status "$NAME" | head -n 20 || true
     die "服务启动失败，请查看日志：journalctl -u ${NAME} -n 80 --no-pager"
 fi
+
+# ---- 8. Caddy 反代（可选：装有 Caddy 时自动挂载 yhagent.club 站点） ----
+# 片段式安装：只写自己的 conf.d/yhagent.caddy，主 Caddyfile 仅追加一行
+# import（幂等），不会动服务器上其他站点配置。未装 Caddy 则提示跳过。
+if command -v caddy >/dev/null 2>&1; then
+    log "检测到 Caddy，安装反代站点片段 /etc/caddy/conf.d/yhagent.caddy"
+    CADDY_MAIN="/etc/caddy/Caddyfile"
+    CADDY_CONF_DIR="/etc/caddy/conf.d"
+    CADDY_FRAGMENT="${CADDY_CONF_DIR}/yhagent.caddy"
+    mkdir -p "$CADDY_CONF_DIR"
+    install -m 0644 "${SCRIPT_DIR}/Caddyfile" "$CADDY_FRAGMENT"
+    # 主配置补 import（幂等：已有 import conf.d/ 行则跳过）
+    if ! grep -qE '^[[:space:]]*import[[:space:]]+conf\.d/' "$CADDY_MAIN" 2>/dev/null; then
+        printf '\n# 站点片段（install.sh / update.sh 维护）\nimport conf.d/*.caddy\n' >> "$CADDY_MAIN"
+        log "已在 ${CADDY_MAIN} 追加 import conf.d/*.caddy"
+    fi
+    if caddy validate --config "$CADDY_MAIN" --adapter caddyfile >/dev/null 2>&1; then
+        systemctl enable caddy >/dev/null 2>&1 || true
+        systemctl reload caddy 2>/dev/null || systemctl start caddy
+        info "反代就绪：https://yhagent.club（需 DNS A 记录已指向本机公网 IP）"
+    else
+        warn "Caddy 配置校验失败，反代未生效（主服务不受影响）：journalctl -u caddy -n 20"
+    fi
+else
+    info "未检测到 Caddy——如需域名 HTTPS 访问，安装 Caddy 后重跑本脚本，或手工："
+    info "  sudo mkdir -p /etc/caddy/conf.d && sudo cp ${SCRIPT_DIR}/Caddyfile /etc/caddy/conf.d/yhagent.caddy"
+fi

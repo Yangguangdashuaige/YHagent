@@ -21,6 +21,10 @@ func (stubChat) ChatWithSessionImages(ctx context.Context, sessionID, userText s
 	return nil
 }
 func (stubChat) Reset(sessionID string) error { return nil }
+func (stubChat) SessionHistory(uid int64, sessionID string) []ai.HistoryMessage {
+	return nil
+}
+func (stubChat) SessionSummaries(sids []string) []ai.SessionSummary { return nil }
 
 // 编译期确认 stubChat 满足 ChatService 接口
 var _ ai.ChatService = stubChat{}
@@ -53,8 +57,8 @@ func TestHandleTraces(t *testing.T) {
 	if span == nil {
 		t.Fatalf("trace.Default 已装配，Start 不应返回 nil")
 	}
-	span.LLMRound(1200, 800, 200, 1000)
-	span.ToolCall(1, "search_knowledge", `{"query":"M14压枪"}`, 300, 2048, true)
+	span.LLMRound(1200, 800, 200, 1000, 0)
+	span.ToolCall(1, "search_knowledge", `{"query":"M14压枪"}`, 300, 2048, true, "")
 	span.NoteCacheHit()
 	span.AnswerChars(180)
 	span.End("")

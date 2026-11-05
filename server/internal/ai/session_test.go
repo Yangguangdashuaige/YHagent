@@ -68,6 +68,57 @@ func TestManagerCapEviction(t *testing.T) {
 	}
 }
 
+// TestSnapshotWindowBoundary 窗口截断的起点不允许落在 tool 结果消息上：
+// 其发起者（assistant tool_calls）被截掉后 tool 消息找不到对应 tool_call_id，
+// API 直接 400。构造超窗历史验证起点被推进到最近的非 tool 消息。
+func TestSnapshotWindowBoundary(t *testing.T) {
+	s := newSession("sess_snap_test", "x")
+	// 填充超窗历史：user / assistant 文本 / tool 结果交替，tool 占多数，
+	// 保证裸截断的窗口起点大概率落在 tool 消息上
+	for i := 0; i < s.maxKeep+10; i++ {
+		s.append(NewUserMessage("q" + padID(i)))
+		s.append(NewAssistantTextMessage("a" + padID(i)))
+		s.append(NewToolResultMessage("call_"+padID(i), "search_knowledge", `{"ok":1}`))
+	}
+	got := s.snapshot()
+	if len(got) == 0 {
+		t.Fatal("snapshot 不应为空")
+	}
+	// 首条是 system，第二条（窗口实际起点）不能是 tool 结果
+	if r, _, _ := messageText(got[1]); r == "tool" {
+		t.Fatalf("窗口起点不能是 tool 结果消息（悬挂 tool_call_id），实际首条角色=%s", r)
+	}
+	// 窗口长度受控：不超过 maxKeep+1（起点推进只允许更少）
+	if len(got) > s.maxKeep+1 {
+		t.Fatalf("窗口长度应不超过 maxKeep+1=%d，实际 %d", s.maxKeep+1, len(got))
+	}
+	// 尾条必须保留（最新消息不被窗口边界修复吞掉）
+	if r, text, _ := messageText(got[len(got)-1]); r != "tool" || text != `{"ok":1}` {
+		t.Fatalf("窗口尾条应为最新 tool 结果，实际 role=%s text=%s", r, text)
+	}
+}
+
+// TestEndsWithToolResult 中断收尾判定：tool 结果结尾返回 true，
+// assistant/user 结尾或空历史返回 false
+func TestEndsWithToolResult(t *testing.T) {
+	s := newSession("sess_end_tool_test", "x")
+	if s.endsWithToolResult() {
+		t.Fatal("空历史（仅 system）应为 false")
+	}
+	s.append(NewUserMessage("q"))
+	if s.endsWithToolResult() {
+		t.Fatal("user 结尾应为 false")
+	}
+	s.append(NewToolResultMessage("call_1", "search_knowledge", "{}"))
+	if !s.endsWithToolResult() {
+		t.Fatal("tool 结果结尾应为 true")
+	}
+	s.append(NewAssistantTextMessage("done"))
+	if s.endsWithToolResult() {
+		t.Fatal("assistant 结尾应为 false")
+	}
+}
+
 func sessionTestID(i int) string {
 	// 生成定长十六进制风格 ID（仅测试用，长度足够避免彼此前缀碰撞）
 	return "cap_" + padID(i)

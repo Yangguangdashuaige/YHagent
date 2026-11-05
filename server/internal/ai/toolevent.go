@@ -14,6 +14,8 @@ type ToolEvent struct {
 	MS    int64  `json:"ms,omitempty"`    // end 时携带：执行耗时
 	OK    bool   `json:"ok,omitempty"`    // end 时携带：是否成功
 	Label string `json:"label,omitempty"` // 展示用中文标签（由 SSE 层映射，如「联网搜索」）
+	Round int    `json:"round,omitempty"` // 发生在第几轮 LLM 循环（0 = 计划步骤）
+	Args  string `json:"args,omitempty"`  // 入参摘要（start 时携带，如查询词，~120 字节）
 }
 
 type toolEventFuncKey struct{}

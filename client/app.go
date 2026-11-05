@@ -13,6 +13,8 @@ import (
 
 	"github.com/google/uuid"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"yhagent-client/internal/remote"
 )
 
 // 推给前端的事件名约定（前端 runtime.EventsOn 监听同名事件）
@@ -45,6 +47,16 @@ func NewApp(chat chatService) *App {
 // startup Wails 生命周期回调：保存运行时上下文，事件推送依赖它
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	// 远端模式：注册 ask_user 澄清回调（Wails 事件透传给前端渲染选项卡）。
+	// 本地模式无此能力，静默跳过（chat 不实现该接口）。
+	if c, ok := a.chat.(*remote.Client); ok {
+		c.SetOnClarify(func(question string, options []remote.ClarifyOpt) {
+			wailsruntime.EventsEmit(a.ctx, "chat:clarify", map[string]any{
+				"text":    question,
+				"options": options,
+			})
+		})
+	}
 }
 
 // newSessionTimeout 服务端签发会话ID的超时：签发接口极廉价，10s 只可能是网络问题
@@ -98,6 +110,104 @@ func (a *App) Chat(sessionID, text string) error {
 // ResetSession 清空指定会话的历史上下文（前端“清空对话”按钮调用）
 func (a *App) ResetSession(sessionID string) {
 	a.chat.Reset(sessionID)
+}
+
+// SessionInfo 多会话列表项（前端可直接消费的序列化形态）
+type SessionInfo struct {
+	SessionID string `json:"session_id"`
+	Title     string `json:"title"`
+	UpdatedAt int64  `json:"updated_at"`
+	MsgCount  int    `json:"msg_count"`
+}
+
+// sessionLister 由 internal/remote.Client 实现（接口在使用处声明，按需断言）
+type sessionLister interface {
+	ListSessions(ctx context.Context, sids []string) ([]remote.SessionSummary, error)
+}
+
+// ListSessions 批量拉取会话摘要（侧边栏会话列表）。前端传本地记录的 sid 集合，
+// 服务端返回标题/最后活跃/消息数。失败返回空列表，UI 静默降级。
+func (a *App) ListSessions(sids []string) []SessionInfo {
+	l, ok := a.chat.(sessionLister)
+	if !ok {
+		return []SessionInfo{}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	sums, err := l.ListSessions(ctx, sids)
+	if err != nil {
+		log.Printf("[app] 会话列表获取失败: %v", err)
+		return []SessionInfo{}
+	}
+	out := make([]SessionInfo, 0, len(sums))
+	for _, s := range sums {
+		out = append(out, SessionInfo{
+			SessionID: s.SessionID, Title: s.Title, UpdatedAt: s.UpdatedAt, MsgCount: s.MsgCount,
+		})
+	}
+	return out
+}
+
+// sessionDeleter 由 internal/remote.Client 实现
+type sessionDeleter interface {
+	DeleteSession(sessionID string) error
+}
+
+// DeleteSession 删除单个会话（服务端清上下文+落库+解绑）。旧版本本地 Agent
+// 无此能力，返回 nil 视为成功（本地会话本就无持久化）。
+func (a *App) DeleteSession(sessionID string) error {
+	d, ok := a.chat.(sessionDeleter)
+	if !ok {
+		return nil
+	}
+	return d.DeleteSession(sessionID)
+}
+
+// ChatMsg 历史消息的序列化形态（前端渲染用）
+type ChatMsg struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// historyFetcher 由 internal/remote.Client 实现
+type historyFetcher interface {
+	SessionHistory(ctx context.Context, sessionID string) ([]remote.HistoryMsg, error)
+}
+
+// SessionHistory 拉取指定会话的可见历史（切换会话时恢复对话内容）。
+// 失败返回空列表，UI 静默降级为欢迎语。
+func (a *App) SessionHistory(sessionID string) []ChatMsg {
+	h, ok := a.chat.(historyFetcher)
+	if !ok {
+		return []ChatMsg{}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	msgs, err := h.SessionHistory(ctx, sessionID)
+	if err != nil {
+		log.Printf("[app] 会话历史获取失败: %v", err)
+		return []ChatMsg{}
+	}
+	out := make([]ChatMsg, 0, len(msgs))
+	for _, m := range msgs {
+		out = append(out, ChatMsg{Role: m.Role, Content: m.Content})
+	}
+	return out
+}
+
+// feedbacker 由 internal/remote.Client 实现（接口在使用处声明，按需断言）
+type feedbacker interface {
+	SubmitFeedback(sessionID string, rating int, question, answer string) error
+}
+
+// SubmitFeedback 前端回答气泡 👍👎 按钮调用（rating: 1=赞 / -1=踩）。
+// 点赞问答自动进服务端 few-shot 案例库（自学习闭环），点踩供失败模式分析。
+func (a *App) SubmitFeedback(sessionID string, rating int, question, answer string) error {
+	f, ok := a.chat.(feedbacker)
+	if !ok {
+		return errors.New("当前对话服务不支持反馈")
+	}
+	return f.SubmitFeedback(sessionID, rating, question, answer)
 }
 
 // SetAlwaysOnTop 切换窗口置顶状态（游戏悬浮场景）

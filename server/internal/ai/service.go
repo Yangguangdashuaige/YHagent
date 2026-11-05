@@ -20,4 +20,13 @@ type ChatService interface {
 
 	// Reset 清空指定会话的历史上下文。会话正在问答中时返回 ErrSessionBusy。
 	Reset(sessionID string) error
+
+	// SessionHistory 提取会话的客户端可见历史（网页刷新后恢复对话用）：
+	// 只含 user / assistant 的文本消息（图片折叠为占位），工具调用与结果不入列。
+	// uid 用于 SESSION_DB 恢复时与聊天路径一致的个性化提示词。
+	SessionHistory(uid int64, sessionID string) []HistoryMessage
+
+	// SessionSummaries 批量返回会话摘要（多会话列表侧边栏用）：
+	// 标题=首条用户消息截断、最后活跃时间、消息数。无记录的 sid 跳过。
+	SessionSummaries(sids []string) []SessionSummary
 }

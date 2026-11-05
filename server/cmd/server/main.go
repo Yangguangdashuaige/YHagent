@@ -72,6 +72,24 @@ func main() {
 		defer mst.Close()
 		log.Printf("[server] 长期记忆已启用：db=%s", dbPath)
 	}
+	// 反馈闭环 + few-shot 案例库（自学习）：默认启用 data/feedback.db，显式设
+	// FEEDBACK_DB=0 关闭。网页端每条回答可 👍👎：点赞问答自动进案例库，后续相似
+	// 提问注入成功答法；点踩关联 trace_id 落库供失败模式汇总分析。
+	feedbackPath := strings.TrimSpace(os.Getenv("FEEDBACK_DB"))
+	if feedbackPath == "" {
+		feedbackPath = "data/feedback.db"
+	}
+	var feedbackSvc *ai.FeedbackService
+	if feedbackPath != "0" {
+		fst, err := ai.NewSQLiteFeedbackStore(feedbackPath)
+		if err != nil {
+			log.Fatalf("反馈闭环初始化失败: %v", err)
+		}
+		feedbackSvc = ai.NewFeedbackService(fst)
+		agentOpts = append(agentOpts, ai.WithFeedbackService(feedbackSvc))
+		defer fst.Close()
+		log.Printf("[server] 反馈闭环已启用：db=%s", feedbackPath)
+	}
 	agent := ai.NewAgent(aiClient, agentOpts...)
 
 	// 3.1 业务工具统一装配（cmd/mcpserver 共用 internal/bootstrap，避免两处复制漂移）：
@@ -198,6 +216,7 @@ func main() {
 		AdminToken:        os.Getenv("ADMIN_TOKEN"),
 		Ingester:          ingester,
 		Tracer:            trace.Default,
+		Feedback:          feedbackSvc,
 		MaxConcurrentChat: maxConcurrent,
 		ChatQueueWait:     queueWait,
 		ChatRPMPerIP:      rpmPerIP,

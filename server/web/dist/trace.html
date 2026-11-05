@@ -20,6 +20,10 @@
     header h1 .web-tag { font-size: 11px; color: #8b95ad; font-weight: normal; margin-left: 6px; }
     .spacer { flex: 1; }
 
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
+    .filters input#kw { flex: 1; min-width: 180px; }
+    .filters select { min-width: 96px; }
+
     input, select, button {
       border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
       background: rgba(0,0,0,0.3); color: #e8ebf2;
@@ -74,6 +78,14 @@
     .trace.open .detail { display: block; }
     .detail h3 { margin: 10px 0 6px; font-size: 12px; color: #8b95ad; font-weight: 600; }
     .detail h3:first-child { margin-top: 0; }
+    .answer-preview {
+      margin: 4px 0; padding: 8px 10px; border-radius: 8px;
+      background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.07);
+      font-size: 12px; line-height: 1.6; color: #cdd6ea; white-space: pre-wrap;
+      word-break: break-word; max-height: 180px; overflow-y: auto;
+    }
+    .meta .sess { color: #7da4ff; cursor: pointer; border-bottom: 1px dotted rgba(125,164,255,0.5); }
+    .meta .sess:hover { color: #a8c4ff; }
 
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
@@ -101,6 +113,20 @@
       </select>
       <button id="refreshBtn" class="primary">刷新</button>
     </header>
+    <div class="filters hidden" id="filters">
+      <input id="kw" type="text" placeholder="筛选：问题关键词 / 会话ID" />
+      <select id="fStatus">
+        <option value="all">全部状态</option>
+        <option value="ok">仅成功</option>
+        <option value="fail">仅失败</option>
+      </select>
+      <select id="fMode">
+        <option value="all">全部模式</option>
+        <option value="react">反应式</option>
+        <option value="plan">规划式</option>
+      </select>
+      <span class="hint" id="filterCount"></span>
+    </div>
     <div id="loginHint" class="hint hidden">
       未检测到访问码：请先在 <a href="/" style="color:#7da4ff">主页</a> 登录后再打开本页。
     </div>
@@ -141,7 +167,32 @@
       $("adminToken").addEventListener("keydown", (e) => {
         if (e.key === "Enter") load();
       });
+      // 筛选条件变化即时生效（不重新拉数据，本地过滤）
+      $("kw").addEventListener("input", applyFilters);
+      $("fStatus").addEventListener("change", applyFilters);
+      $("fMode").addEventListener("change", applyFilters);
       if (savedAdmin) load();
+    }
+
+    let allTraces = [];
+
+    function applyFilters() {
+      const kw = $("kw").value.trim().toLowerCase();
+      const st = $("fStatus").value;
+      const md = $("fMode").value;
+      const filtered = allTraces.filter((t) => {
+        if (st === "ok" && !t.ok) return false;
+        if (st === "fail" && t.ok) return false;
+        if (md === "plan" && t.mode !== "plan") return false;
+        if (md === "react" && t.mode === "plan") return false;
+        if (kw) {
+          const hay = ((t.query || "") + " " + (t.session_id || "") + " " + (t.answer_text || "")).toLowerCase();
+          if (!hay.includes(kw)) return false;
+        }
+        return true;
+      });
+      $("filterCount").textContent = filtered.length + " / " + allTraces.length + " 条";
+      render(filtered);
     }
 
     async function load() {
@@ -178,7 +229,9 @@
         }
         localStorage.setItem(ADMIN_TOKEN_KEY, admin); // 口令正确才缓存
         const data = await resp.json();
-        render(data.traces || []);
+        allTraces = data.traces || [];
+        $("filters").classList.remove("hidden");
+        applyFilters();
       } catch (e) {
         err.textContent = "网络异常：" + e.message;
       }
@@ -202,24 +255,36 @@
       el.classList.remove("hidden");
 
       const okCount = traces.filter((t) => t.ok).length;
-      const avgMS = Math.round(traces.reduce((s, t) => s + (t.total_ms || 0), 0) / traces.length);
-      const avgTTFT = Math.round(
-        traces.filter((t) => t.first_tok_ms > 0).reduce((s, t) => s + t.first_tok_ms, 0) /
-        Math.max(1, traces.filter((t) => t.first_tok_ms > 0).length)
-      );
+      const fails = traces.length - okCount;
+      const durs = traces.map((t) => t.total_ms || 0).sort((a, b) => a - b);
+      const ttfts = traces.filter((t) => t.first_tok_ms > 0).map((t) => t.first_tok_ms).sort((a, b) => a - b);
+      const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+      const pct = (a, p) => a.length ? a[Math.min(a.length - 1, Math.ceil(p * a.length) - 1)] : 0;
+
       const tokens = traces.reduce(
         (s, t) => s + (t.llm || []).reduce((x, r) => x + (r.total_tokens || 0), 0), 0
       );
       const hits = traces.reduce((s, t) => s + (t.cache_hits || 0), 0);
       const misses = traces.reduce((s, t) => s + (t.cache_misses || 0), 0);
       const hitRate = hits + misses > 0 ? Math.round((hits / (hits + misses)) * 100) + "%" : "-";
+      const planN = traces.filter((t) => t.mode === "plan").length;
+      const thinkN = traces.filter((t) => (t.llm || []).some((r) => r.reasoning_chars > 0)).length;
+      const toolTotal = traces.reduce((s, t) => s + (t.tools || []).length, 0);
+      const toolFails = traces.reduce((s, t) => s + (t.tools || []).filter((c) => !c.ok).length, 0);
 
       const items = [
         ["样本", traces.length + " 条"],
         ["成功率", Math.round((okCount / traces.length) * 100) + "%"],
-        ["平均耗时", fmtMS(avgMS)],
-        ["平均首字", fmtMS(avgTTFT)],
+        ["失败", fails + " 条"],
+        ["平均耗时", fmtMS(avg(durs))],
+        ["P95 耗时", fmtMS(pct(durs, 0.95))],
+        ["平均首字", ttfts.length ? fmtMS(avg(ttfts)) : "-"],
+        ["P95 首字", ttfts.length ? fmtMS(pct(ttfts, 0.95)) : "-"],
+        ["平均轮次", (traces.reduce((s, t) => s + (t.llm_rounds || 0), 0) / traces.length).toFixed(1)],
         ["LLM tokens", tokens.toLocaleString()],
+        ["规划式", planN + " (" + Math.round((planN / traces.length) * 100) + "%)"],
+        ["思考模型", thinkN + " (" + Math.round((thinkN / traces.length) * 100) + "%)"],
+        ["工具调用", toolTotal + " 次 / 失败 " + toolFails],
         ["三角洲缓存命中", hitRate + " <small>(" + hits + "/" + (hits + misses) + ")</small>"],
       ];
       el.innerHTML = items
@@ -267,10 +332,17 @@
 
       const meta = [];
       meta.push("trace_id: " + escapeHtml(t.trace_id || "-"));
-      meta.push("会话: " + escapeHtml((t.session_id || "").slice(0, 8)));
+      meta.push('会话: <span class="sess" data-sess="' + escapeHtml(t.session_id || "") + '" title="点击按此会话筛选">' +
+        escapeHtml((t.session_id || "").slice(0, 8)) + "…</span>");
       meta.push("回答: " + (t.answer_chars || 0) + " 字");
       if (t.error) meta.push('<span class="fail">错误: ' + escapeHtml(t.error) + "</span>");
       detail.innerHTML = '<div class="meta">' + meta.join(" · ") + "</div>";
+
+      // 回答预览：直接看这条 trace 答了什么（前 ~160 字符）
+      if (t.answer_text) {
+        detail.innerHTML +=
+          "<h3>回答预览</h3><div class='answer-preview'>" + escapeHtml(t.answer_text) + "</div>";
+      }
 
       if (t.llm && t.llm.length) {
         const rows = t.llm
@@ -279,11 +351,12 @@
               "<tr><td class='num'>" + r.round + "</td><td class='num'>" + fmtMS(r.ms) + "</td>" +
               "<td class='num'>" + (r.prompt_tokens || "-") + "</td>" +
               "<td class='num'>" + (r.completion_tokens || "-") + "</td>" +
-              "<td class='num'>" + (r.total_tokens || "-") + "</td></tr>"
+              "<td class='num'>" + (r.total_tokens || "-") + "</td>" +
+              "<td class='num'>" + (r.reasoning_chars ? r.reasoning_chars.toLocaleString() + " 字" : "-") + "</td></tr>"
           )
           .join("");
         detail.innerHTML +=
-          "<h3>LLM 轮次</h3><table><tr><th>轮</th><th>耗时</th><th>输入</th><th>输出</th><th>合计 tokens</th></tr>" +
+          "<h3>LLM 轮次</h3><table><tr><th>轮</th><th>耗时</th><th>输入</th><th>输出</th><th>合计 tokens</th><th>推理流</th></tr>" +
           rows + "</table>";
       }
 
@@ -299,16 +372,26 @@
               "<td class='num'>" + (c.result_bytes || 0).toLocaleString() + " B</td>" +
               "<td>" + cache + "</td>" +
               "<td>" + (c.ok ? '<span class="pass">成功</span>' : '<span class="fail">失败</span>') + "</td>" +
-              "<td><div class='args'>" + escapeHtml(c.args || "") + "</div></td></tr>"
+              "<td><div class='args'>" + escapeHtml(c.args || "") + "</div></td>" +
+              "<td>" + (c.error ? '<span class="fail">' + escapeHtml(c.error) + "</span>" : "-") + "</td></tr>"
             );
           })
           .join("");
         detail.innerHTML +=
-          "<h3>工具调用</h3><table><tr><th>轮</th><th>工具</th><th>耗时</th><th>结果</th><th>缓存</th><th>状态</th><th>入参摘要</th></tr>" +
+          "<h3>工具调用</h3><table><tr><th>轮</th><th>工具</th><th>耗时</th><th>结果</th><th>缓存</th><th>状态</th><th>入参摘要</th><th>失败原因</th></tr>" +
           rows + "</table>";
       }
 
       div.appendChild(detail);
+      // 会话 chip 点击 → 按该会话筛选（再点关键词输入框清除）
+      const sessChip = detail.querySelector(".sess");
+      if (sessChip) {
+        sessChip.addEventListener("click", (e) => {
+          e.stopPropagation();
+          $("kw").value = sessChip.dataset.sess || "";
+          applyFilters();
+        });
+      }
       return div;
     }
 

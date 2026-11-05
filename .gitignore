@@ -51,3 +51,14 @@ server/internal/knowledge/embedded/index.gob
 .DS_Store
 Thumbs.db
 *.log
+
+# Trae 分享产生的本地 zip（个人，不入库）
+.trae-html-share-packages/
+
+# Wails 自动生成的前端 Go 绑定（运行时产物，runtime/ 已入库）
+client/frontend/wailsjs/go/
+
+# 个人文档/日程（与项目无关，不入库）
+resume/
+*.ics
+docs/面试.md

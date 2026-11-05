@@ -8,11 +8,18 @@
 </head>
 <body>
   <div class="app">
+    <!-- 多会话侧边栏（默认收起，标题栏 🗂️ 切换） -->
+    <aside id="sessionSidebar" class="session-sidebar hidden">
+      <button id="newChatBtn" class="new-chat-btn" title="开启新对话（旧对话保留在列表中）">＋ 新对话</button>
+      <ul id="sessionList" class="session-list"></ul>
+    </aside>
+
+    <div class="chat-main">
     <header class="titlebar">
       <span class="title">小小轩 · 三角洲助手</span>
       <div class="actions">
         <button id="pinBtn" class="icon-btn" title="窗口置顶">📌</button>
-        <button id="clearBtn" class="icon-btn" title="清空对话">🧹</button>
+        <button id="sessionsBtn" class="icon-btn" title="会话列表">🗂️</button>
         <button id="minBtn" class="icon-btn win-btn" title="最小化">
           <svg viewBox="0 0 12 12" width="12" height="12"><rect x="2" y="9.2" width="8" height="1.2" fill="currentColor"/></svg>
         </button>
@@ -36,6 +43,7 @@
       <textarea id="input" rows="1" placeholder="输入问题，Enter 发送 / Shift+Enter 换行"></textarea>
       <button id="sendBtn">发送</button>
     </footer>
+    </div>
   </div>
 
   <!-- Wails 运行时会自动向页面注入 window.runtime（事件总线）与 window.go（Go 绑定通道） -->

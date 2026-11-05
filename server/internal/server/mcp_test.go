@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -99,6 +100,41 @@ type authRoundTripper struct {
 func (a *authRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	r.Header.Set("Authorization", "Bearer "+a.token)
 	return a.base.RoundTrip(r)
+}
+
+// TestMCPWithWebRouteConflict 回归：同时启用 MCP 与网页静态页（GET / 兜底）时
+// 路由不冲突——全方法 "/mcp" 会与 "GET /" 模式冲突导致 New 直接 panic
+// （生产环境 Web 恒启用，曾因只在无 Web 的测试里覆盖而漏检）
+func TestMCPWithWebRouteConflict(t *testing.T) {
+	s, err := New(Config{
+		Token: "t",
+		Chat:  stubChat{},
+		MCP: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+		MCPToken: "mcp-secret",
+		Web:      fstest.MapFS{"index.html": &fstest.MapFile{Data: []byte("<html></html>")}},
+		ChatRPMPerIP: -1,
+	})
+	if err != nil {
+		t.Fatalf("构建服务（MCP+Web 并存不应 panic）: %v", err)
+	}
+	// /mcp 三方法可达，静态页兜底不受影响
+	for _, method := range []string{"POST", "GET", "DELETE"} {
+		r := httptest.NewRequest(method, "/mcp", nil)
+		r.Header.Set("Authorization", "Bearer mcp-secret")
+		w := httptest.NewRecorder()
+		s.http.Handler.ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Errorf("%s /mcp 应 200，得到 %d", method, w.Code)
+		}
+	}
+	r := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	s.http.Handler.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("GET / 静态页应 200，得到 %d", w.Code)
+	}
 }
 
 // TestMCPHTTPEndToEnd 主服务 /mcp 路由端到端：真实鉴权中间件 + SDK HTTP 客户端

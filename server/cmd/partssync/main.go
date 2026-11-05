@@ -118,11 +118,23 @@ type rawDisplayObject struct {
 	PlayerSelectable bool   `json:"playerSelectable"`
 }
 
+// rawShard packs/build-shared/shards/*.json —— 共享配件分片。
+// 除 effectsByItem/display 外，payload.assembly.socketProviders 还包含
+// "配件作为提供者解锁子槽"的完整表（导轨/贴片/前握把等的真实来源：
+// 如 M14 先进枪身系统解锁上/左/右导轨、上贴片、前握把、枪托、导轨脚架）。
 type rawShard struct {
 	ShardId string `json:"shardId"`
 	Payload struct {
 		EffectsByItem map[string]map[string]rawEffects `json:"effectsByItemId"`
 		Display       rawDisplay                       `json:"display"`
+		Assembly      struct {
+			SocketProviders map[string]struct {
+				Sockets []struct {
+					SocketId      int      `json:"socketId"`
+					OptionItemIds []string `json:"optionItemIds"`
+				} `json:"sockets"`
+			} `json:"socketProviders"`
+		} `json:"assembly"`
 	} `json:"payload"`
 }
 
@@ -411,27 +423,57 @@ func (m *partMerger) resolveNames() {
 //   - 按 socketId 分组；选项集合完全相同的提供者合并为一条 ProviderOptions；
 //   - 提供者按 ID 排序保证输出稳定。
 //
+// mergeConditionalSockets 汇总两个来源的条件槽：
+//  1. selection 包 socketProviders（枪管→枪口等，历史口径）；
+//  2. shard 包内嵌 socketProviders（配件→导轨/贴片/前握把等子槽）。
+//
+// shard 来源按"该武器配件池中的 provider"过滤——shard 是全武器共享的，
+// 只有出现在此武器静态槽/条件槽选项里的配件才可能被装上，其解锁的子槽
+// 才属于这把武器。providers 选项相同则合并 providerIds（口径与旧版一致）。
+//
+// 内部规则：
+//   - 跳过武器本体 key（其槽位是默认装配运行态，静态兼容表以 core 为准）；
+//   - 按 socketId 分组；选项集合完全相同的提供者合并为一条 ProviderOptions；
+//   - 提供者按 ID 排序保证输出稳定。
+//
 // slotName 由调用方用槽位本地化表填充（与静态槽同源）。
-func mergeConditionalSockets(sel *rawSelection, weaponId string, slotName func(int) string) []ConditionalSocket {
+func mergeConditionalSockets(sel *rawSelection, weaponId string, slotName func(int) string,
+	shardProviders map[string]map[int][]string, weaponPartIds func() []string) []ConditionalSocket {
 	type providerEntry struct {
 		id   string
 		opts []string
 	}
 	groups := map[int][]providerEntry{}
 	var socketOrder []int
+	addProvider := func(pid string, sockets map[int][]string) {
+		for sid, opts := range sockets {
+			if _, seen := groups[sid]; !seen {
+				socketOrder = append(socketOrder, sid)
+			}
+			groups[sid] = append(groups[sid], providerEntry{id: pid, opts: opts})
+		}
+	}
+	// 来源 1：selection 包配件 providers（历史口径）
 	for pid, prov := range sel.Assembly.SocketProviders {
 		if pid == weaponId {
 			continue
 		}
+		sockets := map[int][]string{}
 		for _, s := range prov.Sockets {
-			if _, seen := groups[s.SocketId]; !seen {
-				socketOrder = append(socketOrder, s.SocketId)
-			}
 			opts := s.OptionItemIds
 			if opts == nil {
 				opts = []string{} // 空选项=该提供者封锁此槽，保留显式语义
 			}
-			groups[s.SocketId] = append(groups[s.SocketId], providerEntry{id: pid, opts: opts})
+			sockets[s.SocketId] = opts
+		}
+		addProvider(pid, sockets)
+	}
+	// 来源 2：shard 子槽表——只取此武器配件池内的 provider
+	if len(shardProviders) > 0 && weaponPartIds != nil {
+		for _, pid := range weaponPartIds() {
+			if sockets, ok := shardProviders[pid]; ok {
+				addProvider(pid, sockets)
+			}
 		}
 	}
 	if len(socketOrder) == 0 {
@@ -544,6 +586,10 @@ func run(base, outDir, cacheDir string, full bool, weaponFilter string) error {
 		itemNames:   items.Items,
 		idxToKey:    idxToKey,
 	}
+	// shard 内嵌 socketProviders：配件作为提供者解锁子槽（导轨/贴片/前握把等的
+	// 真实来源）。先全量收集（providerId → socketId → 选项集合），每把武器
+	// 合并其配件池命中的条目为条件槽——与 selection 包来源同口径。
+	shardProviders := map[string]map[int][]string{}
 	for _, rel := range shardFiles {
 		b, err := f.get(rel)
 		if err != nil {
@@ -554,8 +600,21 @@ func run(base, outDir, cacheDir string, full bool, weaponFilter string) error {
 			return fmt.Errorf("解析 %s 失败: %w", rel, err)
 		}
 		merger.ingest(shard.Payload.Display, shard.Payload.EffectsByItem)
+		for pid, prov := range shard.Payload.Assembly.SocketProviders {
+			if shardProviders[pid] == nil {
+				shardProviders[pid] = map[int][]string{}
+			}
+			for _, s := range prov.Sockets {
+				opts := s.OptionItemIds
+				if opts == nil {
+					opts = []string{}
+				}
+				shardProviders[pid][s.SocketId] = opts
+			}
+		}
 	}
-	log.Printf("[partssync] 共享 shard %d 个 → 配件 %d 条", len(shardFiles), len(merger.sharedParts))
+	log.Printf("[partssync] 共享 shard %d 个 → 配件 %d 条，provider 子槽表 %d 条",
+		len(shardFiles), len(merger.sharedParts), len(shardProviders))
 
 	// 5. 每把武器 core：槽位兼容表 + 武器专属配件 + coupling
 	var wanted map[string]bool
@@ -641,7 +700,36 @@ func run(base, outDir, cacheDir string, full bool, weaponFilter string) error {
 				w.Sockets = append(w.Sockets, si)
 			}
 		}
-		w.ConditionalSockets = mergeConditionalSockets(&sel, wid, slotName)
+		w.ConditionalSockets = mergeConditionalSockets(&sel, wid, slotName, shardProviders, func() []string {
+			// 武器配件池 = 静态槽全部选项 + selection providers 的选项与提供者
+			// （shard provider 必须先能被装上这把武器，其子槽才属于它）
+			seen := map[string]bool{}
+			var ids []string
+			for _, s := range w.Sockets {
+				for _, pid := range s.Options {
+					if !seen[pid] {
+						seen[pid] = true
+						ids = append(ids, pid)
+					}
+				}
+			}
+			for pid, prov := range sel.Assembly.SocketProviders {
+				if pid == wid || seen[pid] {
+					continue
+				}
+				seen[pid] = true
+				ids = append(ids, pid)
+				for _, s := range prov.Sockets {
+					for _, oid := range s.OptionItemIds {
+						if !seen[oid] {
+							seen[oid] = true
+							ids = append(ids, oid)
+						}
+					}
+				}
+			}
+			return ids
+		})
 		w.AmmoItemIds = sel.AmmoItemIds
 		if c, ok := core.Payload.Assembly.Coupling[wid]; ok {
 			w.Coupling = c

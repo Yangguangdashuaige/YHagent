@@ -147,6 +147,11 @@ func (b *blockingChat) ChatWithSessionImages(ctx context.Context, sessionID, use
 }
 func (b *blockingChat) Reset(sessionID string) error { return nil }
 
+func (b *blockingChat) SessionHistory(uid int64, sessionID string) []ai.HistoryMessage {
+	return nil
+}
+func (b *blockingChat) SessionSummaries(sids []string) []ai.SessionSummary { return nil }
+
 // TestChatConcurrencyGate 并发上限=1、排队上限 150ms：第一个在途请求占满名额，
 // 第二个不再立即 503，而是 SSE 建连收到 queue 排队事件，等待超时后以 error 事件收尾
 func TestChatConcurrencyGate(t *testing.T) {
@@ -209,6 +214,11 @@ func (c *countingChat) ChatWithSessionImages(ctx context.Context, sessionID, use
 	return nil
 }
 func (c *countingChat) Reset(sessionID string) error { return nil }
+
+func (c *countingChat) SessionHistory(uid int64, sessionID string) []ai.HistoryMessage {
+	return nil
+}
+func (c *countingChat) SessionSummaries(sids []string) []ai.SessionSummary { return nil }
 
 // waitQueued 轮询等待至少 n 个请求处于排队状态（消除 goroutine 调度竞态）
 func waitQueued(t *testing.T, s *Server, n int64) {

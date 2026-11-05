@@ -2,6 +2,7 @@ package gunparts
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -59,9 +60,10 @@ func TestSolveGte(t *testing.T) {
 	if res.Top[0].Parts["枪管"] != "枪管一" || res.Top[0].Parts["枪口"] != "消音器" || res.Top[0].Parts["握把"] != "握把一" {
 		t.Errorf("top[0] 配件名不对: %v", res.Top[0].Parts)
 	}
-	// 评估数：B2 分支在静态层剪掉（suffixMax 检查在槽 0 入口），evaluated = B1 组合 3×2=6
-	if res.Evaluated != 6 {
-		t.Errorf("evaluated 期望 6，得到 %d", res.Evaluated)
+	// 评估数：B2 分支在静态层剪掉；B1+M2+G2（=4<5）在条件槽层剪掉
+	// （阶段 31 evalCond 后缀界剪枝），evaluated = 5
+	if res.Evaluated != 5 {
+		t.Errorf("evaluated 期望 5，得到 %d", res.Evaluated)
 	}
 	// 可行性：枪管槽只有 B1 可行（1/2），握把槽 G1、G2 都可行（2/2）
 	if res.Slots["枪管"].Feasible != 1 || res.Slots["握把"].Feasible != 2 {
@@ -224,12 +226,27 @@ func TestSolveRealData(t *testing.T) {
 	if len(slots) != len(w.Sockets) {
 		t.Fatalf("静态槽数不符")
 	}
+	// 出厂固定件标注：非可选件的显示名必须是「出厂固定件（不可更换）」，
+	// 不允许"内部配件 130xxxxx"占位名进求解结果（模型会据此编造配件名）
+	for _, sv := range slots {
+		for _, o := range sv.Options {
+			if o.Id != "" && strings.Contains(o.Name, "内部配件") {
+				t.Fatalf("槽 %s 选项 %s 仍是内部 ID 占位名：%q", sv.Slot, o.Id, o.Name)
+			}
+		}
+	}
+	// M14 后握把唯一选项是出厂固定件（M14 不能换后握把）
+	for _, sv := range slots {
+		if sv.Slot == "后握把" {
+			if len(sv.Options) != 1 || sv.Options[0].Name != "出厂固定件（不可更换）" {
+				t.Fatalf("M14 后握把应只有出厂固定件一个选项，得到 %+v", sv.Options)
+			}
+		}
+	}
 	res, err := Solve(slots, cond, OpGte, 8, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("M14 据枪≥8：matches=%d evaluated=%d pruned=%d elapsed=%dms",
-		res.Matches, res.Evaluated, res.Pruned, res.ElapsedMs)
 	if res.Matches < 1 {
 		t.Fatalf("M14 据枪+8 应有解（此前勘察确认洞察枪管+4 等正修正存在），得到 0")
 	}

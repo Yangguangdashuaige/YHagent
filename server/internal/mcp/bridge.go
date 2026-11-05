@@ -65,7 +65,13 @@ func NewServer() *mcpsdk.Server {
 // NewHTTPHandler 构造 Streamable HTTP 形态处理器（挂主服务 /mcp 路由）。
 // 鉴权与限流由调用方（internal/server）包裹。
 func NewHTTPHandler(server *mcpsdk.Server) http.Handler {
-	return mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, nil)
+	return mcpsdk.NewStreamableHTTPHandler(func(*http.Request) *mcpsdk.Server { return server }, &mcpsdk.StreamableHTTPOptions{
+		// 关闭 SDK 的 localhost Host 校验（DNS 重绑定防护）：生产部署在
+		// Caddy/Nginx 反代之后，连接恒为 127.0.0.1 回环而 Host 头是公网域名，
+		// 默认策略会误杀（403 invalid Host header）。/mcp 有独立 Bearer
+		// 令牌鉴权（withMCPToken），防重绑定已由令牌覆盖。
+		DisableLocalhostProtection: true,
+	})
 }
 
 // StdioTransport stdio 传输（类型别名转发，调用方无需直接依赖 SDK）。

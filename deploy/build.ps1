@@ -76,6 +76,7 @@ Write-Host '==> 收集部署文件' -ForegroundColor Cyan
 Copy-Item (Join-Path $deployDir 'yhagent.service') $stage
 Copy-Item (Join-Path $deployDir 'install.sh')      $stage
 Copy-Item (Join-Path $deployDir 'update.sh')       $stage
+Copy-Item (Join-Path $deployDir 'Caddyfile')       $stage
 Copy-Item (Join-Path $serverDir '.env.example')    $stage
 
 # 运行时数据文件（产物不进 git，必须随包分发）：

@@ -178,7 +178,7 @@ func TestMergeConditionalSockets(t *testing.T) {
 		t.Fatal(err)
 	}
 	slotName := func(id int) string { return map[int]string{6: "枪口", 40: "槽位40"}[id] }
-	cs := mergeConditionalSockets(&sel, "18050000005", slotName)
+	cs := mergeConditionalSockets(&sel, "18050000005", slotName, nil, nil)
 	if len(cs) != 2 {
 		t.Fatalf("条件槽期望 2 个（socket6/40），得到 %d", len(cs))
 	}
@@ -218,7 +218,34 @@ func TestMergeConditionalSocketsEmpty(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &sel); err != nil {
 		t.Fatal(err)
 	}
-	if cs := mergeConditionalSockets(&sel, "18050000005", func(int) string { return "" }); cs != nil {
+	if cs := mergeConditionalSockets(&sel, "18050000005", func(int) string { return "" }, nil, nil); cs != nil {
 		t.Errorf("无配件 provider 时应返回 nil，得到 %v", cs)
+	}
+}
+
+// TestMergeConditionalSocketsShardSource 阶段 31：shard 内嵌 socketProviders
+// 是导轨/贴片/前握把等子槽的真实来源——池内 provider 合并、池外过滤
+func TestMergeConditionalSocketsShardSource(t *testing.T) {
+	sel := rawSelection{} // selection 包无配件 provider
+	shardProviders := map[string]map[int][]string{
+		"13050000183": {24: {"a1", "a2"}, 14: {"laser1"}}, // 先进枪身：前握把 + 右导轨
+		"13020000390": {24: {"a1", "a2"}},                  // 另一护木：同选项前握把（应合并）
+		"99999999999": {11: {"x"}},                         // 池外配件：应被过滤
+	}
+	pool := []string{"13050000183", "13020000390", "13050000100"}
+	slotName := func(id int) string { return map[int]string{24: "前握把", 14: "右导轨"}[id] }
+	cs := mergeConditionalSockets(&sel, "W", slotName, shardProviders, func() []string { return pool })
+	if len(cs) != 2 {
+		t.Fatalf("条件槽期望 2 个（前握把24/右导轨14），得到 %d", len(cs))
+	}
+	rail, grip := cs[0], cs[1] // socketId 升序：右导轨14 < 前握把24
+	if grip.Slot != "前握把" || rail.Slot != "右导轨" {
+		t.Fatalf("槽序应为 右导轨/前握把（socketId 升序），得到 %s/%s", rail.Slot, grip.Slot)
+	}
+	if len(grip.Providers) != 1 || len(grip.Providers[0].ProviderIds) != 2 {
+		t.Errorf("同选项的两个护木应合并为一组双提供者，得到 %#v", grip.Providers)
+	}
+	if len(rail.Providers) != 1 || rail.Providers[0].ProviderIds[0] != "13050000183" || len(rail.Providers[0].Options) != 1 {
+		t.Errorf("右导轨应仅由先进枪身提供 laser1，得到 %#v", rail.Providers)
 	}
 }
