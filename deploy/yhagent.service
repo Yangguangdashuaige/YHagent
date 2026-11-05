@@ -21,6 +21,8 @@ ExecStart=/opt/yhagent/yhagent-server
 # 崩溃自动拉起
 Restart=always
 RestartSec=3
+# 优雅停机窗口：给服务 15s 排空 SSE 长连接、刷盘 WAL / 事件日志，超时才 SIGKILL
+TimeoutStopSec=15
 
 # SSE 长连接 + 高并发需要较多文件描述符
 LimitNOFILE=65535

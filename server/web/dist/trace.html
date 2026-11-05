@@ -97,6 +97,36 @@
 
     .meta { color: #8b95ad; font-size: 12px; margin: 4px 0 8px; }
     .empty { text-align: center; color: #8b95ad; padding: 40px 0; }
+    .hidden { display: none !important; }
+
+    /* ---- 页签：调用链路 trace / 事件流 events ---- */
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .tab {
+      padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(0,0,0,0.3); color: #b9c2d6; cursor: pointer; font-size: 13px;
+    }
+    .tab.active { background: rgba(77,136,255,0.85); color: #fff; border-color: transparent; }
+
+    .ev-filters { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+    .ev-filters input { flex: 1; min-width: 180px; }
+    .ev-list { display: flex; flex-direction: column; gap: 6px; }
+    .ev {
+      background: rgba(20,24,34,0.85); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 8px 12px; display: flex; gap: 10px; align-items: flex-start;
+    }
+    .ev .lvl { flex: none; width: 46px; text-align: center; font-size: 11px; font-weight: 600; padding: 2px 0; border-radius: 5px; }
+    .ev .lvl.info  { background: rgba(80,220,130,0.13); color: #7de2a5; }
+    .ev .lvl.warn  { background: rgba(255,190,80,0.15); color: #ffcf7d; }
+    .ev .lvl.error { background: rgba(255,90,90,0.15);  color: #ff9c9c; }
+    .ev .body { flex: 1; min-width: 0; }
+    .ev .evt { color: #cdd6ea; font-weight: 600; }
+    .ev .ts  { color: #8b95ad; font-size: 11px; margin-left: 8px; }
+    .ev .flds { color: #8b95ad; font-size: 11px; margin-top: 3px; word-break: break-all; }
+    .ev .ref { color: #7da4ff; cursor: pointer; border-bottom: 1px dotted rgba(125,164,255,0.5); font-size: 11px; }
+    .ev .ref:hover { color: #a8c4ff; }
+
+    /* trace_id 联动高亮：在两个页签里同 trace_id 的行同时高亮 */
+    [data-trace-id].linked { outline: 1px solid rgba(255,210,90,0.7); background: rgba(255,210,90,0.07) !important; }
   </style>
 </head>
 <body>
@@ -113,6 +143,11 @@
       </select>
       <button id="refreshBtn" class="primary">刷新</button>
     </header>
+    <div class="tabs">
+      <button id="tabTrace" class="tab active">调用链路 trace</button>
+      <button id="tabEvents" class="tab">事件流 events</button>
+    </div>
+    <div id="traceView">
     <div class="filters hidden" id="filters">
       <input id="kw" type="text" placeholder="筛选：问题关键词 / 会话ID" />
       <select id="fStatus">
@@ -134,6 +169,16 @@
 
     <div id="stats" class="stats hidden"></div>
     <div id="list" class="trace-list"><div class="empty">输入管理员口令后点击刷新</div></div>
+    </div><!-- /traceView -->
+
+    <div id="eventsView" class="hidden">
+      <div class="ev-filters">
+        <input id="evKw" type="text" placeholder="筛选：事件类型 / trace_id / 会话ID / 字段关键词" />
+        <span class="hint" id="evCount"></span>
+      </div>
+      <div id="evError" class="error"></div>
+      <div id="evList" class="ev-list"><div class="empty">切换到此页后将自动加载事件流</div></div>
+    </div>
   </div>
 
   <script>
@@ -163,14 +208,20 @@
       const savedAdmin = localStorage.getItem(ADMIN_TOKEN_KEY);
       if (savedAdmin) $("adminToken").value = savedAdmin;
 
-      $("refreshBtn").addEventListener("click", load);
+      // 刷新：两个页签一起拉新（鉴权共用，互不阻塞）
+      const refreshAll = () => { load(); loadEvents(); };
+      $("refreshBtn").addEventListener("click", refreshAll);
       $("adminToken").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") load();
+        if (e.key === "Enter") refreshAll();
       });
+      // 页签切换：trace 看单次请求性能，events 看跨请求生命周期 / 异常 / 告警
+      $("tabTrace").addEventListener("click", () => switchTab("trace"));
+      $("tabEvents").addEventListener("click", () => switchTab("events"));
       // 筛选条件变化即时生效（不重新拉数据，本地过滤）
       $("kw").addEventListener("input", applyFilters);
       $("fStatus").addEventListener("change", applyFilters);
       $("fMode").addEventListener("change", applyFilters);
+      $("evKw").addEventListener("input", renderEvents);
       if (savedAdmin) load();
     }
 
@@ -186,7 +237,7 @@
         if (md === "plan" && t.mode !== "plan") return false;
         if (md === "react" && t.mode === "plan") return false;
         if (kw) {
-          const hay = ((t.query || "") + " " + (t.session_id || "") + " " + (t.answer_text || "")).toLowerCase();
+          const hay = ((t.query || "") + " " + (t.session_id || "") + " " + (t.trace_id || "") + " " + (t.answer_text || "")).toLowerCase();
           if (!hay.includes(kw)) return false;
         }
         return true;
@@ -247,6 +298,7 @@
         return;
       }
       traces.forEach((t) => list.appendChild(renderTrace(t)));
+      applyLinked();
     }
 
     function renderStats(traces) {
@@ -295,6 +347,7 @@
     function renderTrace(t) {
       const div = document.createElement("div");
       div.className = "trace";
+      if (t.trace_id) div.dataset.traceId = t.trace_id;
 
       const ts = (t.ts || "").replace("T", " ").replace(/Z$/, "").slice(5, 19);
       const toolCount = (t.tools || []).length;
@@ -331,7 +384,12 @@
       detail.className = "detail";
 
       const meta = [];
-      meta.push("trace_id: " + escapeHtml(t.trace_id || "-"));
+      if (t.trace_id) {
+        meta.push('trace_id: <span class="ref" data-jump-events="' + escapeHtml(t.trace_id) +
+          '" title="点击在事件流中查看该 trace 的关联事件">' + escapeHtml(t.trace_id) + "</span>");
+      } else {
+        meta.push("trace_id: -");
+      }
       meta.push('会话: <span class="sess" data-sess="' + escapeHtml(t.session_id || "") + '" title="点击按此会话筛选">' +
         escapeHtml((t.session_id || "").slice(0, 8)) + "…</span>");
       meta.push("回答: " + (t.answer_chars || 0) + " 字");
@@ -394,6 +452,126 @@
       }
       return div;
     }
+
+    // ---------- 页签切换 + 事件流（events） + trace_id 联动 ----------
+    let allEvents = [];
+    let linkedTrace = ""; // 当前联动高亮的 trace_id（跨两个页签同时高亮）
+
+    function switchTab(name) {
+      const isTrace = name === "trace";
+      $("tabTrace").classList.toggle("active", isTrace);
+      $("tabEvents").classList.toggle("active", !isTrace);
+      $("traceView").classList.toggle("hidden", !isTrace);
+      $("eventsView").classList.toggle("hidden", isTrace);
+      // 首次切到事件流自动拉取（之后靠「刷新」更新）
+      if (!isTrace && !allEvents.length) loadEvents();
+      applyLinked(); // 切页后重新套用联动高亮
+    }
+
+    async function loadEvents() {
+      const err = $("evError");
+      err.textContent = "";
+      const token = localStorage.getItem(TOKEN_KEY) || "";
+      const admin = $("adminToken").value.trim();
+      if (!token) { err.textContent = "缺少访问码，请先从主页登录"; return; }
+      if (!admin) { err.textContent = "请输入管理员口令"; return; }
+      try {
+        const resp = await fetch("/v1/events?limit=" + encodeURIComponent($("limit").value), {
+          headers: { Authorization: "Bearer " + token, "X-Admin-Token": admin },
+        });
+        if (resp.status === 401) { err.textContent = "访问码无效，请回主页重新登录"; return; }
+        if (resp.status === 403) { err.textContent = "管理员口令错误"; return; }
+        if (resp.status === 503) { err.textContent = "事件日志未开启（服务端 EVENTLOG 未配置）"; return; }
+        if (!resp.ok) { err.textContent = "加载失败：HTTP " + resp.status; return; }
+        const data = await resp.json();
+        allEvents = data.events || [];
+        renderEvents();
+      } catch (e) {
+        err.textContent = "网络异常：" + e.message;
+      }
+    }
+
+    function renderEvents() {
+      const kw = $("evKw").value.trim().toLowerCase();
+      const list = $("evList");
+      const filtered = allEvents.filter((e) => {
+        if (!kw) return true;
+        let flds = "";
+        try { flds = e.fields ? JSON.stringify(e.fields) : ""; } catch (_) {}
+        const hay = ((e.event || "") + " " + (e.trace_id || "") + " " + (e.session_id || "") + " " + flds).toLowerCase();
+        return hay.includes(kw);
+      });
+      $("evCount").textContent = filtered.length + " / " + allEvents.length + " 条";
+      list.innerHTML = "";
+      if (!filtered.length) {
+        list.innerHTML = '<div class="empty">' +
+          (allEvents.length ? "没有匹配的事件" : "暂无事件记录（服务刚启动或事件日志未开启）") + "</div>";
+        applyLinked();
+        return;
+      }
+      filtered.forEach((e) => list.appendChild(renderEvent(e)));
+      applyLinked();
+    }
+
+    function renderEvent(e) {
+      const row = document.createElement("div");
+      row.className = "ev";
+      if (e.trace_id) row.dataset.traceId = e.trace_id;
+      const ts = (e.ts || "").replace("T", " ").replace(/Z$/, "").slice(5, 19);
+      let flds = "";
+      if (e.fields && Object.keys(e.fields).length) {
+        try { flds = JSON.stringify(e.fields); } catch (_) { flds = String(e.fields); }
+        if (flds.length > 240) flds = flds.slice(0, 240) + "…";
+      }
+      const refs = [];
+      if (e.trace_id) {
+        refs.push('<span class="ref" data-jump-trace="' + escapeHtml(e.trace_id) +
+          '" title="点击在调用链路中定位该 trace">' + escapeHtml(e.trace_id) + "</span>");
+      }
+      if (e.session_id) {
+        refs.push('<span style="color:#8b95ad">' + escapeHtml(e.session_id.slice(0, 8)) + "…</span>");
+      }
+      const lvl = e.level || "info";
+      row.innerHTML =
+        '<span class="lvl ' + escapeHtml(lvl) + '">' + escapeHtml(lvl).toUpperCase() + "</span>" +
+        '<div class="body"><span class="evt">' + escapeHtml(e.event || "") + "</span>" +
+        '<span class="ts">' + escapeHtml(ts) + "</span>" +
+        (refs.length ? ' <span style="margin-left:8px">' + refs.join(" ") + "</span>" : "") +
+        (flds ? '<div class="flds">' + escapeHtml(flds) + "</div>" : "") +
+        "</div>";
+      return row;
+    }
+
+    // trace_id 双向联动：trace 详情点 trace_id → 事件流筛选高亮；
+    // 事件行点 trace_id → 调用链路筛选高亮。
+    function jumpToEvents(traceId) {
+      $("evKw").value = traceId;
+      switchTab("events");
+      setLinked(traceId);
+    }
+    function jumpToTrace(traceId) {
+      $("kw").value = traceId;
+      applyFilters(); // 过滤出该 trace
+      switchTab("trace");
+      setLinked(traceId);
+    }
+    function setLinked(traceId) {
+      linkedTrace = traceId || "";
+      applyLinked();
+    }
+    function applyLinked() {
+      document.querySelectorAll("[data-trace-id]").forEach((el) => {
+        el.classList.toggle("linked", !!linkedTrace && el.dataset.traceId === linkedTrace);
+      });
+    }
+
+    // 事件委托：统一处理跨页签的 trace_id 跳转点击
+    document.addEventListener("click", (e) => {
+      const jev = e.target.closest("[data-jump-events]");
+      if (jev) { e.stopPropagation(); jumpToEvents(jev.dataset.jumpEvents); return; }
+      const jtr = e.target.closest("[data-jump-trace]");
+      if (jtr) { e.stopPropagation(); jumpToTrace(jtr.dataset.jumpTrace); }
+    });
 
     init();
   </script>

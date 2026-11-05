@@ -1,5 +1,5 @@
 // 前端逻辑：只通过 Wails 绑定（window.go.main.App）与 Go 通信，走单一通道。
-// 流式回答不依赖请求的 Promise，而是监听 chat:chunk / chat:done / chat:error 三个事件。
+// 流式回答不依赖请求的 Promise，而是监听 chat:chunk / chat:done / chat:error / chat:interrupted 事件。
 
 const SESSION_KEY = "yh_session_id";
 
@@ -228,6 +228,29 @@ function appendFeedbackBar(bubble, question, answer) {
   down.addEventListener("click", () => vote(-1, down));
 }
 
+// 回合被中断（断线 / 服务重启）时渲染「重新生成」条：已生成内容保留，
+// 点击按钮用上次的提问重新发起一轮（上下文完整，不丢历史）
+function appendRegenerateBar(bubble, payload) {
+  if (!bubble) return;
+  const bar = document.createElement("div");
+  bar.style.cssText = "margin-top:8px;padding:6px 10px;border:1px dashed #e0a000;border-radius:6px;background:#fff8e6;color:#8a5a00;font-size:13px;display:flex;align-items:center;gap:8px;";
+  const reason = (payload && payload.reason) ? payload.reason : "连接中断";
+  bar.innerHTML = `<span>⚠️ 回答中断（${reason}），已保留已生成内容</span>`;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "重新生成";
+  btn.style.cssText = "margin-left:auto;padding:3px 12px;border:1px solid #c08000;border-radius:5px;background:#fff;cursor:pointer;color:#8a5a00;font-size:13px;";
+  btn.onclick = () => {
+    if (busy) return;
+    inputEl.value = lastQuestion;
+    inputEl.focus();
+    send();
+  };
+  bar.appendChild(btn);
+  bubble.appendChild(bar);
+  scrollToBottom();
+}
+
 function setBusy(b) {
   busy = b;
   sendBtn.disabled = b;
@@ -285,6 +308,21 @@ window.runtime.EventsOn("chat:error", (msg) => {
     inputEl.value = pendingClarifyText;
     pendingClarifyText = null;
   }
+  inputEl.focus();
+});
+
+// 回合被中断（断线 / 服务重启）：Go 层已逐片推完已生成内容，这里把流式
+// 纯文本渲染成 Markdown 排版，并追加「重新生成」条——不插入反馈条、不报错。
+window.runtime.EventsOn("chat:interrupted", (ev) => {
+  if (currentBubble) {
+    currentBubble.classList.remove("stream-text");
+    if (answerText) currentBubble.innerHTML = renderMarkdown(answerText);
+    else currentBubble.textContent = "（未收到内容，可重新生成）";
+    appendRegenerateBar(currentBubble, ev);
+  }
+  currentBubble = null;
+  answerText = "";
+  setBusy(false);
   inputEl.focus();
 });
 

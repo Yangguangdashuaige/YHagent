@@ -46,6 +46,12 @@ let loginMode = "code";
 let accountTab = "login";
 // 待发送图片（已压缩的 data URL），二期：截图识别
 let pendingImages = [];
+// 断线续传：上一条发送的文本/图片（供「重新生成」复用）；续传重试退避参数
+let lastSentText = "";
+let lastSentImages = [];
+const RESUME_MAX_RETRY = 5;
+const RESUME_BACKOFF = [800, 1500, 3000, 5000, 8000];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const MAX_IMAGES = 3;
 const MAX_IMAGE_EDGE = 1280; // 服务端/模型只需要看清文字，1280px 足够且大幅省流量
 const JPEG_QUALITY = 0.82;
@@ -819,7 +825,12 @@ async function refreshUserBadge() {
 // signal 可选（AbortSignal）：用于「停止排队」——abort 后 fetch 抛 AbortError；
 // 出错时 throw Error（中文信息）
 // onProgress 接收执行进度事件（round/thought/plan）：轮次状态、思考模型推理流、计划步骤
-async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool, onQueue, onProgress, signal) {
+// extra（可选）：{ resumeTurn, resumeAfter, onTrace, onContent, onInterrupted }——
+//   resumeTurn 非空时走服务端 WAL 回放（不重发上游、不重复耗 token）；
+//   onTrace 回调实时给出本轮 turn_id（断线续传的凭据）；onContent 每收到一段内容+1，
+//   用于续传时上报已收条数；onInterrupted 在回放结束但回合被中断时触发。
+async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool, onQueue, onProgress, signal, extra) {
+  extra = extra || {};
   let resp;
   try {
     resp = await fetch("/v1/chat", {
@@ -827,8 +838,10 @@ async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool,
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         session_id: sessionId,
-        message: text,
-        images: images || [],
+        message: extra.resumeTurn ? "" : text,
+        images: extra.resumeTurn ? [] : (images || []),
+        resume_turn: extra.resumeTurn || "",
+        resume_after: extra.resumeAfter || 0,
       }),
       signal,
     });
@@ -871,13 +884,21 @@ async function streamChat(sessionId, text, images, onChunk, onCandidate, onTool,
     }
     if (!event) return;
     const payload = data ? JSON.parse(data) : "";
-    if (event === "chunk") onChunk(payload || "");
-    else if (event === "tool" && onTool && payload) onTool(payload);
+    if (event === "chunk") {
+      onChunk(payload || "");
+      if (extra.onContent) extra.onContent();
+    } else if (event === "tool" && onTool && payload) onTool(payload);
     else if (event === "candidate" && onCandidate && payload) onCandidate(payload);
     else if (event === "queue" && onQueue && payload) onQueue(payload);
-    else if (event === "trace" && payload && payload.trace_id) traceId = payload.trace_id;
-    else if (onProgress && (event === "round" || event === "thought" || event === "plan" || event === "clarify") && payload) {
+    else if (event === "trace" && payload && payload.trace_id) {
+      traceId = payload.trace_id;
+      if (extra.onTrace) extra.onTrace(payload.trace_id);
+    } else if (event === "interrupted") {
+      // 续传回放结束但回合被中断：通知调用方显示「重新生成」，不算错误
+      if (extra.onInterrupted) extra.onInterrupted(payload);
+    } else if (onProgress && (event === "round" || event === "thought" || event === "plan" || event === "clarify") && payload) {
       onProgress(event, payload);
+      if (event === "thought" && extra.onContent) extra.onContent();
     } else if (event === "error") errMsg = payload || "服务异常，请稍后再试";
   };
 
@@ -1661,6 +1682,26 @@ loginForm.addEventListener("submit", async (e) => {
   }
 });
 
+// 回合被中断（断线 / 服务重启）时渲染「重新生成」条：已生成内容保留，
+// 点击按钮用上次的提问重新发起一轮（上下文完整，不丢历史）
+function appendRegenerateBar(bubble, payload) {
+  const bar = document.createElement("div");
+  bar.style.cssText = "margin-top:8px;padding:6px 10px;border:1px dashed #e0a000;border-radius:6px;background:#fff8e6;color:#8a5a00;font-size:13px;display:flex;align-items:center;gap:8px;";
+  const reason = (payload && payload.reason) ? payload.reason : "连接中断";
+  bar.innerHTML = `<span>⚠️ 回答中断（${reason}），已保留已生成内容</span>`;
+  const btn = document.createElement("button");
+  btn.textContent = "重新生成";
+  btn.style.cssText = "margin-left:auto;padding:3px 12px;border:1px solid #c08000;border-radius:5px;background:#fff;cursor:pointer;color:#8a5a00;font-size:13px;";
+  btn.onclick = () => {
+    if (busy) return;
+    inputEl.value = lastSentText;
+    inputEl.focus();
+    send();
+  };
+  bar.appendChild(btn);
+  bubble.appendChild(bar);
+}
+
 async function send() {
   const text = inputEl.value.trim();
   const images = pendingImages.slice();
@@ -1695,13 +1736,26 @@ async function send() {
   };
 
   try {
-    // 抽出单次执行体：旧会话ID失效（服务端重启/脏ID，HTTP 400 code=invalid_session）
-    // 时换发新ID自动重试一次，全程用户无感；400 发生在 SSE 建连前，无重复出字风险
-    const streamOnce = (sid) =>
-      streamChat(
+    lastSentText = text;
+    lastSentImages = images.slice();
+    // 续传状态：trace 事件给出 turn_id 后才能断线续传；received 计数已收到的内容分片
+    let currentTurnId = "";
+    let received = 0;
+    let interrupted = null;
+    const extra = {
+      onTrace: (id) => { if (id) currentTurnId = id; },
+      onContent: () => { received++; },
+      onInterrupted: (p) => { interrupted = p; },
+    };
+
+    // 单次流调用：resumeTurn 非空时走服务端 WAL 回放（不重发上游、不重复耗 token）
+    const streamOnce = (sid, resumeTurn, resumeAfter) => {
+      extra.resumeTurn = resumeTurn || "";
+      extra.resumeAfter = resumeAfter || 0;
+      return streamChat(
         sid,
-        text,
-        images,
+        resumeTurn ? "" : text,
+        resumeTurn ? [] : images,
         (chunk) => {
           answerText += chunk;
           // 性能关键路径：流式期间只追加文本节点（O(1)），不逐 chunk 重渲染
@@ -1721,23 +1775,52 @@ async function send() {
         status.onTool,
         status.onQueue,
         onProgressAll,
-        queueController.signal
+        queueController.signal,
+        extra
       );
+    };
 
     let sid;
     let traceId = "";
-    try {
-      sid = await ensureSessionId();
-      traceId = await streamOnce(sid);
-    } catch (e) {
-      if (e && e.code === "invalid_session") {
-        sid = await refreshSessionId();
-        traceId = await streamOnce(sid);
-      } else {
-        throw e;
+    let attempt = 0;
+    // 主循环：正常一次成功即退出；网络/读流失败且已拿到 turn_id → 退避后续传回放
+    while (true) {
+      try {
+        sid = await ensureSessionId();
+        traceId = await streamOnce(
+          sid,
+          attempt > 0 ? currentTurnId : "",
+          attempt > 0 ? received : 0
+        );
+        break;
+      } catch (e) {
+        // 会话失效：换新 ID 重新发问（turn 已换，非续传）
+        if (e && e.code === "invalid_session") {
+          sid = await refreshSessionId();
+          currentTurnId = ""; received = 0; attempt = 0;
+          traceId = await streamOnce(sid, "", 0); // 再失败则上抛
+          break;
+        }
+        // 用户主动停止排队：不重试
+        if (e && e.name === "AbortError") throw e;
+        // 没拿到 turn_id（建连就失败）或重试耗尽：直接报错
+        if (!currentTurnId || attempt >= RESUME_MAX_RETRY) throw e;
+        attempt++;
+        await sleep(RESUME_BACKOFF[Math.min(attempt - 1, RESUME_BACKOFF.length - 1)]);
+        // 继续循环：用 currentTurnId + received 续传
       }
     }
+
     status.remove(); // 结束后才移除：保留各工具完成耗时供玩家回看
+    if (interrupted) {
+      // 回合被中断：渲染已收到的半截内容 + 「重新生成」按钮，不插入反馈条
+      textSpan.classList.remove("stream-text");
+      textSpan.innerHTML = renderMarkdown(answerText);
+      if (!answerText) textSpan.textContent = "（未收到内容，可重新生成）";
+      appendRegenerateBar(currentBubble, interrupted);
+      scrollToBottom();
+      return; // 跳过下方成功分支（finally 仍会清理 busy）
+    }
     // 流结束：一次性渲染成 Markdown 排版（替换流式期间的纯文本节点）
     textSpan.classList.remove("stream-text");
     textSpan.innerHTML = renderMarkdown(answerText);

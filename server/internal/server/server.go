@@ -46,6 +46,7 @@ import (
 
 	"yhagent-server/internal/ai"
 	"yhagent-server/internal/auth"
+	"yhagent-server/internal/eventlog"
 	"yhagent-server/internal/trace"
 	"yhagent-server/internal/websearch"
 )
@@ -76,6 +77,9 @@ type Config struct {
 	// Tracer 请求级 trace 记录器（internal/trace）；nil 时 /v1/traces 查看接口关闭。
 	// trace 写入本身在 Agent 内部完成，此处只用于查看端读取。
 	Tracer *trace.Recorder
+	// EventLog 结构化事件日志记录器（internal/eventlog）；nil 时 /v1/events 关闭。
+	// 事件写入由 Agent / main 完成，此处只用于查看端读取。
+	EventLog *eventlog.Recorder
 	// Feedback 反馈闭环服务（internal/ai.FeedbackService）；nil 时 POST /v1/feedback
 	// 返回 503。收集 👍👎 反馈：点赞问答自动进 few-shot 案例库（Agent 侧注入），
 	// 点踩与 trace_id 关联落库供失败模式分析。
@@ -215,6 +219,8 @@ func New(cfg Config) (*Server, error) {
 	mux.HandleFunc("POST /v1/knowledge/ingest", s.withAuth(s.handleKnowledgeIngest))
 	// 请求级 trace 查看接口（调用链路观测，需管理员口令，见 handleTraces）
 	mux.HandleFunc("GET /v1/traces", s.withAuth(s.handleTraces))
+	// 事件流查看接口（运维事件：服务启停 / 崩溃恢复 / 告警，需管理员口令）
+	mux.HandleFunc("GET /v1/events", s.withAuth(s.handleEvents))
 	// 网页版"访问码"登录时据此校验令牌是否有效，避免发消息才发现 401
 	mux.HandleFunc("GET /v1/auth/check", s.withAuth(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -270,9 +276,11 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 type chatRequest struct {
-	SessionID string   `json:"session_id"`
-	Message   string   `json:"message"`
-	Images    []string `json:"images"` // 可选，元素为 data URL：data:image/jpeg;base64,...
+	SessionID   string   `json:"session_id"`
+	Message     string   `json:"message"`
+	Images      []string `json:"images"`       // 可选，元素为 data URL：data:image/jpeg;base64,...
+	ResumeTurn  string   `json:"resume_turn"`  // 断线续传：凭 trace 事件的 turn_id 回放 WAL，不重发上游
+	ResumeAfter int      `json:"resume_after"` // 已收到的最后 seq，仅补发序号 > 此值的分片
 }
 
 // queueEvent SSE queue 事件载荷：Waiting>0 = 正在排队（含自己在内的人数），
@@ -330,7 +338,9 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	if strings.TrimSpace(req.Message) == "" && len(images) == 0 {
+	// 断线续传请求（resume_turn 非空）走服务端 WAL 回放，不重发上游，
+	// message/images 均为空，需放行——否则会被「提问不能为空」拦在回放分支之前。
+	if strings.TrimSpace(req.Message) == "" && len(images) == 0 && strings.TrimSpace(req.ResumeTurn) == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "提问内容不能为空"})
 		return
 	}
@@ -401,6 +411,13 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 		flusher.Flush()
 		return true
+	}
+
+	// 断线续传：客户端凭 trace 事件拿到的 turn_id 回放 WAL——纯本地回放，
+	// 不抢占上游配额、不重复耗 token，无需走并发闸门。
+	if strings.TrimSpace(req.ResumeTurn) != "" {
+		s.replayTurnWAL(req.ResumeTurn, req.ResumeAfter, req.SessionID, writeEvent)
+		return
 	}
 
 	// 全局并发闸门：快路径直接抢名额（多数请求零等待）；满员则 FIFO 排队，
@@ -777,6 +794,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 const (
 	tracesDefaultLimit = 50  // 默认返回最近 50 条
 	tracesMaxLimit     = 200 // 单次最多返回 200 条
+	eventsDefaultLimit = 50  // 默认返回最近 50 条事件
+	eventsMaxLimit     = 200 // 单次最多返回 200 条事件
 )
 
 // handleTraces 返回最近 N 条请求 trace（管理员查看调用链路观测数据）。
@@ -805,4 +824,89 @@ func (s *Server) handleTraces(w http.ResponseWriter, r *http.Request) {
 		traces = []trace.Record{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"traces": traces})
+}
+
+// ---- 事件流查看 + 断线续传 ----
+
+// handleEvents 返回最近 N 条结构化事件（管理员查看运维事件流）。
+// 与 trace 互补：trace 看单次请求性能，events 看跨请求的服务生命周期 / 异常 / 告警。
+func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.EventLog == nil {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "事件日志未开启"})
+		return
+	}
+	if !s.requireAdmin(w, r) {
+		return
+	}
+	limit := eventsDefaultLimit
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	if limit > eventsMaxLimit {
+		limit = eventsMaxLimit
+	}
+	events := s.cfg.EventLog.Recent(limit)
+	if events == nil {
+		events = []eventlog.Event{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"events": events})
+}
+
+// replayTurnWAL 断线续传：回放指定回合 WAL 中客户端尚未收到的内容分片（纯本地，不重发上游）。
+// afterSeq = 客户端已收到的内容事件（chunk/thought）数量；begin/done/interrupted 等标记行
+// 不计入，避免 WAL 序号偏移导致补发错位（至少一次语义，客户端按内容条数对齐）。
+// 回放完毕按 WAL 终态发 done（正常结束）或 interrupted（被中断，提示客户端重新生成）；
+// WAL 不存在、已过期或不属于当前会话则发 error。
+func (s *Server) replayTurnWAL(turnID string, afterSeq int, sessionID string, writeEvent func(string, any) bool) {
+	store := ai.DefaultTurnStore
+	if store == nil {
+		writeEvent("error", "续传功能未启用（WAL 已关闭）")
+		return
+	}
+	all := store.ReplayAll(turnID)
+	if len(all) == 0 {
+		writeEvent("error", "未找到该回合的记录，无法续传")
+		return
+	}
+	// 归属校验：WAL 首行 begin 携带 session_id，必须与当前会话一致，防越权回放他人回合
+	belong := false
+	for _, e := range all {
+		if e.Kind == "begin" {
+			belong = e.SessionID == sessionID
+			break
+		}
+	}
+	if !belong {
+		writeEvent("error", "该回合不属于当前会话")
+		return
+	}
+	skipped := 0
+	for _, e := range all {
+		isContent := e.Kind == "chunk" || e.Kind == "thought"
+		if isContent {
+			if skipped < afterSeq {
+				skipped++
+				continue
+			}
+		}
+		switch e.Kind {
+		case "chunk":
+			writeEvent("chunk", e.Text)
+		case "thought":
+			writeEvent("thought", ai.ProgressEvent{Kind: ai.ProgressThought, Text: e.Text})
+		}
+	}
+	last := all[len(all)-1]
+	switch last.Kind {
+	case "done":
+		writeEvent("done", "")
+	case "interrupted":
+		writeEvent("interrupted", map[string]string{"reason": last.Reason, "turn_id": turnID})
+	default:
+		// 无终止标记 = 回合仍在进行中（同进程断连重连且原流未停，极少见）：
+		// 上游无状态无法接字续生成，提示重新生成
+		writeEvent("interrupted", map[string]string{"reason": "回合进行中，无法续传", "turn_id": turnID})
+	}
 }

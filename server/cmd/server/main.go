@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -31,6 +32,7 @@ import (
 	"yhagent-server/internal/auth"
 	"yhagent-server/internal/bootstrap"
 	"yhagent-server/internal/config"
+	"yhagent-server/internal/eventlog"
 	"yhagent-server/internal/ingest"
 	"yhagent-server/internal/mcp"
 	"yhagent-server/internal/server"
@@ -50,6 +52,7 @@ func main() {
 	aiClient := ai.NewSeedClient()
 
 	agentOpts := []ai.Option{}
+	var sessionStore ai.SessionStore // 供启动崩溃恢复把半截回答写回历史（nil=纯内存模式）
 	// 会话持久化：SESSION_DB 配置后启用（SQLite），重启/空闲淘汰后按 sessionID 无感恢复历史；
 	// 未配置则纯内存（旧行为）。历史图片不落盘（占位文本替代），行保留 7 天。
 	if dbPath := os.Getenv("SESSION_DB"); dbPath != "" {
@@ -57,6 +60,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("会话持久化初始化失败: %v", err)
 		}
+		sessionStore = st
 		agentOpts = append(agentOpts, ai.WithSessionStore(st))
 		defer st.Close()
 		log.Printf("[server] 会话持久化已启用：db=%s", dbPath)
@@ -156,6 +160,52 @@ func main() {
 		log.Printf("[server] 请求 trace 未启用（trace 目录创建失败，仅影响可观测性）")
 	}
 
+	// 3.6 事件日志：JSONL 按天轮转（默认 data/events，保留 30 天）。与 trace 互补——
+	//     trace 记录单请求性能明细，eventlog 记录跨请求的业务/运维事件（服务启停、
+	//     对话轮次、上游异常、崩溃恢复、告警），网页 /v1/events 查看。配置 ALERT_*
+	//     后启用异常模式检测（重启抖动 / 上游连续失败 → alert.* 事件，可外推 webhook）。
+	eventDir := os.Getenv("EVENTLOG_DIR")
+	eventKeep := 30
+	if v := os.Getenv("EVENTLOG_KEEP_DAYS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			eventKeep = n
+		}
+	}
+	eventlog.Default = eventlog.NewRecorder(eventDir, eventKeep)
+	if eventlog.Default != nil {
+		defer eventlog.Default.Close()
+		eventlog.Default.EnableAlerts()
+		showDir := eventDir
+		if showDir == "" {
+			showDir = "data/events"
+		}
+		log.Printf("[server] 事件日志已启用：目录=%s 保留=%d天 告警webhook=%v", showDir, eventKeep, os.Getenv("ALERT_WEBHOOK") != "")
+	} else {
+		log.Printf("[server] 事件日志未启用（目录创建失败，仅影响可观测性）")
+	}
+
+	// 3.7 流式回合 WAL：每轮回答/推理分片实时追加到 data/turns/<turn_id>.jsonl，
+	//     进程崩溃 / 客户端断连后可回放已生成内容（不重发上游、不重复耗 token）。
+	//     TURN_WAL=0 关闭；默认保留 24h（供断线续传），过期自动清理。
+	if os.Getenv("TURN_WAL") != "0" {
+		walDir := os.Getenv("TURN_WAL_DIR")
+		walKeep := 24
+		if v := os.Getenv("TURN_WAL_KEEP_HOURS"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				walKeep = n
+			}
+		}
+		ai.DefaultTurnStore = ai.NewTurnStore(walDir, walKeep)
+		if ai.DefaultTurnStore != nil {
+			defer ai.DefaultTurnStore.Close()
+			showDir := walDir
+			if showDir == "" {
+				showDir = "data/turns"
+			}
+			log.Printf("[server] 回合 WAL 已启用：目录=%s 保留=%dh", showDir, walKeep)
+		}
+	}
+
 	log.Printf("[server] Agent初始化完成，已注册 %d 个工具（共享缓存已启用）", len(agent.Tools().Names()))
 
 	// 4. 启动 HTTP/SSE 服务（网页版静态资源编译期嵌入，部署仍是单个二进制）
@@ -216,6 +266,7 @@ func main() {
 		AdminToken:        os.Getenv("ADMIN_TOKEN"),
 		Ingester:          ingester,
 		Tracer:            trace.Default,
+		EventLog:          eventlog.Default,
 		Feedback:          feedbackSvc,
 		MaxConcurrentChat: maxConcurrent,
 		ChatQueueWait:     queueWait,
@@ -229,6 +280,43 @@ func main() {
 	}
 	log.Printf("[server] 联网知识入库：%s", enabledText(ingester != nil && os.Getenv("ADMIN_TOKEN") != ""))
 
+	// pidfile 崩溃检测：启动时若残留 pidfile = 上次非优雅退出（崩溃 / kill -9 / OOM），
+	// 触发 service.restart_detected 事件（供告警器识别崩溃循环）；随后覆盖为当前 pid，
+	// 优雅退出时 defer 删除——下次启动无残留即视为干净重启。
+	pidPath := filepath.Join("data", "yhagent.pid")
+	if _, statErr := os.Stat(pidPath); statErr == nil {
+		eventlog.Emit(eventlog.LevelWarn, eventlog.EvtServiceRestartDetect, map[string]any{
+			"pid_file": pidPath,
+			"message":  "检测到残留 pidfile，上次为异常退出",
+		})
+		log.Printf("[server] 检测到残留 pidfile，上次为异常退出（崩溃或被强制终止），将回放中断回合")
+	}
+	_ = os.MkdirAll("data", 0o755)
+	_ = os.WriteFile(pidPath, []byte(strconv.Itoa(os.Getpid())), 0o644)
+	defer func() { _ = os.Remove(pidPath) }()
+
+	// 启动恢复扫描：把崩溃时未完成回合的半截回答拼回会话持久化历史（纯内存模式跳过）。
+	// 仅最近 48h 内的中断回合参与恢复，更老的由 WAL 过期清理掉，不再打扰用户。
+	if ai.DefaultTurnStore != nil {
+		recovered := ai.DefaultTurnStore.RecoverIncomplete(48 * time.Hour)
+		for _, rt := range recovered {
+			ai.AppendRecoveredAnswer(sessionStore, rt.SessionID, rt.Answer)
+			eventlog.EmitWith(eventlog.LevelWarn, eventlog.EvtRecoveryResumed, rt.TurnID, rt.SessionID, map[string]any{
+				"answer_chars": len([]rune(rt.Answer)),
+				"query":        rt.Query,
+			})
+		}
+		if len(recovered) > 0 {
+			eventlog.Emit(eventlog.LevelInfo, eventlog.EvtRecoveryCompleted, map[string]any{"recovered": len(recovered)})
+			log.Printf("[server] 崩溃恢复完成：回放 %d 个中断回合的半截回答", len(recovered))
+		}
+	}
+
+	eventlog.Emit(eventlog.LevelInfo, eventlog.EvtServiceStart, map[string]any{
+		"pid":  os.Getpid(),
+		"addr": os.Getenv("SERVER_ADDR"),
+	})
+
 	// 5. 监听中断信号，优雅关闭（正在进行的流式回答有时间收尾）
 	go func() {
 		if err := srv.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -239,7 +327,11 @@ func main() {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	sig := <-quit
+	eventlog.Emit(eventlog.LevelInfo, eventlog.EvtServiceShutdown, map[string]any{
+		"signal": sig.String(),
+	})
+	log.Printf("[server] 收到信号 %s，开始优雅关闭（在途回合最多等 10s 收尾）", sig.String())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

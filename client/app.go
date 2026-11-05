@@ -19,9 +19,10 @@ import (
 
 // 推给前端的事件名约定（前端 runtime.EventsOn 监听同名事件）
 const (
-	evChatChunk = "chat:chunk" // 流式文本片段，payload: string（打字机效果逐片到达）
-	evChatDone  = "chat:done"  // 本轮回答正常结束，无 payload
-	evChatError = "chat:error" // 本轮回答失败，payload: 中文错误信息
+	evChatChunk       = "chat:chunk"       // 流式文本片段，payload: string（打字机效果逐片到达）
+	evChatDone        = "chat:done"        // 本轮回答正常结束，无 payload
+	evChatError       = "chat:error"       // 本轮回答失败，payload: 中文错误信息
+	evChatInterrupted = "chat:interrupted" // 本轮回答被中断，payload: {reason,turn_id}（已生成内容保留，前端渲染「重新生成」）
 )
 
 // chatService 客户端需要的对话能力（由 internal/remote.Client 实现）。
@@ -98,6 +99,15 @@ func (a *App) Chat(sessionID, text string) error {
 		})
 		if err != nil {
 			log.Printf("[app] 对话失败: %v", err)
+			// 回合被中断（断线/服务重启）：已生成内容已逐片推给前端，渲染「重新生成」而非报错
+			var ie *remote.InterruptedError
+			if errors.As(err, &ie) {
+				wailsruntime.EventsEmit(a.ctx, evChatInterrupted, map[string]any{
+					"reason":  ie.Reason,
+					"turn_id": ie.TurnID,
+				})
+				return
+			}
 			wailsruntime.EventsEmit(a.ctx, evChatError, err.Error())
 			return
 		}

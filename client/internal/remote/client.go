@@ -26,7 +26,47 @@ const (
 	// sseScanLimit 单个 SSE 事件行的上限（正常文本片段很小，1MB 足够兜底）
 	sseScanLimit = 1 << 20
 	httpTimeout  = 120 * time.Second // 整轮对话（含工具轮询）上限
+
+	// resumeMaxRetry 断线续传最大重试次数：拿到 turn_id 后，网络/读流失败可凭
+	// 服务端 WAL 回放补发（不重发上游、不重复耗 token）；耗尽则返回最后一次错误。
+	resumeMaxRetry = 5
 )
+
+// resumeBackoff 续传重试退避序列（索引对应第几次重试，越界取最后一项）
+var resumeBackoff = []time.Duration{
+	500 * time.Millisecond,
+	1 * time.Second,
+	2 * time.Second,
+	3 * time.Second,
+	5 * time.Second,
+}
+
+// InterruptedError 表示本轮回答被中断（服务端 WAL 终态为 interrupted，
+// 通常因服务重启 / 上游崩溃，豆包无状态无法接字续生成）。上层据此渲染
+// 「重新生成」而非当成普通错误——已生成的半截回答完整保留。
+type InterruptedError struct {
+	Reason string // 中断原因（服务端给出）
+	TurnID string // 本轮 turn_id（= trace_id），供观测关联
+}
+
+func (e *InterruptedError) Error() string {
+	if e != nil && e.Reason != "" {
+		return "回答中断：" + e.Reason
+	}
+	return "回答中断"
+}
+
+// sleepCtx 可被 ctx 取消的 sleep；ctx 提前取消返回 false。
+func sleepCtx(ctx context.Context, d time.Duration) bool {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-t.C:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
 
 // Client 远端对话服务客户端，可安全并发使用（每个会话的提问由 UI 层串行化）
 type Client struct {
@@ -67,7 +107,10 @@ func (c *Client) ChatWithSession(ctx context.Context, sessionID, userText string
 	return c.ChatWithSessionImages(ctx, sessionID, userText, nil, onChunk)
 }
 
-// ChatWithSessionImages 与 ChatWithSession 相同，额外携带图片 data URL（截图识别）
+// ChatWithSessionImages 与 ChatWithSession 相同，额外携带图片 data URL（截图识别）。
+// 内置断线续传：trace 事件给出 turn_id 后，网络/读流失败会退避并用 resume_turn
+// 回放服务端 WAL 补发未收分片（不重发上游、不重复耗 token）；回合被判中断时
+// 返回 *InterruptedError，由上层渲染「重新生成」。
 func (c *Client) ChatWithSessionImages(ctx context.Context, sessionID, userText string, images []string, onChunk func(content string)) error {
 	if strings.TrimSpace(userText) == "" && len(images) == 0 {
 		return errors.New("提问内容不能为空")
@@ -76,10 +119,70 @@ func (c *Client) ChatWithSessionImages(ctx context.Context, sessionID, userText 
 		sessionID = "default"
 	}
 
+	var (
+		turnID  string // 本轮 turn_id（trace 事件给出），续传的凭据
+		got     int    // 已收到的内容事件数（chunk+thought），跨重试累计
+		lastErr error
+	)
+	for attempt := 0; attempt <= resumeMaxRetry; attempt++ {
+		// 首次正常发问；之后凭 turn_id + 已收条数走 WAL 回放
+		var rt string
+		var ra int
+		if attempt > 0 {
+			if turnID == "" {
+				break // 没拿到 turn_id 就没有续传凭据，直接报错
+			}
+			rt = turnID
+			ra = got
+		}
+		err := c.streamOnce(ctx, sessionID, userText, images, rt, ra, onChunk,
+			func(id string) { if id != "" { turnID = id } },
+			func() { got++ })
+		if err == nil {
+			return nil
+		}
+		// 回合被判中断：已生成内容保留，上抛让上层渲染「重新生成」，不重试
+		var ie *InterruptedError
+		if errors.As(err, &ie) {
+			return err
+		}
+		// 用户取消（窗口关闭/主动停止）：不重试
+		if errors.Is(err, context.Canceled) {
+			return err
+		}
+		lastErr = err
+		if turnID == "" || attempt >= resumeMaxRetry {
+			break
+		}
+		if !sleepCtx(ctx, resumeBackoff[min(attempt, len(resumeBackoff)-1)]) {
+			return lastErr // 退避期间 ctx 取消
+		}
+	}
+	if lastErr == nil {
+		lastErr = errors.New("远端回答中断，请稍后再试")
+	}
+	return lastErr
+}
+
+// streamOnce 发起一次 /v1/chat 请求并消费 SSE 流。
+// resumeTurn 非空时 message/images 传空，服务端据此走 WAL 纯回放分支。
+// onTrace 回调 turn_id；onContent 每收到一个内容事件（chunk/thought）+1，
+// 用于续传时上报已收条数（与服务端 WAL 内容计数对齐，至少一次语义）。
+func (c *Client) streamOnce(ctx context.Context, sessionID, userText string, images []string,
+	resumeTurn string, resumeAfter int, onChunk func(string),
+	onTrace func(string), onContent func()) error {
+
+	message := userText
+	if resumeTurn != "" {
+		message = ""
+		images = nil
+	}
 	payload, _ := json.Marshal(map[string]any{
-		"session_id": sessionID,
-		"message":    userText,
-		"images":     images,
+		"session_id":   sessionID,
+		"message":      message,
+		"images":       images,
+		"resume_turn":  resumeTurn,
+		"resume_after": resumeAfter,
 	})
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/v1/chat", bytes.NewReader(payload))
@@ -115,7 +218,7 @@ func (c *Client) ChatWithSessionImages(ctx context.Context, sessionID, userText 
 		return fmt.Errorf("远端服务异常（HTTP %d）", resp.StatusCode)
 	}
 
-	return parseSSE(resp.Body, onChunk, c.onClarify)
+	return parseSSE(resp.Body, onChunk, c.onClarify, onTrace, onContent)
 }
 
 // ClarifyOpt ask_user 候选选项（与前端 clarify 卡片对应）
@@ -317,7 +420,11 @@ func (c *Client) SubmitFeedback(sessionID string, rating int, question, answer s
 //	（空行派发）
 //
 // 以 ": " 开头的是注释心跳，直接忽略。
-func parseSSE(r io.Reader, onChunk func(string), onClarify func(clarifyPayload)) error {
+// onTrace 回调 trace 事件的 turn_id（断线续传凭据）；onContent 每收到一个
+// 内容事件（chunk/thought）+1，用于续传时上报已收条数；
+// interrupted 事件返回 *InterruptedError（上层据此渲染「重新生成」）。
+func parseSSE(r io.Reader, onChunk func(string), onClarify func(clarifyPayload),
+	onTrace func(string), onContent func()) error {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 64<<10), sseScanLimit)
 
@@ -329,9 +436,38 @@ func parseSSE(r io.Reader, onChunk func(string), onClarify func(clarifyPayload))
 			if err := json.Unmarshal([]byte(data), &text); err != nil {
 				return nil // 单片坏数据不影响整体流
 			}
+			// 每个 chunk 事件都计为一条内容（含空串），与服务端 WAL 内容计数对齐
+			if onContent != nil {
+				onContent()
+			}
 			if text != "" && onChunk != nil {
 				onChunk(text)
 			}
+		case "thought":
+			// 思考模型推理流：桌面端不渲染，仅计数用于续传对齐。
+			// data 为空时跳过：空行也会触发一次 dispatch，必须防重复计数，
+			// 否则 resume_after 会与服务端 WAL 内容计数错位。
+			if data == "" {
+				return nil
+			}
+			if onContent != nil {
+				onContent()
+			}
+		case "trace":
+			var p struct {
+				TraceID string `json:"trace_id"`
+			}
+			if err := json.Unmarshal([]byte(data), &p); err == nil && p.TraceID != "" && onTrace != nil {
+				onTrace(p.TraceID)
+			}
+		case "interrupted":
+			// 续传回放结束但回合被中断：上抛 *InterruptedError，不算普通错误
+			var p struct {
+				Reason string `json:"reason"`
+				TurnID string `json:"turn_id"`
+			}
+			_ = json.Unmarshal([]byte(data), &p)
+			return &InterruptedError{Reason: p.Reason, TurnID: p.TurnID}
 		case "clarify":
 			// ask_user 候选选项：解析后交给回调（未注册则忽略，不影响回答流）
 			var p clarifyPayload

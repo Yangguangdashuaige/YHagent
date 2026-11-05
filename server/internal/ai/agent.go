@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/volcengine/ark-runtime-go/arkruntime/model/chat"
 
+	"yhagent-server/internal/eventlog"
 	"yhagent-server/internal/trace"
 )
 
@@ -224,9 +226,15 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 	span := trace.Start(sessionID, userText, len(images))
 	span.NoteMode("reactive") // 默认反应式；调 plan_and_execute 后升级为 plan
 	ctx = trace.WithSpan(ctx, span)
-	// 把本轮 trace 标识推给前端（SSE event: trace）：反馈接口带此 ID 落库，
-	// 反馈数据即可与 trace 观测指标（轮数/工具/耗时）关联分析
-	emitProgress(ctx, ProgressEvent{Kind: ProgressTrace, TraceID: span.ID()})
+	// turn_id 复用 trace_id：事件日志 / trace / WAL 三者可按同一 ID 关联；
+	// trace 未启用时本地生成同形态 ID，保证 WAL 与事件仍有可用标识。
+	turnID := span.ID()
+	if turnID == "" {
+		turnID = newTurnID()
+	}
+	// 把本轮标识推给前端（SSE event: trace）：反馈接口带此 ID 关联 trace 观测；
+	// 前端断线续传也凭此 ID 回放 WAL（不重发上游、不重复耗 token）。
+	emitProgress(ctx, ProgressEvent{Kind: ProgressTrace, TraceID: turnID})
 	defer func() {
 		if retErr != nil {
 			span.End(retErr.Error())
@@ -247,7 +255,37 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 	// 整轮结束落盘（defer LIFO：先 persist 再放轮锁）。轮内 append/压缩/中断收尾
 	// 由这一份最终快照统一覆盖；失败仅记日志，不影响已完成的回答。
 	defer session.persist()
+
+	// 拿到轮锁后才开 WAL / 记开始事件（忙拒不留残 WAL、不发伪事件）
+	turnStart := time.Now()
+	wal := DefaultTurnStore.Open(turnID, sessionID, userText)
+	eventlog.EmitWith(eventlog.LevelInfo, eventlog.EvtAgentTurnBegin, turnID, sessionID, map[string]any{
+		"query": queryPreview(userText),
+	})
+	defer func() {
+		eventlog.EmitWith(eventlog.LevelInfo, eventlog.EvtAgentTurnEnd, turnID, sessionID, map[string]any{
+			"ok": retErr == nil,
+			"ms": time.Since(turnStart).Milliseconds(),
+		})
+	}()
+	// 顶层崩溃兜底：注册在 persist/endTurn 之后 → panic 时最先执行（停 panic、
+	// 标记 WAL 中断、落 partial、记崩溃事件），再转为普通错误返回，避免一次 panic
+	// 拖垮进程且保证"随时重启可恢复"。
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[agent] 会话 %s 轮次 panic: %v\n%s", sessionID, r, debug.Stack())
+			if wal != nil {
+				wal.MarkInterrupted("panic")
+			}
+			eventlog.EmitWith(eventlog.LevelError, eventlog.EvtAgentTurnCrashed, turnID, sessionID, map[string]any{
+				"panic": fmt.Sprint(r),
+			})
+			retErr = errors.New("服务内部异常，请稍后重试")
+		}
+	}()
+
 	session.append(NewUserMessageWithImages(textForModel, images))
+	session.persist() // 提问立即落盘：进程被 kill -9 也不丢用户问题
 	log.Printf("[agent] 会话 %s 收到提问（图片%d张）: %s", sessionID, len(images), previewArgs(userText))
 
 	// token 预算检查：超限则把旧消息压缩成滚动摘要（不配置预算时为 no-op，
@@ -279,6 +317,9 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			a.tools.Definitions(),
 			func(chunk string) {
 				answerBuilder.WriteString(chunk)
+				if wal != nil {
+					wal.AppendChunk(chunk) // 实时落 WAL：崩溃/断连后可回放，不重发上游
+				}
 				span.FirstToken()
 				if onChunk != nil {
 					onChunk(chunk)
@@ -292,10 +333,24 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			// 思考模型推理流分片 → 前端「推理过程」实时展示（trace 统计字符数）
 			func(r string) {
 				reasoningChars += int32(len([]rune(r)))
+				if wal != nil {
+					wal.AppendThought(r)
+				}
 				emitProgress(ctx, ProgressEvent{Kind: ProgressThought, Round: round + 1, Text: r})
 			},
 		)
 		if err != nil {
+			// 区分客户端断连（ctx 取消）与上游真实失败：前者是用户侧行为（info），
+			// 后者是服务异常（error + 告警计数）。两者都标记 WAL 中断并落盘当前快照，
+			// 保证重启/重连后能回放已生成的半截回答。
+			level, evt, reason := eventlog.LevelError, eventlog.EvtUpstreamError, "上游调用失败"
+			if errors.Is(err, context.Canceled) {
+				level, evt, reason = eventlog.LevelInfo, eventlog.EvtAgentTurnInterrupted, "客户端断开连接"
+			}
+			if wal != nil {
+				wal.MarkInterrupted(reason)
+			}
+			eventlog.EmitWith(level, evt, turnID, sessionID, map[string]any{"error": err.Error()})
 			// 豆包API超时/失败：不回滚历史——已落盘的消息序列是完整配对的
 			// （tool_calls 与 tool 结果成对追加），保留本轮问题与已完成的工具
 			// 结果，玩家追问时模型仍有上下文（整段回滚会导致"上一问了什么"
@@ -304,6 +359,7 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			if session.endsWithToolResult() {
 				session.append(NewAssistantTextMessage("（上一轮回答因服务波动中断，未能完成；如需继续请基于上文补充条件重问）"))
 			}
+			session.persist() // 中断收尾落盘，重启后历史含中断说明
 			log.Printf("[agent] 豆包API调用失败: %v", err)
 			return friendlyUpstreamError(err)
 		}
@@ -315,6 +371,10 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			answer := answerBuilder.String()
 			span.Answer(answer)
 			session.append(NewAssistantTextMessage(answer))
+			if wal != nil {
+				wal.MarkDone() // 回合正常结束：WAL 只读，供断线回放
+			}
+			session.persist() // 完成回答立即落盘：kill -9 也不丢本轮成果
 			// 长期记忆提取（异步、独立超时）：仅登录用户 + 本轮成功时。
 			// 输入只有本轮问答文本——工具调用噪声不进提取器。
 			if uid != 0 && a.memories != nil {
@@ -361,6 +421,7 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			}
 			session.append(NewToolResultMessage(callID, call.Function.Name, results[idx]))
 		}
+		session.persist() // 已完成的工具轮落盘：崩溃后下一轮能从完整上下文重算
 		// 继续下一轮，让模型基于工具结果决定继续调工具还是输出最终回答
 	}
 
@@ -369,8 +430,13 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 	if onChunk != nil {
 		onChunk(tip)
 	}
+	if wal != nil {
+		wal.AppendChunk(tip)
+		wal.MarkDone()
+	}
 	span.Answer(tip)
 	session.append(NewAssistantTextMessage(tip))
+	session.persist()
 	log.Printf("[agent] 会话 %s 达到最大工具轮数 %d，已兜底结束", sessionID, maxToolRounds)
 	return nil
 }
