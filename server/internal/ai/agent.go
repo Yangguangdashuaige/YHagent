@@ -359,9 +359,14 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 			// 豆包API超时/失败：不回滚历史——已落盘的消息序列是完整配对的
 			// （tool_calls 与 tool 结果成对追加），保留本轮问题与已完成的工具
 			// 结果，玩家追问时模型仍有上下文（整段回滚会导致"上一问了什么"
-			// 彻底失忆，追问被当成独立新问题）。失败发生在工具轮之后时，补一条
-			// 中断说明的 assistant 消息收尾，避免 tool 结果直接跟下一轮用户消息。
-			if session.endsWithToolResult() {
+			// 彻底失忆，追问被当成独立新问题）。
+			// 半截回答不丢：已生成的流式文本以中断标记落进会话历史——玩家关掉
+			// 网页再打开（loadHistory）仍能看到已生成内容，模型下轮也知道说到
+			// 哪了；该 assistant 消息同时充当 tool 结果后的收尾（天然保住配对
+			// 完整，无需再补中断说明）。尚未出字就失败时维持原收尾逻辑。
+			if text := strings.TrimSpace(answerBuilder.String()); text != "" {
+				session.append(NewAssistantTextMessage("（本条回答生成中断，以下为已生成部分）\n" + text))
+			} else if session.endsWithToolResult() {
 				session.append(NewAssistantTextMessage("（上一轮回答因服务波动中断，未能完成；如需继续请基于上文补充条件重问）"))
 			}
 			session.persist() // 中断收尾落盘，重启后历史含中断说明
