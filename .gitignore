@@ -39,6 +39,12 @@ server/data/auth/
 server/data/sessions/
 server/data/memory/
 
+# 阶段32事件日志/阶段33反馈库等运行时数据（可再生产物，不入库）
+server/data/events/
+server/data/feedback.db*
+server/data/turns/
+server/data/yhagent.pid
+
 # 知识库索引历史产物已移出 git（历史 blob 由 filter-repo 清理）；防止误加回
 server/internal/knowledge/embedded/index.gob
 
