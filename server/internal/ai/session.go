@@ -428,6 +428,29 @@ func NewAssistantToolCallMessage(calls []chat.ChatCompletionMessageToolCall) cha
 	return chat.ChatCompletionRequestMessage{OneOf: sum}
 }
 
+// NewSystemMessage 构造 system 消息（门面 openaicompat 融合提示词时使用的导出版）
+func NewSystemMessage(content string) chat.ChatCompletionRequestMessage {
+	return newSystemMessage(content)
+}
+
+// NewAssistantMessageWithToolCalls 构造同时携带正文与工具调用的助手消息。
+// OpenAI 兼容门面重放客户端历史时，assistant 消息可能两者兼有
+// （Cortico 把相邻的正文与 function_call 合并进同一 assistant 信封）。
+func NewAssistantMessageWithToolCalls(content string, calls []chat.ChatCompletionMessageToolCall) chat.ChatCompletionRequestMessage {
+	sum := chat.ChatCompletionRequestMessageSum{}
+	msg := chat.ChatCompletionRequestAssistantMessage{
+		Role:      chat.ChatCompletionRequestAssistantMessageRoleAssistant,
+		ToolCalls: calls,
+	}
+	if content != "" {
+		opt := chat.OptChatCompletionMessageContent{}
+		opt.SetTo(chat.NewStringChatCompletionMessageContent(content))
+		msg.Content = opt
+	}
+	sum.SetChatCompletionRequestAssistantMessage(msg)
+	return chat.ChatCompletionRequestMessage{OneOf: sum}
+}
+
 // NewToolResultMessage 构造工具执行结果消息，toolCallID 必须与助手请求的工具调用ID对应
 func NewToolResultMessage(toolCallID, toolName, content string) chat.ChatCompletionRequestMessage {
 	sum := chat.ChatCompletionRequestMessageSum{}

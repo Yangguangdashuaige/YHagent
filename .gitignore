@@ -48,9 +48,6 @@ server/data/yhagent.pid
 # 知识库索引历史产物已移出 git（历史 blob 由 filter-repo 清理）；防止误加回
 server/internal/knowledge/embedded/index.gob
 
-# ==================== Wails构建产物（客户端位于 client/ 子目录） ====================
-**/build/bin/
-
 # ==================== 编辑器/系统垃圾文件 ====================
 .vscode/
 .idea/
@@ -60,9 +57,6 @@ Thumbs.db
 
 # Trae 分享产生的本地 zip（个人，不入库）
 .trae-html-share-packages/
-
-# Wails 自动生成的前端 Go 绑定（运行时产物，runtime/ 已入库）
-client/frontend/wailsjs/go/
 
 # 个人文档/日程（与项目无关，不入库）
 resume/

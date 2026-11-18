@@ -86,6 +86,10 @@ type Agent struct {
 	store        SessionStore     // 会话持久化后端引用（多会话摘要查询用）；nil = 未配置
 }
 
+// DefaultSystemPrompt 返回内置的基础系统提示词（openaicompat 门面融合提示词的基底；
+// Agent 未显式 WithSystemPrompt 时即用此值）。
+func DefaultSystemPrompt() string { return defaultSystemPrompt }
+
 // Option Agent 可选配置
 type Option func(*Agent)
 

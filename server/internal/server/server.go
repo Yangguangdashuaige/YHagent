@@ -103,6 +103,18 @@ type Config struct {
 	MCP http.Handler
 	// MCPToken MCP 客户端访问令牌，独立于 SERVER_TOKEN（Bearer，恒定时间比较）。
 	MCPToken string
+	// OpenAICompat OpenAI Chat Completions 兼容门面（internal/openaicompat
+	// 构造，需实现 openaicompatHandler 接口）。桌宠客户端 Coopanion 以此把
+	// YHagent 当作"超级模型端点"接入：POST /v1/chat/completions + GET /v1/models。
+	// nil 时路由不启用（OPENAICOMPAT_ENABLED 未开启的旧行为）。
+	OpenAICompat openaicompatHandler
+}
+
+// openaicompatHandler 门面处理器的最小接口约定（装配层传入
+// *openaicompat.Handler 即满足；接口化便于 server 包测试桩替换）。
+type openaicompatHandler interface {
+	ServeChat(w http.ResponseWriter, r *http.Request)
+	ServeModels(w http.ResponseWriter, r *http.Request)
 }
 
 // errInvalidSession 会话标识非法时的统一响应体（前端据 code 自动重新签发并重试）
@@ -236,6 +248,12 @@ func New(cfg Config) (*Server, error) {
 		mux.Handle("POST /mcp", mcpHandler)
 		mux.Handle("GET /mcp", mcpHandler)
 		mux.Handle("DELETE /mcp", mcpHandler)
+	}
+	// OpenAI 兼容门面（可选）：鉴权复用主令牌/账号令牌，对话类按 IP 限流。
+	// Coopanion 的流式长回答与 /v1/chat 同属对话闸门范围。
+	if cfg.OpenAICompat != nil {
+		mux.HandleFunc("POST /v1/chat/completions", s.withAuth(s.withRateLimit(cfg.OpenAICompat.ServeChat)))
+		mux.HandleFunc("GET /v1/models", s.withAuth(cfg.OpenAICompat.ServeModels))
 	}
 
 	// 网页入口：根路径提供静态页面。

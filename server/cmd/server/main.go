@@ -35,6 +35,7 @@ import (
 	"yhagent-server/internal/eventlog"
 	"yhagent-server/internal/ingest"
 	"yhagent-server/internal/mcp"
+	"yhagent-server/internal/openaicompat"
 	"yhagent-server/internal/server"
 	"yhagent-server/internal/trace"
 	"yhagent-server/internal/websearch"
@@ -108,6 +109,34 @@ func main() {
 	if os.Getenv("AGENT_PLAN_TOOL") == "1" {
 		agent.EnablePlanTool()
 		log.Printf("[server] plan_and_execute 元工具已启用（模型可选的规划式执行模式）")
+	}
+
+	// 3.2c OpenAI 兼容门面（可选，桌宠客户端通道）：OPENAICOMPAT_ENABLED=1 启用。
+	// Coopanion（Cortico）以自定义模型端点形态接入：POST /v1/chat/completions
+	// + GET /v1/models，Bearer 令牌复用 SERVER_TOKEN/账号令牌。其携带的 pet_*
+	// 等客户端工具经门面中继回客户端执行，YHagent 工具就地执行。
+	var openaiCompatHandler *openaicompat.Handler
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("OPENAICOMPAT_ENABLED")), "1") ||
+		strings.EqualFold(strings.TrimSpace(os.Getenv("OPENAICOMPAT_ENABLED")), "true") {
+		ocCfg := openaicompat.Config{
+			ModelName:        strings.TrimSpace(os.Getenv("OPENAICOMPAT_MODEL_NAME")),
+			PassthroughSystem: strings.EqualFold(strings.TrimSpace(os.Getenv("OPENAICOMPAT_PASSTHROUGH_SYSTEM")), "1") ||
+				strings.EqualFold(strings.TrimSpace(os.Getenv("OPENAICOMPAT_PASSTHROUGH_SYSTEM")), "true"),
+		}
+		if v := os.Getenv("OPENAICOMPAT_MAX_TOOL_ROUNDS"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				ocCfg.MaxToolRounds = n
+			}
+		}
+		if v := os.Getenv("OPENAICOMPAT_PENDING_TTL_MIN"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				ocCfg.PendingTTL = time.Duration(n) * time.Minute
+			}
+		}
+		facade := openaicompat.NewFacade(aiClient, agent.Tools(), ocCfg)
+		openaiCompatHandler = openaicompat.NewHandler(facade)
+		log.Printf("[server] OpenAI 兼容门面已启用：/v1/chat/completions（桌宠通道，模型名=%s）",
+			facadeModelName(ocCfg))
 	}
 
 	// 3.3 联网知识采纳入库服务：候选摘要经 AI 整理成 md 后写入补充索引
@@ -274,6 +303,7 @@ func main() {
 		Auth:              authService,
 		MCP:               mcpHandler,
 		MCPToken:          os.Getenv("MCP_TOKEN"),
+		OpenAICompat:      openaiCompatHandler,
 	})
 	if err != nil {
 		log.Fatalf("服务初始化失败: %v", err)
@@ -374,4 +404,12 @@ func enabledText(on bool) string {
 		return "已开启（ADMIN_TOKEN 已配置）"
 	}
 	return "未开启（未配置 ADMIN_TOKEN 时采纳接口返回 503）"
+}
+
+// facadeModelName 门面对外模型名（未配置时的日志展示用默认值）
+func facadeModelName(cfg openaicompat.Config) string {
+	if cfg.ModelName != "" {
+		return cfg.ModelName
+	}
+	return "yhagent-delta"
 }
