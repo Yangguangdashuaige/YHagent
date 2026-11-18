@@ -62,3 +62,7 @@ client/frontend/wailsjs/go/
 resume/
 *.ics
 docs/面试.md
+
+# 敏感个人材料与可再生产物（本地保留，严禁入库）
+docs/花.txt
+docs/*-预览.html
