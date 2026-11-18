@@ -8,7 +8,7 @@
 <br />
 
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
-![Coopanion](https://img.shields.io/badge/Pal--AI--Lab-AGPL--3.0-8f2f2f)
+![Wails](https://img.shields.io/badge/Wails-v2%20%20%20-2980a8)
 ![CGO](https://img.shields.io/badge/CGO-zero-success)
 ![Arch](https://img.shields.io/badge/Deploy-Linux%20amd64%20%7C%20Windows-555)
 ![Status](https://img.shields.io/badge/status-%E5%BC%80%E5%8F%91%E4%B8%AD-orange)
@@ -24,24 +24,24 @@
 |智能对话 | 多轮上下文 + Function Call 自主决策工具，SSE 流式逐字输出 |
 |实时数据 | 接入三角洲数据帝开放平台 **24 个工具**：物品价格、假账排行、卡战备、钥匙卡、倒子弹、制造/兑换利润、赛季任务、今日密码、市集物品等 |
 |智能改枪顾问 | 简称自动补全枪名（`K437` → `K437突击步枪`）、聚合最多 96 个社区方案、解析八维属性按「压枪 / 腰射 / 稳定 / 操控 / 射程 / 均衡 / 省钱 / 热度」排序，输出 Top5 可直接导入的改枪码 |
-|桌宠形态 | [Coopanion](https://github.com/Pal-AI-Lab/Coopanion) 原版客户端套壳：屏幕底边走动、气泡回答、按住左 Alt 说话（本地 ASR）、拖拽/戳/装扮，经 OpenAI 兼容门面接入（阶段 35 起 Wails 客户端与网页聊天页退役） |
-|截图识别 | 截屏经 Coopanion 以多模态消息上传，先确认识别结果再给建议 |
+|桌宠客户端 | 自研 Go/Wails 桌宠（`client/`，EXE ~17MB 单文件）：透明置顶带状窗贴屏幕底边、宠物沿地面走动（透明 webm 动画）、气泡流式回答、**按住左 Alt 说话**（SAPI 流式听写）、拖拽/戳摸/右键菜单，除宠物命中区外全窗鼠标穿透；经原生 SSE 直连服务端 |
+|截图识别（后续） | 服务端多模态链路保留（`/v1/chat` images），桌宠客户端的截图上传入口列入后续版本 |
 |静态知识库 | 内置 Markdown 切片 + 向量检索 RAG 框架（1967 篇源文档随仓库分发、克隆即得），支持热更新知识库内容 |
 |工程化 | 全用户共享缓存（按上游更新频率分级 TTL + 5000 条 LRU 上限）、singleflight 防击穿、会话空闲自动清理、Bearer 令牌鉴权、零 CGO 单二进制部署 |
 
 ## 整体架构
 
 ```text
-┌──────────────────────────────┐
-│  Coopanion 桌宠客户端         │
-│  (Electron · 沿屏幕底边走动)   │
-│  气泡 · 按键说话 · 本地ASR     │
-│  pet_* 客户端工具             │
-└──────────────┬───────────────┘
-               │ HTTPS + Bearer Token
-               │ OpenAI Chat Completions 兼容协议
-               │ （/v1/chat/completions 门面）
-               ▼
+┌──────────────────────────────────┐
+│  YHagent-Pet 桌宠客户端            │
+│  (Go/Wails · WebView2 · EXE 17MB) │
+│  透明置顶带状窗 · 全窗穿透除命中区  │
+│  气泡 · 按住左Alt说话(SAPI) · 拖拽  │
+└───────────────┬──────────────────┘
+                │ HTTPS + Bearer Token
+                │ 原生 SSE（/v1/chat）
+                │ （OpenAI 兼容门面为归档可选通道）
+                ▼
               ┌────────────────────────┐
               │   yhagent-server       │  纯 net/http，零 CGO
               │  Agent 多轮工具循环     │
@@ -57,16 +57,28 @@
           └──────────────┘ └────────────────────┘
 ```
 
-**单 Module 纯服务端**（阶段 35 起 Wails 客户端与网页聊天页退役，桌宠为唯一桌面形态）：
+**单仓双 Module**（根目录 `go.work` 串联，客户端不依赖任何服务端代码）：
 
-- 桌面端是 [Coopanion](https://github.com/Pal-AI-Lab/Coopanion)（原版发行版 + 自定义端点配置，零客户端代码），经 OpenAI 兼容门面把 YHagent 当作"超级模型端点"
-- `server/`（module `yhagent-server`）：全部智能能力、密钥、缓存、知识库都收敛在服务端，客户端不持有任何业务 API Key
+- `client/`（module `yhagent-client`）：Wails 瘦客户端，不持有任何业务 API Key，只负责桌宠形态与 SSE 事件转发；语音听写为系统 SAPI（本地、零外网依赖）
+- `server/`（module `yhagent-server`）：全部智能能力、密钥、缓存、知识库都收敛在服务端，十万客户端共享一份缓存
+- `server/internal/openaicompat`：OpenAI 兼容门面（阶段 35 Coopanion 套壳通道）**归档保留**，默认关闭，存量 Coopanion 客户端仍可接入
 
 ## 目录结构
 
 ```text
 YHagent/
-├── server/                     # 云服务器（module yhagent-server）
+├── go.work                     # 串联 client / server 两个 module
+├── client/                     # 桌宠客户端（module yhagent-client，Wails v2）
+│   ├── app.go                  # 前端绑定层（事件协议：chat:* / mic:* / asr:*）
+│   ├── main.go                 # 带状窗 options + 桌宠基础设施装配
+│   ├── internal/
+│   │   ├── asr/                # SAPI 流式听写（PowerShell System.Speech 子进程）
+│   │   ├── config/             # .env 加载（远端地址/桌宠几何/PTT 全可配）
+│   │   ├── hotkey/             # 按住说话热键（GetAsyncKeyState 轮询 + 边沿检测）
+│   │   ├── remote/             # SSE 远端对话客户端（断线续传/澄清/多会话）
+│   │   └── win/                # 带状窗几何 + 穿透轮询（纯 user32 syscall）
+│   └── frontend/dist/          # 桌宠 UI（原生 HTML/CSS/JS + 透明 webm 动画）
+└── server/                     # 云服务器（module yhagent-server）
     ├── cmd/
     │   ├── server/             # HTTP/SSE 服务入口
     │   ├── indexer/            # 知识库离线建库工具
@@ -77,7 +89,7 @@ YHagent/
     │   │   ├── cache/          # TTL + LRU 内存缓存
     │   │   └── deltaapi/       # 三角洲 API 客户端 + 24 个工具 + 智能改枪顾问
     │   ├── knowledge/          # 文档切片 / 向量检索 / search_knowledge 工具
-    │   ├── openaicompat/       # OpenAI 兼容门面（Coopanion 桌宠通道）
+    │   ├── openaicompat/       # OpenAI 兼容门面（阶段35 Coopanion 通道，归档保留）
     │   └── server/             # HTTP 路由、鉴权、SSE、图片校验
     ├── data/
     │   ├── knowledge/          # 静态知识源（Markdown，下划线开头文件跳过，不入库）
@@ -92,41 +104,32 @@ YHagent/
 - Go ≥ 1.26
 - 火山方舟（豆包）API Key 与接入点 ID（需支持视觉输入的对话模型）
 - [三角洲数据帝开放平台](https://orzice.com/workApi) API Key
-- 桌面端安装**小小轩桌宠**（YHagent-Pet，基于 Coopanion 的预配置发行版）
+- 桌面端（Windows 10/11，需 WebView2 运行时，系统基本预装）
 
 ### 1. 启动服务端
 
 ```bash
 cd server
-cp .env.example .env       # 填入真实密钥；桌宠通道设 OPENAICOMPAT_ENABLED=1
+cp .env.example .env       # 填入真实密钥
 go run ./cmd/server
 ```
 
 启动成功后：
 
-- 看到日志 `OpenAI 兼容门面已启用：/v1/chat/completions` 与 `已注册 24 个工具` 即正常；知识库为空时 `search_knowledge` 自动不注册，不影响对话
+- 看到日志 `已注册 24 个工具` 即正常；知识库为空时 `search_knowledge` 自动不注册，不影响对话
 
-### 2. 安装桌宠客户端（小小轩桌宠）
+### 2. 构建桌宠客户端（YHagent-Pet）
 
-**方式一：下载发行包（玩家推荐）**
-
-从 [YHagent-Pet Releases](https://github.com/Yangguangdashuaige/YHagent-Pet/releases) 下载 `YHagent-Pet-Setup-<版本>.exe`，安装后直接使用——服务器地址与访问码已预置进安装包，首启引导自动跳过模型配置，对着桌宠按住 **左 Alt** 说话或打字即可。
-
-**方式二：自行构建**（服务器地址/访问码变化时）
-
-```bash
-git clone https://github.com/Yangguangdashuaige/YHagent-Pet.git
-cd YHagent-Pet
-# 编写 .env.build（不入库）：YHAGENT_BASE_URL / YHAGENT_TOKEN / YHAGENT_MODEL
-pnpm install
-pnpm run build:installer    # 产出 dist/YHagent-Pet-Setup-<版本>.exe
+```powershell
+cd client
+Copy-Item .env.example .env    # 填 REMOTE_BASE_URL（服务地址）与 REMOTE_TOKEN（=SERVER_TOKEN）
+wails build                    # 产出 build\bin\YHagent-Pet.exe（~17MB 单文件）
 ```
 
-**方式三：无预置手动配置**（临时联调用）
+把 `.env` 与 `YHagent-Pet.exe` 放同一目录双击即可：宠物贴屏幕底边走动，**戳两下**提问、**按住左 Alt** 说话、**右键宠物**有菜单（新对话/清空上下文/置顶/退出）。
 
-安装 [Coopanion](https://github.com/Pal-AI-Lab/Coopanion/releases/latest) 原版 → 高级模式 → 模型供应商 → 添加端点：API 地址 `https://你的域名/v1`、API Key 填 `SERVER_TOKEN`、模型名随意、端点选项 protocol 选 `chat`。
-
-> pet_* 工具（说话气泡、走路、提问选项）由客户端本地执行；YHagent 的 24 个数据工具在服务端执行，对客户端完全透明。
+> 桌宠几何/PTT 均可 `.env` 调整：`PET_BAND_HEIGHT`（带状窗高）、`PET_BOTTOM_GAP`（离底边间隙）、`PTT_ENABLED`、`PTT_KEY_VK`、`ASR_AUTO_SEND`。
+> 阶段 35 的 Coopanion 套壳通道归档保留：存量用户仍可装 [Coopanion 原版](https://github.com/Pal-AI-Lab/Coopanion/releases/latest) 手动配端点（服务端 `OPENAICOMPAT_ENABLED=1`）接入，见阶段 35 文档。
 
 ### 3. 构建静态知识库索引（可选但推荐）
 
@@ -195,22 +198,30 @@ go run ./cmd/indexer
 | `BILI_SESSDATA` | 否 | B 站 Cookie，仅 `cmd/bilisync` 同步视频时需要，AI 字幕必须登录态 |
 | `MCP_TOKEN` | 否 | MCP 服务器令牌，配置后主服务挂 `/mcp` 路由（见「MCP 服务器」一节） |
 | `MCP_EXCLUDE` | 否 | MCP 不暴露的工具名单（逗号分隔），默认 `web_search,plan_and_execute` |
-| `OPENAICOMPAT_ENABLED` | 否 | =1 启用 OpenAI 兼容门面（Coopanion 桌宠通道），默认关闭 |
+| `OPENAICOMPAT_ENABLED` | 否 | =1 启用 OpenAI 兼容门面（阶段35 Coopanion 归档通道），默认关闭 |
 | `OPENAICOMPAT_MODEL_NAME` | 否 | 门面对外模型名，默认 `yhagent-delta` |
 | `OPENAICOMPAT_MAX_TOOL_ROUNDS` | 否 | 门面循环单回合工具轮数上限，默认 8 |
 | `OPENAICOMPAT_PENDING_TTL_MIN` | 否 | 影子回合成活期（分钟，等待客户端工具回执），默认 10 |
 
-### 客户端（Coopanion）
+### 客户端 `client/.env`（桌宠 YHagent-Pet）
 
-客户端零配置文件——在 Coopanion 的「模型供应商」里添加自定义端点即可（API 地址 + `SERVER_TOKEN`），详见「快速开始 · 2」。
+| 变量 | 必填 | 说明 |
+| --- | --- | --- |
+| `REMOTE_BASE_URL` | 是 | 远端服务地址（正式环境用 https） |
+| `REMOTE_TOKEN` | 是 | 与服务端 `SERVER_TOKEN` 一致 |
+| `PET_BAND_HEIGHT` | 否 | 带状窗高度（物理像素），默认 260 |
+| `PET_BOTTOM_GAP` | 否 | 窗口底边离工作区底边间隙（物理像素），默认 3 |
+| `PTT_ENABLED` | 否 | 按住说话开关，默认 1 |
+| `PTT_KEY_VK` | 否 | PTT 虚拟键码（十进制），默认 164（左 Alt） |
+| `ASR_AUTO_SEND` | 否 | 听写结束自动发送（说完即问），默认 1 |
 
 ## 📡 HTTP / SSE 协议
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `POST` | `/v1/chat/completions` | **OpenAI 兼容门面**（`OPENAICOMPAT_ENABLED=1` 启用）：Coopanion/任意 OpenAI 客户端以此接入。请求携带全量 messages + 客户端工具 schema；响应为标准 chunk 流（文本/思考流/tool_calls/finish/usage） |
+| `POST` | `/v1/chat/completions` | **OpenAI 兼容门面**（`OPENAICOMPAT_ENABLED=1` 启用，阶段35 Coopanion 归档通道）：任意 OpenAI 客户端以此接入。请求携带全量 messages + 客户端工具 schema；响应为标准 chunk 流（文本/思考流/tool_calls/finish/usage） |
 | `GET` | `/v1/models` | 门面模型列表（单模型，Cortico 设置页下拉用） |
-| `POST` | `/v1/chat` | 发起对话，SSE 流式返回；请求体 `{"session_id","message","images"}`。同会话忙时 SSE 推送 error；满员返回 503，超频返回 429 |
+| `POST` | `/v1/chat` | 发起对话（桌宠客户端主通道），SSE 流式返回；请求体 `{"session_id","message","images"}`。同会话忙时 SSE 推送 error；满员返回 503，超频返回 429 |
 | `POST` | `/v1/session/new` | 服务端签发会话 ID（`sess_` + 128bit 随机），返回 `{"session_id"}`；旧版 UUID v4 格式过渡期仍兼容 |
 | `POST` | `/v1/session/reset` | 清空指定会话上下文；问答进行中返回 409 |
 | `GET` | `/v1/auth/check` | 校验令牌有效性 |
@@ -301,8 +312,8 @@ Nginx 反向代理时设置 `proxy_buffering off;` 并调大 `client_max_body_si
 
 - **语言 / 运行时**：Go（标准库 `net/http` + SSE，零 CGO，可交叉编译单二进制）
 - **AI**：火山方舟豆包（对话 + 视觉 + Embedding）、ark-runtime-go
-- **桌面端**：Wails v2（WebView2 悬浮窗）
-- **网页端**：原生 HTML / CSS / JavaScript，fetch + ReadableStream 手写 SSE 解析，`go:embed` 编入二进制
+- **桌面端**：Wails v2（WebView2 透明置顶桌宠窗；窗口几何/穿透走纯 user32 syscall，SAPI 听写走 PowerShell System.Speech）
+- **观测页**：原生 HTML / CSS / JavaScript（`web/dist/trace.html`），`go:embed` 编入二进制
 - **检索**：本地余弦相似度 TopK（`float32` 向量 + gob 持久化），无外部数据库依赖
 - **稳定性**：singleflight 请求合并、分级 TTL 缓存、LRU 容量保险丝、panic 恢复、超时降级
 

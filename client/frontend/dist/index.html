@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YHagent-Pet</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- 带状窗舞台：底边=地面。除宠物/气泡/输入/菜单外的区域鼠标穿透（Go 侧轮询控制） -->
+  <div id="stage">
+    <!-- 对话气泡（宠物上方，左右自动避让，空闲淡出） -->
+    <div id="bubble" class="bubble hidden"><div id="bubbleBody" class="bubble-body"></div><div class="bubble-tail"></div></div>
+
+    <!-- 宠物：双 video 交替消抖 -->
+    <div id="pet" class="pet">
+      <video id="petA" class="pet-video is-front" autoplay loop muted playsinline></video>
+      <video id="petB" class="pet-video" autoplay loop muted playsinline></video>
+      <div class="pet-shadow"></div>
+      <div id="micDot" class="mic-dot hidden" title="正在听"></div>
+    </div>
+
+    <!-- 输入面板（戳一下宠物唤起） -->
+    <div id="inputPanel" class="input-panel hidden">
+      <textarea id="input" rows="2" placeholder="问点什么…（Enter 发送 / Shift+Enter 换行；按住左 Alt 说话）"></textarea>
+      <button id="sendBtn" class="send-btn">发送</button>
+    </div>
+
+    <!-- 右键菜单 -->
+    <div id="menu" class="menu hidden">
+      <button data-act="new">新对话</button>
+      <button data-act="reset">清空上下文</button>
+      <button data-act="pin">切换置顶</button>
+      <button data-act="quit" class="danger">退出</button>
+    </div>
+  </div>
+
+  <!-- Wails 运行时会自动向页面注入 window.runtime（事件总线）与 window.go（Go 绑定通道） -->
+  <script src="app.js"></script>
+</body>
+</html>
