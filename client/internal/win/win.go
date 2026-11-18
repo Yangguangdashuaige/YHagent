@@ -112,8 +112,9 @@ func monitorWorkArea(hwnd uintptr) (Rect, bool) {
 	return mi.rcWork, ok != 0
 }
 
-// setLayeredAlpha 给分层窗口设置整体不透明度 255（保留像素级透明能力；
-// 不调用的话 WS_EX_LAYERED 窗口不会绘制）
-func setLayeredAlpha(hwnd uintptr) {
-	procSetLayeredWindowAttrs.Call(hwnd, 0, 255, uintptr(lwaAlpha))
+// setLayeredAlpha 给分层窗口设置整体不透明度（不调用的话 WS_EX_LAYERED
+// 窗口不会绘制）。alpha=255 时窗口表面整体不透明——桌宠带状窗会盖住桌面
+// 呈现"黑框"；alpha=1 近全透明，桌面正常透出，WebView2 子窗口不受影响。
+func setLayeredAlpha(hwnd uintptr, alpha byte) {
+	procSetLayeredWindowAttrs.Call(hwnd, 0, uintptr(alpha), uintptr(lwaAlpha))
 }

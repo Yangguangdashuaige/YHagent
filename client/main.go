@@ -78,17 +78,16 @@ func main() {
 	winCtl.SetLogger(log.Printf)
 	app.AttachWinCtl(winCtl)
 
-	var poller *hotkey.Poller
-	if cfg.PTTEnabled {
-		asrMgr := asr.NewManager()
-		asrMgr.SetLogger(log.Printf)
-		app.AttachASR(asrMgr)
+	// PTT 轮询器总是创建（设置面板可运行时启停）；ASR 管理器常驻注入
+	asrMgr := asr.NewManager()
+	asrMgr.SetLogger(log.Printf)
+	app.AttachASR(asrMgr)
 
-		poller = hotkey.NewPoller(cfg.PTTKeyVK, 30*time.Millisecond)
-		poller.SetLogger(log.Printf)
-		poller.OnDown(app.OnPTTDown) // 按住左 Alt → 开始听写
-		poller.OnUp(app.OnPTTUp)     // 松开 → 结束并聚合文本推前端
-	}
+	poller := hotkey.NewPoller(cfg.PTTKeyVK, 30*time.Millisecond)
+	poller.SetLogger(log.Printf)
+	poller.OnDown(app.OnPTTDown) // 按住左 Alt → 开始听写
+	poller.OnUp(app.OnPTTUp)     // 松开 → 结束并聚合文本推前端
+	app.AttachPTTPoller(poller)
 
 	// 4. 启动 Wails 透明桌宠窗
 	distFS, err := fs.Sub(frontendAssets, "frontend/dist")
@@ -115,7 +114,7 @@ func main() {
 			app.startup(ctx)
 			// 窗口就绪后再启动桌宠控制（FindWindow 有时序竞争，内部带重试）
 			winCtl.Start(200 * time.Millisecond)
-			if poller != nil {
+			if cfg.PTTEnabled {
 				poller.Start()
 			}
 		},

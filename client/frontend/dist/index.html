@@ -20,17 +20,43 @@
       <div id="micDot" class="mic-dot hidden" title="正在听"></div>
     </div>
 
-    <!-- 输入面板（戳一下宠物唤起） -->
+    <!-- 输入面板（戳一下宠物唤起；✕ 或点宠物关闭） -->
     <div id="inputPanel" class="input-panel hidden">
       <textarea id="input" rows="2" placeholder="问点什么…（Enter 发送 / Shift+Enter 换行；按住左 Alt 说话）"></textarea>
       <button id="sendBtn" class="send-btn">发送</button>
+      <button id="closeInputBtn" class="close-btn" title="关闭">✕</button>
+    </div>
+
+    <!-- 设置面板（右键 → 设置）：历史对话 / 设置 两页 -->
+    <div id="settingsPanel" class="settings-panel hidden">
+      <div class="settings-head">
+        <button id="tabHistory" class="tab active">历史对话</button>
+        <button id="tabSettings" class="tab">设置</button>
+        <button id="closeSettingsBtn" class="close-btn" title="关闭">✕</button>
+      </div>
+
+      <div id="pageHistory" class="settings-page">
+        <div class="settings-toolbar">
+          <button id="newChatInPanel" class="mini-btn">＋ 新对话</button>
+          <button id="refreshSessions" class="mini-btn">刷新</button>
+        </div>
+        <ul id="sessionList" class="session-list"></ul>
+        <div id="historyView" class="history-view hidden"></div>
+      </div>
+
+      <div id="pageSettings" class="settings-page hidden">
+        <label class="opt-row"><span>窗口置顶</span><input type="checkbox" id="optPin"></label>
+        <label class="opt-row"><span>按住左 Alt 说话（PTT）</span><input type="checkbox" id="optPTT"></label>
+        <label class="opt-row"><span>听写结束自动发送</span><input type="checkbox" id="optAutoSend"></label>
+        <div class="opt-note">桌宠高度 / 离底边间隙 / PTT 键位需改 .env 后重启（PET_BAND_HEIGHT / PET_BOTTOM_GAP / PTT_KEY_VK）</div>
+      </div>
     </div>
 
     <!-- 右键菜单 -->
     <div id="menu" class="menu hidden">
+      <button data-act="input">提问</button>
       <button data-act="new">新对话</button>
-      <button data-act="reset">清空上下文</button>
-      <button data-act="pin">切换置顶</button>
+      <button data-act="settings">设置 / 历史</button>
       <button data-act="quit" class="danger">退出</button>
     </div>
   </div>

@@ -19,6 +19,7 @@ import (
 
 	"yhagent-client/internal/asr"
 	"yhagent-client/internal/config"
+	"yhagent-client/internal/hotkey"
 	"yhagent-client/internal/remote"
 	"yhagent-client/internal/win"
 )
@@ -59,17 +60,31 @@ type App struct {
 	winCtl *win.Controller
 	// SAPI 听写管理器（nil 安全：PTT_ENABLED=0 时不注入）
 	asrMgr *asr.Manager
+	// pttPoller 按键说话热键轮询器（运行时设置面板可开关）
+	pttPoller *hotkey.Poller
 	// held PTT 按住态（hotkey 轮询与手动麦克风共用一套听写编排）
 	held atomic.Bool
 	// utterMU 听写聚合文本的锁（多句 final 累积，松开时一次发前端）
 	utterMu sync.Mutex
 	utter   strings.Builder
+	// settingsMu 运行时可变设置的锁（自动发送/PTT 开关）
+	settingsMu sync.Mutex
+	asrAutoSend bool
+	pttEnabled  bool
 }
 
 // NewApp 创建绑定层实例，chat 由 main 注入（远端 SSE 客户端；配置缺失时可为 nil）
 func NewApp(chat chatService, cfg *config.Config, configErr string) *App {
-	return &App{chat: chat, cfg: cfg, configErr: configErr}
+	a := &App{chat: chat, cfg: cfg, configErr: configErr}
+	if cfg != nil {
+		a.asrAutoSend = cfg.ASRAutoSend
+		a.pttEnabled = cfg.PTTEnabled
+	}
+	return a
 }
+
+// AttachPTTPoller 注入热键轮询器（运行时设置面板可开关 PTT）
+func (a *App) AttachPTTPoller(p *hotkey.Poller) { a.pttPoller = p }
 
 // ConfigError 启动期配置错误（前端启动时查询；空串=配置正常）
 func (a *App) ConfigError() string { return a.configErr }
@@ -189,7 +204,10 @@ func (a *App) endListening() {
 	a.utter.Reset()
 	a.utterMu.Unlock()
 	a.emit(evMicOff)
-	a.emit(evAsrUtter, map[string]any{"text": text, "autosend": a.cfg != nil && a.cfg.ASRAutoSend})
+	a.settingsMu.Lock()
+	auto := a.asrAutoSend
+	a.settingsMu.Unlock()
+	a.emit(evAsrUtter, map[string]any{"text": text, "autosend": auto})
 }
 
 // StartListening 前端手动麦克风（按钮按下）：与 PTT 共用编排
@@ -274,7 +292,128 @@ func (a *App) ResetSession(sessionID string) {
 	a.chat.Reset(sessionID)
 }
 
-// SetAlwaysOnTop 切换窗口置顶状态（右键菜单）
+// SetAlwaysOnTop 切换窗口置顶状态（右键菜单/设置面板）
 func (a *App) SetAlwaysOnTop(top bool) {
 	wailsruntime.WindowSetAlwaysOnTop(a.ctx, top)
+}
+
+// ---------- 设置面板的运行时可变项 ----------
+
+// SetASRAutoSend 听写结束自动发送开关（说完即问；关闭则填入输入框待确认）
+func (a *App) SetASRAutoSend(on bool) {
+	a.settingsMu.Lock()
+	a.asrAutoSend = on
+	a.settingsMu.Unlock()
+}
+
+// GetASRAutoSend 读当前自动发送开关（设置面板初始化用）
+func (a *App) GetASRAutoSend() bool {
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+	return a.asrAutoSend
+}
+
+// SetPTTEnabled 按键说话开关（运行时启停热键轮询，无需重启）
+func (a *App) SetPTTEnabled(on bool) {
+	a.settingsMu.Lock()
+	a.pttEnabled = on
+	a.settingsMu.Unlock()
+	if a.pttPoller == nil {
+		return
+	}
+	if on {
+		a.pttPoller.Start() // 幂等：已启动返回 false 不影响
+	} else {
+		a.pttPoller.Stop()
+	}
+}
+
+// GetPTTEnabled 读当前 PTT 开关
+func (a *App) GetPTTEnabled() bool {
+	a.settingsMu.Lock()
+	defer a.settingsMu.Unlock()
+	return a.pttEnabled
+}
+
+// ---------- 多会话管理（设置面板的历史对话页） ----------
+
+// SessionInfo 多会话列表项（前端可直接消费的序列化形态）
+type SessionInfo struct {
+	SessionID string `json:"session_id"`
+	Title     string `json:"title"`
+	UpdatedAt int64  `json:"updated_at"`
+	MsgCount  int    `json:"msg_count"`
+}
+
+// sessionLister 由 internal/remote.Client 实现（接口在使用处声明，按需断言）
+type sessionLister interface {
+	ListSessions(ctx context.Context, sids []string) ([]remote.SessionSummary, error)
+}
+
+// ListSessions 批量拉取会话摘要（历史对话列表）。前端传本地记录的 sid 集合，
+// 服务端返回标题/最后活跃/消息数。失败返回空列表，UI 静默降级。
+func (a *App) ListSessions(sids []string) []SessionInfo {
+	l, ok := a.chat.(sessionLister)
+	if !ok || len(sids) == 0 {
+		return []SessionInfo{}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	sums, err := l.ListSessions(ctx, sids)
+	if err != nil {
+		log.Printf("[app] 会话列表获取失败: %v", err)
+		return []SessionInfo{}
+	}
+	out := make([]SessionInfo, 0, len(sums))
+	for _, s := range sums {
+		out = append(out, SessionInfo{
+			SessionID: s.SessionID, Title: s.Title, UpdatedAt: s.UpdatedAt, MsgCount: s.MsgCount,
+		})
+	}
+	return out
+}
+
+// sessionDeleter 由 internal/remote.Client 实现
+type sessionDeleter interface {
+	DeleteSession(sessionID string) error
+}
+
+// DeleteSession 删除单个会话（服务端清上下文+落库+解绑）
+func (a *App) DeleteSession(sessionID string) error {
+	d, ok := a.chat.(sessionDeleter)
+	if !ok {
+		return nil
+	}
+	return d.DeleteSession(sessionID)
+}
+
+// ChatMsg 历史消息的序列化形态（前端回看渲染用）
+type ChatMsg struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// historyFetcher 由 internal/remote.Client 实现
+type historyFetcher interface {
+	SessionHistory(ctx context.Context, sessionID string) ([]remote.HistoryMsg, error)
+}
+
+// SessionHistory 拉取指定会话的可见历史（历史对话点开回看）。失败返回空列表。
+func (a *App) SessionHistory(sessionID string) []ChatMsg {
+	h, ok := a.chat.(historyFetcher)
+	if !ok {
+		return []ChatMsg{}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	msgs, err := h.SessionHistory(ctx, sessionID)
+	if err != nil {
+		log.Printf("[app] 会话历史获取失败: %v", err)
+		return []ChatMsg{}
+	}
+	out := make([]ChatMsg, 0, len(msgs))
+	for _, m := range msgs {
+		out = append(out, ChatMsg{Role: m.Role, Content: m.Content})
+	}
+	return out
 }

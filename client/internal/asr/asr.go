@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -85,6 +86,9 @@ func (m *Manager) Start() error {
 
 	cmd := exec.Command("powershell", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass",
 		"-File", m.scriptPath)
+	// 隐藏控制台窗口：不设 CREATE_NO_WINDOW 时每次听写都会在任务栏弹出蓝色
+	// PowerShell 窗口（SAPI 在控制台子系统外的 GUI 进程里默认新开控制台）
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("听写进程管道创建失败: %w", err)

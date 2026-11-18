@@ -168,6 +168,116 @@ html, body {
   user-select: text;
 }
 
+/* 通用关闭按钮（输入面板 ✕） */
+.close-btn {
+  align-self: flex-start;
+  width: 22px; height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #8a94a6;
+  font-size: 12px;
+  cursor: pointer;
+  line-height: 1;
+}
+.close-btn:hover { background: rgba(255,255,255,.12); color: #fff; }
+
+/* ---------- 设置面板（Coopanion 形态：历史对话 + 设置两页） ---------- */
+
+.settings-panel {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  width: min(440px, 92vw);
+  height: min(238px, 94vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: rgba(20, 24, 33, .96);
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 10px 36px rgba(0,0,0,.5);
+  color: #e8ecf4;
+  overflow: hidden;
+}
+.settings-panel.hidden { display: none; }
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.settings-head .tab {
+  border: none;
+  background: transparent;
+  color: #8a94a6;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.settings-head .tab.active { color: #fff; background: rgba(255,255,255,.1); }
+.settings-head .close-btn { margin-left: auto; width: 26px; height: 26px; }
+
+.settings-page { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px; }
+
+.settings-toolbar { display: flex; gap: 6px; margin-bottom: 6px; }
+.mini-btn {
+  padding: 4px 10px;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 7px;
+  background: rgba(255,255,255,.06);
+  color: #dbe3ef;
+  font-size: 12px;
+  cursor: pointer;
+}
+.mini-btn:hover { background: rgba(255,255,255,.14); }
+
+.session-list { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 0 4px 0 0; }
+.session-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.session-list li:hover { background: rgba(255,255,255,.08); }
+.session-list li.current { background: rgba(126,194,255,.14); }
+.session-list li .s-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-list li .s-meta { font-size: 11px; color: #8a94a6; white-space: nowrap; }
+.session-list li .s-del {
+  border: none; background: transparent; color: #8a94a6;
+  font-size: 12px; cursor: pointer; padding: 0 4px; border-radius: 4px;
+}
+.session-list li .s-del:hover { color: #ff9c9c; background: rgba(255,120,120,.12); }
+
+.history-view { flex: 1; overflow-y: auto; font-size: 12.5px; line-height: 1.5; user-select: text; }
+.history-view .hmsg { margin: 4px 0; }
+.history-view .hmsg.user { color: #ffd479; }
+.history-view .hmsg.assistant { color: #dbe3ef; }
+.history-view .hback {
+  margin-bottom: 6px;
+  border: none; background: rgba(255,255,255,.08); color: #dbe3ef;
+  font-size: 12px; padding: 3px 10px; border-radius: 6px; cursor: pointer;
+}
+
+.opt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  margin: 2px 0;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.opt-row:hover { background: rgba(255,255,255,.06); }
+.opt-row input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; accent-color: #ffb84d; }
+.opt-note { margin-top: 8px; padding: 8px 10px; font-size: 11.5px; color: #8a94a6; line-height: 1.5; }
+
 .send-btn {
   align-self: flex-end;
   padding: 6px 14px;

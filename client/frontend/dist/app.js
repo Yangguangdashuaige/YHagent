@@ -19,6 +19,10 @@ const inputEl = document.getElementById("input");
 const sendBtn = document.getElementById("sendBtn");
 const menuEl = document.getElementById("menu");
 const micDot = document.getElementById("micDot");
+const settingsPanel = document.getElementById("settingsPanel");
+const sessionListEl = document.getElementById("sessionList");
+const historyViewEl = document.getElementById("historyView");
+const SESSIONS_KEY = "yh_sessions";
 
 // ---------- Go 绑定安全封装（页面早于 Wails 注入时排队不丢） ----------
 
@@ -158,19 +162,17 @@ function reportHitBoxSoon() {
   hitTimer = setTimeout(() => { hitTimer = null; reportHitBox(); }, 100);
 }
 function reportHitBox() {
-  // 命中盒 = 宠物矩形外扩 10px；输入面板/菜单打开时一并纳入可交互区
+  // 命中盒 = 宠物矩形外扩 10px；输入面板/设置面板/菜单打开时一并纳入可交互区
   const r = petEl.getBoundingClientRect();
   let x = r.left - 10, right = r.right + 10, y = r.top - 10, bottom = r.bottom + 10;
-  if (!inputPanel.classList.contains("hidden")) {
-    const ir = inputPanel.getBoundingClientRect();
-    x = Math.min(x, ir.left); right = Math.max(right, ir.right);
-    y = Math.min(y, ir.top); bottom = Math.max(bottom, ir.bottom);
-  }
-  if (!menuEl.classList.contains("hidden")) {
-    const mr = menuEl.getBoundingClientRect();
-    x = Math.min(x, mr.left); right = Math.max(right, mr.right);
-    y = Math.min(y, mr.top); bottom = Math.max(bottom, mr.bottom);
-  }
+  const merge = el => {
+    const er = el.getBoundingClientRect();
+    x = Math.min(x, er.left); right = Math.max(right, er.right);
+    y = Math.min(y, er.top); bottom = Math.max(bottom, er.bottom);
+  };
+  if (!inputPanel.classList.contains("hidden")) merge(inputPanel);
+  if (!settingsPanel.classList.contains("hidden")) merge(settingsPanel);
+  if (!menuEl.classList.contains("hidden")) merge(menuEl);
   callGo("SetPetHitBox", x, y, right - x, bottom - y, window.innerWidth, window.innerHeight);
 }
 
@@ -239,9 +241,13 @@ let busy = false;
 let answerText = "";
 
 function ensureSession() {
-  if (sessionId) return;
+  if (sessionId) { rememberSid(sessionId); return; }
   callGo("NewSession").then(id => {
-    if (id) { sessionId = id; localStorage.setItem(SESSION_KEY, id); }
+    if (id) {
+      sessionId = id;
+      localStorage.setItem(SESSION_KEY, id);
+      rememberSid(id); // 进历史对话列表（设置面板可见）
+    }
   });
 }
 
@@ -317,6 +323,7 @@ window.runtime && [
 // ---------- 输入面板 ----------
 
 function showInput(text) {
+  settingsPanel.classList.add("hidden");
   inputPanel.classList.remove("hidden");
   positionInput();
   if (text != null) inputEl.value = text;
@@ -343,12 +350,177 @@ function submitInput() {
   send(t);
 }
 sendBtn.addEventListener("click", submitInput);
+document.getElementById("closeInputBtn").addEventListener("click", hideInput);
 inputEl.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitInput(); }
-  if (e.key === "Escape") hideInput();
 });
 inputEl.addEventListener("compositionstart", () => (inputEl.composing = true));
 inputEl.addEventListener("compositionend", () => (inputEl.composing = false));
+
+// Esc 全局兜底：关闭最上层的面板（穿透模式下点空白关不掉，键盘是唯一通道）
+window.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    if (!menuEl.classList.contains("hidden")) { menuEl.classList.add("hidden"); callGo("SetDragging", false); }
+    else if (!settingsPanel.classList.contains("hidden")) closeSettings();
+    else if (!inputPanel.classList.contains("hidden")) hideInput();
+  }
+});
+
+// ---------- 设置面板（Coopanion 形态：历史对话 + 设置） ----------
+
+const tabHistoryBtn = document.getElementById("tabHistory");
+const tabSettingsBtn = document.getElementById("tabSettings");
+const pageHistoryEl = document.getElementById("pageHistory");
+const pageSettingsEl = document.getElementById("pageSettings");
+
+function openSettings() {
+  menuEl.classList.add("hidden");
+  hideInput();
+  settingsPanel.classList.remove("hidden");
+  callGo("SetDragging", true); // 面板期间整窗可交互
+  renderSessions();
+  initOptionToggles();
+  reportHitBox();
+}
+function closeSettings() {
+  settingsPanel.classList.add("hidden");
+  historyViewEl.classList.add("hidden");
+  sessionListEl.classList.remove("hidden");
+  callGo("SetDragging", false);
+  reportHitBox();
+}
+document.getElementById("closeSettingsBtn").addEventListener("click", closeSettings);
+
+tabHistoryBtn.addEventListener("click", () => {
+  tabHistoryBtn.classList.add("active"); tabSettingsBtn.classList.remove("active");
+  pageHistoryEl.classList.remove("hidden"); pageSettingsEl.classList.add("hidden");
+});
+tabSettingsBtn.addEventListener("click", () => {
+  tabSettingsBtn.classList.add("active"); tabHistoryBtn.classList.remove("active");
+  pageSettingsEl.classList.remove("hidden"); pageHistoryEl.classList.add("hidden");
+});
+
+// 保存的会话 ID 集合（最新签发的排最前）
+function savedSids() {
+  try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) || "[]"); } catch { return []; }
+}
+function rememberSid(sid) {
+  if (!sid) return;
+  const list = savedSids().filter(s => s !== sid);
+  list.unshift(sid);
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(list.slice(0, 30)));
+}
+
+function fmtTime(ts) {
+  if (!ts) return "";
+  const d = new Date(ts * 1000);
+  const now = Date.now() / 1000;
+  if (now - ts < 86400) return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+// 渲染历史会话列表（标题/时间/消息数 + 切换/删除）
+function renderSessions() {
+  const sids = savedSids();
+  if (!sids.length) {
+    sessionListEl.innerHTML = '<li><span class="s-title" style="color:#8a94a6">还没有对话记录～</span></li>';
+    return;
+  }
+  callGo("ListSessions", sids).then(list => {
+    if (!list || !list.length) {
+      sessionListEl.innerHTML = '<li><span class="s-title" style="color:#8a94a6">（服务端没有这些会话的记录，可能已过期清理）</span></li>';
+      return;
+    }
+    list.sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
+    sessionListEl.innerHTML = "";
+    for (const s of list) {
+      const li = document.createElement("li");
+      if (s.session_id === sessionId) li.classList.add("current");
+      li.innerHTML = `<span class="s-title">${escapeHtml(s.title || "（未命名对话）")}</span>` +
+        `<span class="s-meta">${fmtTime(s.updated_at)} · ${s.msg_count}条</span>` +
+        `<button class="s-del" title="切换到此对话" style="color:#7ec2ff;font-size:12px">切换</button>` +
+        `<button class="s-del" title="删除此对话">删</button>`;
+      // 点行：面板内回看历史；「切换」：设为当前会话；「删」：删除
+      li.addEventListener("click", () => viewHistory(s.session_id, s.title));
+      li.querySelectorAll("button")[0].addEventListener("click", e => { e.stopPropagation(); switchSession(s.session_id); });
+      li.querySelectorAll("button")[1].addEventListener("click", e => {
+        e.stopPropagation();
+        callGo("DeleteSession", s.session_id);
+        localStorage.setItem(SESSIONS_KEY, JSON.stringify(savedSids().filter(x => x !== s.session_id)));
+        if (s.session_id === sessionId) switchToNewSession();
+        renderSessions();
+      });
+      sessionListEl.appendChild(li);
+    }
+  });
+}
+
+// 面板内回看指定会话的历史消息
+function viewHistory(sid, title) {
+  callGo("SessionHistory", sid).then(msgs => {
+    historyViewEl.classList.remove("hidden");
+    sessionListEl.style.display = "none";
+    let html = `<button class="hback">← 返回列表</button>`;
+    if (!msgs || !msgs.length) {
+      html += `<div class="hmsg" style="color:#8a94a6">（没有可回看的消息）</div>`;
+    } else {
+      html += `<div style="color:#8a94a6;font-size:11px;margin-bottom:4px">${escapeHtml(title || "")} 共 ${msgs.length} 条</div>`;
+      for (const m of msgs) {
+        html += `<div class="hmsg ${m.role === "user" ? "user" : "assistant"}">${m.role === "user" ? "问：" : "答："}${escapeHtml(m.content)}</div>`;
+      }
+    }
+    historyViewEl.innerHTML = html;
+    historyViewEl.querySelector(".hback").addEventListener("click", () => {
+      historyViewEl.classList.add("hidden");
+      sessionListEl.style.display = "";
+    });
+  });
+}
+
+// 切换当前会话
+function switchSession(sid) {
+  if (busy) { showBubble("轩正在回答中，稍等再切换～", "thinking"); return; }
+  sessionId = sid;
+  localStorage.setItem(SESSION_KEY, sessionId);
+  showBubble("已切换到该对话～", "");
+  renderSessions();
+}
+
+// 开新对话（菜单/设置面板共用）
+function switchToNewSession() {
+  if (busy) { showBubble("轩正在回答中，稍等再开新对话～", "thinking"); return false; }
+  localStorage.removeItem(SESSION_KEY);
+  sessionId = null;
+  ensureSession();
+  showBubble("新对话开启～", "");
+  renderSessions();
+  return true;
+}
+
+document.getElementById("newChatInPanel").addEventListener("click", switchToNewSession);
+document.getElementById("refreshSessions").addEventListener("click", renderSessions);
+
+// 设置页开关：置顶 / PTT / 自动发送（后两者运行时生效并回读初始值）
+let optInitDone = false;
+function initOptionToggles() {
+  if (optInitDone) return;
+  optInitDone = true;
+  const optPinEl = document.getElementById("optPin");
+  const optPTTEl = document.getElementById("optPTT");
+  const optAutoSendEl = document.getElementById("optAutoSend");
+  optPinEl.checked = pinTop;
+  optPinEl.addEventListener("change", () => {
+    pinTop = optPinEl.checked;
+    localStorage.setItem("yh_pin_top", pinTop ? "1" : "0");
+    callGo("SetAlwaysOnTop", pinTop);
+  });
+  Promise.all([callGo("GetPTTEnabled"), callGo("GetASRAutoSend")]).then(([ptt, auto]) => {
+    optPTTEl.checked = !!ptt;
+    optAutoSendEl.checked = !!auto;
+  });
+  optPTTEl.addEventListener("change", () => callGo("SetPTTEnabled", optPTTEl.checked));
+  optAutoSendEl.addEventListener("change", () => callGo("SetASRAutoSend", optAutoSendEl.checked));
+}
 
 // ---------- 拖拽 / 戳摸 ----------
 
@@ -398,6 +570,9 @@ petEl.addEventListener("pointerup", e => {
 });
 
 function poke() {
+  // 输入/设置面板开着时，点宠物 = 关闭面板（穿透模式下点空白无效，宠物即"关闭按钮"）
+  if (!inputPanel.classList.contains("hidden")) { hideInput(); return; }
+  if (!settingsPanel.classList.contains("hidden")) { closeSettings(); return; }
   if (busy) { showBubble("轩正在回答中…", "thinking"); return; }
   setState("poke");
   const msgs = ["轩？", "干嘛戳我～", "想问什么就戳出输入框吧", "轩在呢！", "轻点轻点…"];
@@ -430,22 +605,18 @@ menuEl.addEventListener("click", e => {
   const act = e.target.dataset && e.target.dataset.act;
   menuEl.classList.add("hidden");
   callGo("SetDragging", false);
-  if (act === "new") {
-    localStorage.removeItem(SESSION_KEY);
-    sessionId = null; ensureSession();
-    showBubble("新对话开启～", "");
-  } else if (act === "reset") {
-    callGo("ResetSession", sessionId || "default");
-    showBubble("上下文已清空～", "");
-  } else if (act === "pin") {
-    pinTop = !pinTop;
-    callGo("SetAlwaysOnTop", pinTop);
-    showBubble(pinTop ? "已置顶" : "已取消置顶", "");
+  if (act === "input") {
+    showInput();
+  } else if (act === "new") {
+    switchToNewSession();
+  } else if (act === "settings") {
+    openSettings();
   } else if (act === "quit") {
     callGo("Quit");
   }
 });
-let pinTop = true;
+// 置顶初始态：跟随上次设置（localStorage），默认开
+let pinTop = localStorage.getItem("yh_pin_top") !== "0";
 
 // ---------- 启动 ----------
 
@@ -459,11 +630,12 @@ window.addEventListener("resize", () => {
 setPetX(Math.max(0, window.innerWidth / 2 - petW() / 2));
 setState("idle");
 ensureSession();
+if (!pinTop) callGo("SetAlwaysOnTop", false); // 上次关掉过置顶则启动即取消
 callGo("ConfigError").then(err => {
   if (err) {
     setState("startled");
     showBubble('<span class="err">' + escapeHtml(String(err)) + "</span>", "err", true);
     return;
   }
-  showBubble("指挥官好，我是小小轩～<br>戳两下我提问，<b>按住左 Alt 说话</b>，右键有菜单。", "");
+  showBubble("指挥官好，我是小小轩～<br>戳两下我提问，<b>按住左 Alt 说话</b>；右键有菜单（设置/历史对话）。", "");
 });
