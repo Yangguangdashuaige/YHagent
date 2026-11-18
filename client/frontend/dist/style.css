@@ -18,7 +18,7 @@ html, body {
 
 /* ---------- 宠物（尺寸随视口自适应：物理 260px 带状窗在高 DPI 下 CSS 视口更矮） ---------- */
 
-:root { --pet-h: min(150px, 42vh); }
+:root { --pet-h: min(170px, 52vh); }
 
 .pet {
   position: absolute;
