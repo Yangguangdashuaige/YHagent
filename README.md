@@ -92,7 +92,7 @@ YHagent/
 - Go ≥ 1.26
 - 火山方舟（豆包）API Key 与接入点 ID（需支持视觉输入的对话模型）
 - [三角洲数据帝开放平台](https://orzice.com/workApi) API Key
-- 桌面端安装 [Coopanion](https://github.com/Pal-AI-Lab/Coopanion/releases/latest)（Windows / macOS / Linux）
+- 桌面端安装**小小轩桌宠**（YHagent-Pet，基于 Coopanion 的预配置发行版）
 
 ### 1. 启动服务端
 
@@ -106,17 +106,27 @@ go run ./cmd/server
 
 - 看到日志 `OpenAI 兼容门面已启用：/v1/chat/completions` 与 `已注册 24 个工具` 即正常；知识库为空时 `search_knowledge` 自动不注册，不影响对话
 
-### 2. 配置桌宠客户端（Coopanion）
+### 2. 安装桌宠客户端（小小轩桌宠）
 
-1. 安装并首次启动 Coopanion（首次引导可按 × 跳过）
-2. 打开设置 → **高级模式** → **模型供应商** → 添加端点：
-   - **API 地址**：`https://你的域名/v1`（局域网可用 `http://192.168.x.x:8080/v1`，Coopanion 允许本机/私网 http）
-   - **API Key**：`SERVER_TOKEN`
-   - **模型**：随意填写（如 `yhagent-delta`，门面忽略该值）
-   - **端点选项 protocol**：`chat`
-3. 回到 Start 页选用该端点，对着桌宠按住 **左 Alt** 说话或打字即可
+**方式一：下载发行包（玩家推荐）**
 
-> pet_* 工具（说话气泡、走路、提问选项）由 Coopanion 本地执行；YHagent 的 24 个数据工具在服务端执行，对客户端完全透明。
+从 [YHagent-Pet Releases](https://github.com/Yangguangdashuaige/YHagent-Pet/releases) 下载 `YHagent-Pet-Setup-<版本>.exe`，安装后直接使用——服务器地址与访问码已预置进安装包，首启引导自动跳过模型配置，对着桌宠按住 **左 Alt** 说话或打字即可。
+
+**方式二：自行构建**（服务器地址/访问码变化时）
+
+```bash
+git clone https://github.com/Yangguangdashuaige/YHagent-Pet.git
+cd YHagent-Pet
+# 编写 .env.build（不入库）：YHAGENT_BASE_URL / YHAGENT_TOKEN / YHAGENT_MODEL
+pnpm install
+pnpm run build:installer    # 产出 dist/YHagent-Pet-Setup-<版本>.exe
+```
+
+**方式三：无预置手动配置**（临时联调用）
+
+安装 [Coopanion](https://github.com/Pal-AI-Lab/Coopanion/releases/latest) 原版 → 高级模式 → 模型供应商 → 添加端点：API 地址 `https://你的域名/v1`、API Key 填 `SERVER_TOKEN`、模型名随意、端点选项 protocol 选 `chat`。
+
+> pet_* 工具（说话气泡、走路、提问选项）由客户端本地执行；YHagent 的 24 个数据工具在服务端执行，对客户端完全透明。
 
 ### 3. 构建静态知识库索引（可选但推荐）
 
