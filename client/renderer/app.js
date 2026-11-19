@@ -229,23 +229,25 @@ function showBubble(html, cls, sticky) {
   }
 }
 function positionBubble() {
+  // 从 DOM 实测宠物位置（getBoundingClientRect），不信任任何中间变量：
+  // 拖拽/指令行走/动画的所有路径（含未知路径）都被实测兜住；y 也跟随（拖高时气泡上移）
+  const r = petEl.getBoundingClientRect();
   const bw = bubbleEl.offsetWidth || 300;
-  const cx = petX() + petW() / 2;
-  let left = cx < window.innerWidth / 2 ? petX() + petW() * 0.4 : cx - bw - petW() * 0.4;
+  const cx = r.left + r.width / 2;
+  // 居中锚定：气泡中心对宠物中心，整体钳制在窗口内；尾巴落在宠物中心正上方
+  let left = cx - bw / 2;
   left = Math.max(8, Math.min(window.innerWidth - bw - 8, left));
   bubbleEl.style.left = left + "px";
+  bubbleEl.style.bottom = (window.innerHeight - r.top + 14) + "px";
   const tail = bubbleEl.querySelector(".bubble-tail");
   const tx = Math.max(18, Math.min(bw - 32, cx - left - 7));
   tail.style.left = tx + "px";
-  lastBubbleAnchorX = petX(); // 记录锚定基准（跟随泵据此判断过期）
 }
 
-// 气泡跟随泵：统一兜底所有宠物移动路径（指令行走/拖拽/resize），
-// 宠物 x 一变即重定位气泡与尾巴——消灭按路径挂钩的遗漏
-let lastBubbleAnchorX = -1;
+// 气泡跟随泵：气泡可见期间每 50ms 无条件实测重定位——
+// 不做变化判断（anchor 判断本身可能失同步），成本极低，消灭一切遗漏路径
 setInterval(() => {
-  if (bubbleEl.classList.contains("hidden")) return;
-  if (petX() !== lastBubbleAnchorX) positionBubble();
+  if (!bubbleEl.classList.contains("hidden")) positionBubble();
 }, 50);
 
 // ---------- 轻量 Markdown ----------
