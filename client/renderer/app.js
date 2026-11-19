@@ -140,11 +140,11 @@ function movePetTo(x) {
   targetX = Math.max(0, Math.min(window.innerWidth - petW(), x));
   if (Math.abs(targetX - petX()) < 4) {
     setState("idle");
-    showBubble("轩就在这儿呀～", "");
+    showBubble("小小轩就在这儿呀～", "");
     return;
   }
   setState("walk");
-  showBubble("轩这就过去～", "");
+  showBubble("小小轩这就过去～", "");
 }
 
 function scheduleIdle() {
@@ -439,7 +439,7 @@ function ensureSession() {
 
 function send(text) {
   text = (text || "").trim();
-  if (!text || busy) { if (busy) showBubble("轩还在回答上一个问题哦…", "thinking"); return; }
+  if (!text || busy) { if (busy) showBubble("小小轩还在回答上一个问题哦…", "thinking"); return; }
   if (cfgErr) { setState("startled"); showBubble('<span class="err">' + escapeHtml(cfgErr) + "</span>", "err", true); return; }
   // 位置指令本地消化（语音/文字"去左边/回中间"等），不进服务端对话
   const dest = parseMoveCmd(text);
@@ -683,7 +683,7 @@ function viewHistory(sid, title) {
 }
 
 function switchSession(sid) {
-  if (busy) { showBubble("轩正在回答中，稍等再切换～", "thinking"); return; }
+  if (busy) { showBubble("小小轩正在回答中，稍等再切换～", "thinking"); return; }
   sessionId = sid;
   localStorage.setItem(SESSION_KEY, sessionId);
   showBubble("已切换到该对话～", "");
@@ -691,7 +691,7 @@ function switchSession(sid) {
 }
 
 function switchToNewSession() {
-  if (busy) { showBubble("轩正在回答中，稍等再开新对话～", "thinking"); return false; }
+  if (busy) { showBubble("小小轩正在回答中，稍等再开新对话～", "thinking"); return false; }
   localStorage.removeItem(SESSION_KEY);
   sessionId = null;
   ensureSession();
@@ -768,9 +768,9 @@ petEl.addEventListener("pointerup", e => {
 function poke() {
   if (!inputPanel.classList.contains("hidden")) { hideInput(); return; }
   if (!settingsPanel.classList.contains("hidden")) { closeSettings(); return; }
-  if (busy) { showBubble("轩正在回答中…", "thinking"); return; }
+  if (busy) { showBubble("小小轩正在回答中…", "thinking"); return; }
   setState("poke");
-  const msgs = ["轩？", "干嘛戳我～", "想问什么就戳出输入框吧", "轩在呢！", "轻点轻点…"];
+  const msgs = ["小小轩？", "干嘛戳我～", "想问什么就戳出输入框吧", "小小轩在呢！", "轻点轻点…"];
   showBubble(msgs[Math.floor(Math.random() * msgs.length)], "");
   setTimeout(() => { if (state === "poke") setState("idle"); }, 1600);
   const now = Date.now();
