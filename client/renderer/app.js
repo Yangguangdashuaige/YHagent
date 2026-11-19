@@ -142,6 +142,9 @@ function setPetX(x) {
   petLeft = Math.max(0, Math.min(window.innerWidth - petW(), x));
   petEl.style.left = petLeft + "px";
   reportHitBoxSoon();
+  // 气泡/输入面板跟随宠物（拖拽与走动时都不脱节）
+  if (!bubbleEl.classList.contains("hidden")) positionBubble();
+  if (!inputPanel.classList.contains("hidden")) positionInput();
 }
 
 // ---------- 命中盒上报（主进程穿透轮询的数据源；Electron 下 DIP 与 CSS px 1:1） ----------
