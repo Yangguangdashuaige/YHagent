@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- 带状窗舞台：底边=地面。除宠物/气泡/输入/菜单外的区域鼠标穿透（Go 侧轮询控制） -->
+  <!-- 带状窗舞台：底边=地面。除宠物/气泡/输入/菜单外的区域鼠标穿透（主进程轮询控制） -->
   <div id="stage">
     <!-- 对话气泡（宠物上方，左右自动避让，空闲淡出） -->
     <div id="bubble" class="bubble hidden"><div id="bubbleBody" class="bubble-body"></div><div class="bubble-tail"></div></div>
@@ -20,14 +20,14 @@
       <div id="micDot" class="mic-dot hidden" title="正在听"></div>
     </div>
 
-    <!-- 输入面板（戳一下宠物唤起；✕ 或点宠物关闭） -->
+    <!-- 输入面板（戳两下宠物唤起） -->
     <div id="inputPanel" class="input-panel hidden">
       <textarea id="input" rows="2" placeholder="问点什么…（Enter 发送 / Shift+Enter 换行；按住左 Alt 说话）"></textarea>
       <button id="sendBtn" class="send-btn">发送</button>
       <button id="closeInputBtn" class="close-btn" title="关闭">✕</button>
     </div>
 
-    <!-- 设置面板（右键 → 设置）：历史对话 / 设置 两页 -->
+    <!-- 设置面板：历史对话 / 设置 两页 -->
     <div id="settingsPanel" class="settings-panel hidden">
       <div class="settings-head">
         <button id="tabHistory" class="tab active">历史对话</button>
@@ -61,7 +61,7 @@
     </div>
   </div>
 
-  <!-- Wails 运行时会自动向页面注入 window.runtime（事件总线）与 window.go（Go 绑定通道） -->
+  <!-- Electron preload 注入 window.pet（渲染进程唯一桥） -->
   <script src="app.js"></script>
 </body>
 </html>

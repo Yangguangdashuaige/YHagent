@@ -48,10 +48,10 @@ server/data/yhagent.pid
 # 知识库索引历史产物已移出 git（历史 blob 由 filter-repo 清理）；防止误加回
 server/internal/knowledge/embedded/index.gob
 
-# ==================== 桌宠客户端（client/ 模块）构建产物 ====================
-# wails build 输出与自动生成的 Go 绑定（前端不经 wailsjs，直接用注入的 window.go）
-client/build/bin/
-client/frontend/wailsjs/
+# ==================== 桌宠客户端（client/，Electron 壳）构建产物 ====================
+client/node_modules/
+client/release/
+client/dist-electron/
 
 # ==================== 编辑器/系统垃圾文件 ====================
 .vscode/

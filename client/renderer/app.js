@@ -1,17 +1,20 @@
-// app.js —— 桌宠前端逻辑：状态机/走动漫游/气泡/拖拽戳摸/输入/PTT 听写。
-// 与 Go 的通道只有两条：window.go.main.App.*（绑定方法）与 window.runtime.EventsOn（事件）。
+// renderer/app.js —— 桌宠前端逻辑（Electron 渲染进程）
+//
+// 通道两条：
+//   1. window.pet.*（preload 桥）：命中盒/听写/PTT/置顶/退出 → 主进程
+//   2. fetch 直连服务端：对话 SSE（/v1/chat）、会话管理（/v1/session*）
+//
+// UI 逻辑（动画状态机/气泡/拖拽戳摸/设置面板）继承自 Wails 版，
+// 断线续传协议与服务端 WAL 对齐（trace 事件 trace_id 即续传凭据）。
 
 const SESSION_KEY = "yh_session_id";
-const BUBBLE_FADE_MS = 12000;        // 气泡无更新后淡出
+const SESSIONS_KEY = "yh_sessions";
+const BUBBLE_FADE_MS = 12000;         // 气泡无更新后淡出
 const SLEEP_AFTER_MS = 5 * 60 * 1000; // 无交互入睡
 
 const petEl = document.getElementById("pet");
 const videoA = document.getElementById("petA");
 const videoB = document.getElementById("petB");
-
-// 宠物尺寸随视口自适应（CSS --pet-h），运行期从元素实测
-function petW() { return petEl.offsetWidth || 150; }
-function petH() { return petEl.offsetHeight || 150; }
 const bubbleEl = document.getElementById("bubble");
 const bubbleBody = document.getElementById("bubbleBody");
 const inputPanel = document.getElementById("inputPanel");
@@ -22,35 +25,31 @@ const micDot = document.getElementById("micDot");
 const settingsPanel = document.getElementById("settingsPanel");
 const sessionListEl = document.getElementById("sessionList");
 const historyViewEl = document.getElementById("historyView");
-const SESSIONS_KEY = "yh_sessions";
 
-// ---------- Go 绑定安全封装（页面早于 Wails 注入时排队不丢） ----------
+// 宠物尺寸随视口自适应（CSS --pet-h），运行期从元素实测
+function petW() { return petEl.offsetWidth || 150; }
+function petH() { return petEl.offsetHeight || 150; }
 
-function callGo(fn, ...args) {
-  try {
-    if (window.go && window.go.main && window.go.main.App) {
-      return window.go.main.App[fn](...args);
-    }
-  } catch (e) { console.warn("[go] " + fn, e); }
-  return Promise.resolve();
-}
+// ---------- 配置（主进程 .env） ----------
 
-// ---------- 动画（双 video 交替消抖：后置位加载新动画，loadeddata 后切前排） ----------
+let cfg = { REMOTE_BASE_URL: "", REMOTE_TOKEN: "", ASR_AUTO_SEND: 1, PTT_ENABLED: 1 };
+let cfgErr = "";
+window.pet && window.pet.getConfig().then(c => {
+  cfg = c;
+  if (!c.REMOTE_BASE_URL || !c.REMOTE_TOKEN) {
+    cfgErr = "REMOTE_BASE_URL / REMOTE_TOKEN 未配置，请在 exe 同目录 .env 填写后重启";
+  }
+  bootBubble();
+});
+
+// ---------- 动画（双 video 交替消抖） ----------
 
 const ANIM = {
-  idle: { loop: true },
-  walk: { loop: true },
-  happy: { loop: true },
-  think: { loop: true },
-  work: { loop: true },   // 听写中（忙碌点按）
-  talk: { loop: true },
-  drag: { loop: true },
-  sleep: { loop: true },
-  celebrate: { loop: false },
-  startled: { loop: false },
-  poke1: { loop: false },
-  poke2: { loop: false },
-  poke3: { loop: false },
+  idle: { loop: true }, walk: { loop: true }, happy: { loop: true },
+  think: { loop: true }, work: { loop: true }, talk: { loop: true },
+  drag: { loop: true }, sleep: { loop: true },
+  celebrate: { loop: false }, startled: { loop: false },
+  poke1: { loop: false }, poke2: { loop: false }, poke3: { loop: false },
 };
 
 let frontVideo = videoA;
@@ -60,18 +59,17 @@ let currentAnim = null;
 function setAnim(name) {
   if (currentAnim === name) return;
   currentAnim = name;
-  const cfg = ANIM[name];
-  if (!cfg) return;
-  // 后置位加载新动画，loadeddata 后切前排；一次性动画播完回 idle
+  const cfgA = ANIM[name];
+  if (!cfgA) return;
   const v = backVideo;
-  v.loop = cfg.loop;
+  v.loop = cfgA.loop;
   v.src = "assets/pet/" + name + ".webm";
   v.onloadeddata = () => {
     v.classList.add("is-front");
     frontVideo.classList.remove("is-front");
     frontVideo.onended = null;
     [frontVideo, backVideo] = [v, frontVideo];
-    if (!cfg.loop) {
+    if (!cfgA.loop) {
       v.onended = () => { v.onended = null; setState("idle"); };
     }
     reportHitBoxSoon();
@@ -80,8 +78,6 @@ function setAnim(name) {
 
 // ---------- 状态机 ----------
 
-// idle 自由漫游（随机走停）/ think 等首个 chunk / talk 流式回答中 /
-// celebrate 回答完成 / poke 被戳 / drag 拖拽悬空 / sleep 入睡 / work 听写中
 let state = "boot";
 let walkTimer = null, sleepTimer = null;
 let walkDir = 1;
@@ -91,25 +87,15 @@ function setState(next) {
   state = next;
   petEl.classList.toggle("flying", next === "drag");
   switch (next) {
-    case "idle":
-      setAnim("idle");
-      scheduleIdle(); break;
-    case "walk":
-      setAnim("walk"); break;
-    case "think":
-      setAnim("think"); break;
-    case "talk":
-      setAnim("talk"); break;
-    case "work":
-      setAnim("work"); break;
-    case "celebrate":
-      setAnim("celebrate"); break;
-    case "startled":
-      setAnim("startled"); break;
-    case "drag":
-      setAnim("drag"); break;
-    case "sleep":
-      setAnim("sleep"); break;
+    case "idle": setAnim("idle"); scheduleIdle(); break;
+    case "walk": setAnim("walk"); break;
+    case "think": setAnim("think"); break;
+    case "talk": setAnim("talk"); break;
+    case "work": setAnim("work"); break;
+    case "celebrate": setAnim("celebrate"); break;
+    case "startled": setAnim("startled"); break;
+    case "drag": setAnim("drag"); break;
+    case "sleep": setAnim("sleep"); break;
     case "poke": {
       const n = 1 + Math.floor(Math.random() * 3);
       setAnim("poke" + n); break;
@@ -137,7 +123,6 @@ function scheduleIdle() {
   clearTimeout(walkTimer);
   clearTimeout(sleepTimer);
   if (state !== "idle") return;
-  // 6~16s 后随机开走（聊天气泡活跃时不动，保持安静聆听）
   walkTimer = setTimeout(() => { if (state === "idle") setState("walk"); }, 6000 + Math.random() * 10000);
   sleepTimer = setTimeout(() => { if (state === "idle") setState("sleep"); }, SLEEP_AFTER_MS);
 }
@@ -159,7 +144,7 @@ function setPetX(x) {
   reportHitBoxSoon();
 }
 
-// ---------- 命中盒上报（Go 侧穿透轮询的数据源，100ms 节流） ----------
+// ---------- 命中盒上报（主进程穿透轮询的数据源；Electron 下 DIP 与 CSS px 1:1） ----------
 
 let hitTimer = null;
 function reportHitBoxSoon() {
@@ -167,15 +152,13 @@ function reportHitBoxSoon() {
   hitTimer = setTimeout(() => { hitTimer = null; reportHitBox(); }, 100);
 }
 function reportHitBox() {
-  // 输入/设置面板打开期间整窗可交互——"点空白关闭面板"的体验前提
-  //（穿透模式下空白点击本会直接落到桌面，webview 收不到事件）
   const inputOpen = !inputPanel.classList.contains("hidden");
   const settingsOpen = !settingsPanel.classList.contains("hidden");
+  // 输入/设置面板打开期间整窗可交互——"点空白关闭面板"的体验前提
   if (inputOpen || settingsOpen) {
-    callGo("SetPetHitBox", 0, 0, window.innerWidth, window.innerHeight, window.innerWidth, window.innerHeight);
+    window.pet && window.pet.setHitBox(0, 0, window.innerWidth, window.innerHeight);
     return;
   }
-  // 命中盒 = 宠物矩形外扩 10px；菜单打开时一并纳入可交互区
   const r = petEl.getBoundingClientRect();
   let x = r.left - 10, right = r.right + 10, y = r.top - 10, bottom = r.bottom + 10;
   if (!menuEl.classList.contains("hidden")) {
@@ -183,12 +166,11 @@ function reportHitBox() {
     x = Math.min(x, mr.left); right = Math.max(right, mr.right);
     y = Math.min(y, mr.top); bottom = Math.max(bottom, mr.bottom);
   }
-  callGo("SetPetHitBox", x, y, right - x, bottom - y, window.innerWidth, window.innerHeight);
+  window.pet && window.pet.setHitBox(x, y, right - x, bottom - y);
 }
 
-// 点面板外任意处 = 关闭面板（面板打开期间整窗可交互，事件能到达 webview）。
-// 打开后 600ms 为保护期：双击开面板的第二击若没点中移动中的宠物，
-// 不应把刚弹出的面板又关掉。
+// 点面板外任意处 = 关闭面板（面板打开期间整窗可交互，事件能到达页面）。
+// 打开后 600ms 为保护期：双击开面板的第二击若没点中移动中的宠物，不应把刚弹出的面板又关掉。
 let panelOpenedAt = 0;
 window.addEventListener("pointerdown", e => {
   const inputOpen = !inputPanel.classList.contains("hidden");
@@ -205,7 +187,6 @@ window.addEventListener("pointerdown", e => {
 // ---------- 气泡 ----------
 
 let fadeTimer = null;
-// sticky=true 的气泡不自动淡出（错误/澄清选项需常驻直到用户处理）
 function showBubble(html, cls, sticky) {
   bubbleEl.classList.remove("hidden", "fading");
   bubbleBody.innerHTML = html;
@@ -219,7 +200,6 @@ function showBubble(html, cls, sticky) {
 function positionBubble() {
   const bw = bubbleEl.offsetWidth || 300;
   const cx = petX() + petW() / 2;
-  // 左右避让：宠物偏左则气泡向右展开，反之向左；整体钳制在窗口内
   let left = cx < window.innerWidth / 2 ? petX() + petW() * 0.4 : cx - bw - petW() * 0.4;
   left = Math.max(8, Math.min(window.innerWidth - bw - 8, left));
   bubbleEl.style.left = left + "px";
@@ -228,7 +208,7 @@ function positionBubble() {
   tail.style.left = tx + "px";
 }
 
-// ---------- 轻量 Markdown（转义 + code/strong/链接/表格，与服务端回答格式对齐） ----------
+// ---------- 轻量 Markdown ----------
 
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -245,7 +225,7 @@ function mdRender(text) {
   for (const line of lines) {
     if (/^\s*\|/.test(line)) {
       const cells = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
-      if (cells.every(c => /^[\s:-]*$/.test(c))) continue; // 分隔行
+      if (cells.every(c => /^[\s:-]*$/.test(c))) continue;
       if (!inTable) { html += "<table>"; inTable = true; }
       html += "<tr>" + cells.map(c => "<td>" + mdInline(c.trim()) + "</td>").join("") + "</tr>";
       continue;
@@ -260,99 +240,272 @@ function mdRender(text) {
   return html;
 }
 
-// ---------- 会话与对话 ----------
+// ---------- 会话 API（fetch 直连服务端） ----------
+
+function api(path, opts) {
+  const o = opts || {};
+  o.headers = Object.assign({ "Authorization": "Bearer " + cfg.REMOTE_TOKEN }, o.headers || {});
+  if (o.body && !o.raw) {
+    o.headers["Content-Type"] = "application/json";
+    o.body = JSON.stringify(o.body);
+  }
+  return fetch(cfg.REMOTE_BASE_URL + path, o);
+}
+
+async function apiNewSession() {
+  const r = await api("/v1/session/new", { method: "POST" });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const env = await r.json();
+  return env.session_id;
+}
+async function apiListSessions(sids) {
+  if (!sids.length) return [];
+  const r = await api("/v1/sessions?ids=" + encodeURIComponent(sids.join(",")));
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const env = await r.json();
+  return env.sessions || [];
+}
+async function apiDeleteSession(sid) {
+  const r = await api("/v1/session?session_id=" + encodeURIComponent(sid), { method: "DELETE" });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+}
+async function apiHistory(sid) {
+  const r = await api("/v1/session/history?session_id=" + encodeURIComponent(sid));
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  const env = await r.json();
+  return env.messages || [];
+}
+function apiReset(sid) {
+  api("/v1/session/reset", { method: "POST", body: { session_id: sid } }).catch(() => {});
+}
+
+// ---------- SSE 直连（fetch + ReadableStream 手动解析，断线凭 WAL 续传） ----------
+
+const RESUME_MAX_RETRY = 5;
+const RESUME_BACKOFF = [800, 1500, 3000, 5000, 8000];
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// 解析一段 SSE 流并回调事件；返回 {turnID, got} 供续传
+async function streamOnce(sessionID, userText, resume, cb) {
+  const payload = resume
+    ? { session_id: sessionID, message: "", images: null, resume_turn: resume.turnID, resume_after: resume.got }
+    : { session_id: sessionID, message: userText, images: null, resume_turn: "", resume_after: 0 };
+  const resp = await fetch(cfg.REMOTE_BASE_URL + "/v1/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + cfg.REMOTE_TOKEN, "Accept": "text/event-stream" },
+    body: JSON.stringify(payload),
+  });
+  if (resp.status === 401) throw new Error("远端服务鉴权失败，请检查 REMOTE_TOKEN");
+  if (!resp.ok) {
+    const bodyText = await resp.text().catch(() => "");
+    try { throw new Error(JSON.parse(bodyText).error || "HTTP " + resp.status); }
+    catch (e) { throw e instanceof SyntaxError ? new Error("HTTP " + resp.status) : e; }
+  }
+
+  const st = { turnID: resume ? resume.turnID : "", got: resume ? resume.got : 0 };
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) >= 0) {
+      const block = buf.slice(0, idx);
+      buf = buf.slice(idx + 2);
+      // 解析事件块：event: X\ndata: Y（: 开头的行是心跳，忽略）
+      let event = "", data = "";
+      for (const line of block.split("\n")) {
+        if (line.startsWith(":")) continue;
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (!event) continue;
+      let parsed = null;
+      if (data) { try { parsed = JSON.parse(data); } catch { parsed = data; } }
+      switch (event) {
+        case "chunk":
+          st.got++;
+          cb.onChunk(typeof parsed === "string" ? parsed : data);
+          break;
+        case "thought":
+          if (parsed && parsed.text) st.got++;
+          cb.onThought && cb.onThought(parsed && parsed.text);
+          break;
+        case "trace":
+          if (parsed && parsed.trace_id) st.turnID = parsed.trace_id;
+          break;
+        case "clarify":
+          cb.onClarify && cb.onClarify(parsed || {});
+          break;
+        case "interrupted":
+          cb.onInterrupted && cb.onInterrupted(parsed || {});
+          return st; // 中断不重试，上层渲染「重新生成」
+        case "error":
+          throw new Error(typeof parsed === "string" ? parsed : (parsed && parsed.error) || "服务端错误");
+        case "done":
+          cb.onDone && cb.onDone();
+          return st;
+        case "queue":
+        case "candidate":
+        case "tool":
+        case "round":
+        case "plan":
+          break; // 桌宠气泡不呈现执行过程细节，忽略
+      }
+    }
+  }
+  throw new Error("连接中断");
+}
+
+// 带断线续传的对话（trace.turnID 为凭据，chunk+thought 计数续传对齐）
+async function chatWithSession(sessionID, userText, cb) {
+  let attempt = 0, turnID = "", got = 0;
+  for (;;) {
+    let st;
+    try {
+      st = await streamOnce(sessionID, userText, attempt > 0 ? { turnID, got } : null, cb);
+    } catch (e) {
+      if (e.message === "连接中断" && turnID && attempt < RESUME_MAX_RETRY) {
+        attempt++;
+        await sleep(RESUME_BACKOFF[Math.min(attempt - 1, RESUME_BACKOFF.length - 1)]);
+        continue;
+      }
+      throw e;
+    }
+    turnID = st.turnID; got = st.got;
+    return;
+  }
+}
+
+// ---------- 会话与对话（UI 层） ----------
 
 let sessionId = localStorage.getItem(SESSION_KEY);
 let busy = false;
 let answerText = "";
 
+function savedSids() {
+  try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) || "[]"); } catch { return []; }
+}
+function rememberSid(sid) {
+  if (!sid) return;
+  const list = savedSids().filter(s => s !== sid);
+  list.unshift(sid);
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(list.slice(0, 30)));
+}
+
 function ensureSession() {
   if (sessionId) { rememberSid(sessionId); return; }
-  callGo("NewSession").then(id => {
+  apiNewSession().then(id => {
     if (id) {
       sessionId = id;
       localStorage.setItem(SESSION_KEY, id);
-      rememberSid(id); // 进历史对话列表（设置面板可见）
+      rememberSid(id);
     }
-  });
+  }).catch(() => {});
 }
 
 function send(text) {
   text = (text || "").trim();
   if (!text || busy) { if (busy) showBubble("轩还在回答上一个问题哦…", "thinking"); return; }
+  if (cfgErr) { setState("startled"); showBubble('<span class="err">' + escapeHtml(cfgErr) + "</span>", "err", true); return; }
   hideInput();
   busy = true; answerText = "";
   setState("think");
   showBubble('<span class="thinking">让我想想…</span>', "thinking");
-  callGo("Chat", sessionId || "default", text).catch(err => {
+
+  chatWithSession(sessionId || "default", text, {
+    onChunk: (c) => {
+      if (state === "think") setState("talk");
+      answerText += c;
+      showBubble(mdRender(answerText), "");
+    },
+    onClarify: (p) => {
+      busy = false;
+      setState("idle");
+      let html = escapeHtml(p.text || "需要确认一下：") + '<div class="clarify-opts">';
+      for (const o of (p.options || [])) {
+        html += '<button class="clarify-opt" data-q="' + escapeHtml(o.label) + '">' + escapeHtml(o.label) +
+                (o.description ? "<small>" + escapeHtml(o.description) + "</small>" : "") + "</button>";
+      }
+      html += "</div>";
+      showBubble(html, "", true);
+      bubbleBody.querySelectorAll(".clarify-opt").forEach(b => {
+        b.onclick = () => send(b.dataset.q);
+      });
+    },
+    onInterrupted: (p) => {
+      busy = false;
+      setState("idle");
+      showBubble("（回答被中断，已生成内容如上；重新问一次就好）", "thinking");
+    },
+    onDone: () => {
+      busy = false;
+      setState("celebrate");
+      setTimeout(() => { if (state === "celebrate") setState("idle"); scheduleIdle(); }, 2200);
+      showBubble(mdRender(answerText), "");
+    },
+  }).catch(err => {
     busy = false;
     setState("startled");
-    showBubble('<span class="err">' + escapeHtml(String(err)) + "</span>", "err");
+    showBubble('<span class="err">' + escapeHtml(String(err && err.message || err)) + "</span>", "err", true);
   });
 }
 
-window.runtime && [
-  ["chat:chunk", c => {
-    if (state === "think") setState("talk");
-    answerText += c;
-    showBubble(mdRender(answerText), "");
-    // 流式期间锚定气泡
-  }],
-  ["chat:done", () => {
-    busy = false;
-    setState("celebrate");
-    setTimeout(() => { if (state === "celebrate") setState("idle"); scheduleIdle(); }, 2200);
-    showBubble(mdRender(answerText), "");
-  }],
-  ["chat:error", msg => {
-    busy = false;
-    setState("startled");
-    showBubble('<span class="err">' + escapeHtml(String(msg)) + "</span>", "err", true);
-  }],
-  ["chat:interrupted", p => {
-    busy = false;
-    setState("idle");
-    showBubble("（回答被中断，已生成内容如上；重新问一次就好）", "thinking");
-  }],
-  ["chat:clarify", p => {
-    busy = false;
-    setState("idle");
-    let html = escapeHtml(p.text || "需要确认一下：") + '<div class="clarify-opts">';
-    for (const o of (p.options || [])) {
-      html += '<button class="clarify-opt" data-q="' + escapeHtml(o.label) + '">' + escapeHtml(o.label) +
-              (o.description ? "<small>" + escapeHtml(o.description) + "</small>" : "") + "</button>";
-    }
-    html += "</div>";
-    showBubble(html, "", true);
-    bubbleBody.querySelectorAll(".clarify-opt").forEach(b => {
-      b.onclick = () => send(b.dataset.q);
-    });
-  }],
-  // ---------- PTT 听写 ----------
-  ["mic:on", () => {
-    micDot.classList.remove("hidden");
-    if (!busy) setState("work");
-    showBubble('<span class="listening">🎤 在听，请讲…</span>', "listening");
-  }],
-  ["mic:off", () => micDot.classList.add("hidden")],
-  ["asr:partial", p => showBubble('<span class="listening">🎤 ' + escapeHtml(p.text || "") + "</span>", "listening")],
-  ["asr:final", p => showBubble('<span class="listening">🎤 ' + escapeHtml(p.text || "") + "</span>", "listening")],
-  ["asr:utterance", p => {
-    const text = (p.text || "").trim();
-    if (!text) { showBubble("（没听清，再试一次？）", "thinking"); return; }
-    if (p.autosend) { send(text); return; }
-    showInput(text);
-  }],
-  ["asr:error", p => showBubble('<span class="err">' + escapeHtml(p.message || "听写不可用") + "</span>", "err", true)],
-].forEach(([name, fn]) => window.runtime.EventsOn(name, fn));
+// ---------- PTT 听写编排（主进程 SAPI 子进程 + koffi 热键） ----------
+
+let held = false;
+let utter = "";
+
+window.pet && window.pet.onPtt(down => { down ? beginListening() : endListening(); });
+window.pet && window.pet.onAsr(evt => {
+  switch (evt.type) {
+    case "partial":
+      showBubble('<span class="listening">🎤 ' + escapeHtml(evt.text || "") + "</span>", "listening");
+      break;
+    case "final":
+      if (utter) utter += "，";
+      utter += evt.text || "";
+      showBubble('<span class="listening">🎤 ' + escapeHtml(utter) + "</span>", "listening");
+      break;
+    case "done":
+      // 一句说完仍按住 → 300ms 后自动续听下一句（多句 PTT 语义）
+      if (held && (evt.reason === "completed" || evt.reason === "timeout" || evt.reason === "rejected")) {
+        setTimeout(() => { if (held) window.pet && window.pet.listenStart(); }, 300);
+      }
+      break;
+  }
+});
+
+function beginListening() {
+  if (held) return;
+  held = true;
+  utter = "";
+  micDot.classList.remove("hidden");
+  if (!busy) setState("work");
+  showBubble('<span class="listening">🎤 在听，请讲…</span>', "listening");
+  window.pet && window.pet.listenStart();
+}
+
+function endListening() {
+  if (!held) return;
+  held = false;
+  window.pet && window.pet.listenStop();
+  micDot.classList.add("hidden");
+  const text = utter.trim();
+  if (!text) { showBubble("（没听清，再试一次？）", "thinking"); return; }
+  if (cfg.ASR_AUTO_SEND) { send(text); return; }
+  showInput(text);
+}
 
 // ---------- 输入面板 ----------
 
 function showInput(text) {
   settingsPanel.classList.add("hidden");
   inputPanel.classList.remove("hidden");
-  panelOpenedAt = Date.now(); // 点外关闭的保护期起点
-  if (state === "walk") setState("idle"); // 面板期间停走，别让面板追着宠物跑
+  panelOpenedAt = Date.now();
+  if (state === "walk") setState("idle");
   positionInput();
   if (text != null) inputEl.value = text;
   inputEl.focus();
@@ -371,7 +524,7 @@ function positionInput() {
 }
 
 function submitInput() {
-  if (inputEl.composing) return; // 输入法组合态保护
+  if (inputEl.composing) return;
   const t = inputEl.value;
   if (!t.trim()) return;
   inputEl.value = "";
@@ -385,16 +538,16 @@ inputEl.addEventListener("keydown", e => {
 inputEl.addEventListener("compositionstart", () => (inputEl.composing = true));
 inputEl.addEventListener("compositionend", () => (inputEl.composing = false));
 
-// Esc 全局兜底：关闭最上层的面板（穿透模式下点空白关不掉，键盘是唯一通道）
+// Esc 全局兜底：关闭最上层的面板
 window.addEventListener("keydown", e => {
   if (e.key === "Escape") {
-    if (!menuEl.classList.contains("hidden")) { menuEl.classList.add("hidden"); callGo("SetDragging", false); }
+    if (!menuEl.classList.contains("hidden")) menuEl.classList.add("hidden");
     else if (!settingsPanel.classList.contains("hidden")) closeSettings();
     else if (!inputPanel.classList.contains("hidden")) hideInput();
   }
 });
 
-// ---------- 设置面板（Coopanion 形态：历史对话 + 设置） ----------
+// ---------- 设置面板 ----------
 
 const tabHistoryBtn = document.getElementById("tabHistory");
 const tabSettingsBtn = document.getElementById("tabSettings");
@@ -405,7 +558,7 @@ function openSettings() {
   menuEl.classList.add("hidden");
   hideInput();
   settingsPanel.classList.remove("hidden");
-  panelOpenedAt = Date.now(); // 点外关闭的保护期起点
+  panelOpenedAt = Date.now();
   renderSessions();
   initOptionToggles();
   reportHitBox();
@@ -413,8 +566,7 @@ function openSettings() {
 function closeSettings() {
   settingsPanel.classList.add("hidden");
   historyViewEl.classList.add("hidden");
-  sessionListEl.classList.remove("hidden");
-  callGo("SetDragging", false);
+  sessionListEl.style.display = "";
   reportHitBox();
 }
 document.getElementById("closeSettingsBtn").addEventListener("click", closeSettings);
@@ -428,33 +580,21 @@ tabSettingsBtn.addEventListener("click", () => {
   pageSettingsEl.classList.remove("hidden"); pageHistoryEl.classList.add("hidden");
 });
 
-// 保存的会话 ID 集合（最新签发的排最前）
-function savedSids() {
-  try { return JSON.parse(localStorage.getItem(SESSIONS_KEY) || "[]"); } catch { return []; }
-}
-function rememberSid(sid) {
-  if (!sid) return;
-  const list = savedSids().filter(s => s !== sid);
-  list.unshift(sid);
-  localStorage.setItem(SESSIONS_KEY, JSON.stringify(list.slice(0, 30)));
-}
-
 function fmtTime(ts) {
   if (!ts) return "";
   const d = new Date(ts * 1000);
   const now = Date.now() / 1000;
-  if (now - ts < 86400) return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  if (now - ts < 86400) return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
+  return (d.getMonth() + 1) + "/" + d.getDate();
 }
 
-// 渲染历史会话列表（标题/时间/消息数 + 切换/删除）
 function renderSessions() {
   const sids = savedSids();
   if (!sids.length) {
     sessionListEl.innerHTML = '<li><span class="s-title" style="color:#8a94a6">还没有对话记录～</span></li>';
     return;
   }
-  callGo("ListSessions", sids).then(list => {
+  apiListSessions(sids).then(list => {
     if (!list || !list.length) {
       sessionListEl.innerHTML = '<li><span class="s-title" style="color:#8a94a6">（服务端没有这些会话的记录，可能已过期清理）</span></li>';
       return;
@@ -464,37 +604,38 @@ function renderSessions() {
     for (const s of list) {
       const li = document.createElement("li");
       if (s.session_id === sessionId) li.classList.add("current");
-      li.innerHTML = `<span class="s-title">${escapeHtml(s.title || "（未命名对话）")}</span>` +
-        `<span class="s-meta">${fmtTime(s.updated_at)} · ${s.msg_count}条</span>` +
-        `<button class="s-del" title="切换到此对话" style="color:#7ec2ff;font-size:12px">切换</button>` +
-        `<button class="s-del" title="删除此对话">删</button>`;
-      // 点行：面板内回看历史；「切换」：设为当前会话；「删」：删除
+      li.innerHTML = '<span class="s-title">' + escapeHtml(s.title || "（未命名对话）") + "</span>" +
+        '<span class="s-meta">' + fmtTime(s.updated_at) + " · " + s.msg_count + '条</span>' +
+        '<button class="s-del" title="切换到此对话" style="color:#7ec2ff;font-size:12px">切换</button>' +
+        '<button class="s-del" title="删除此对话">删</button>';
       li.addEventListener("click", () => viewHistory(s.session_id, s.title));
       li.querySelectorAll("button")[0].addEventListener("click", e => { e.stopPropagation(); switchSession(s.session_id); });
       li.querySelectorAll("button")[1].addEventListener("click", e => {
         e.stopPropagation();
-        callGo("DeleteSession", s.session_id);
+        apiDeleteSession(s.session_id).catch(() => {});
         localStorage.setItem(SESSIONS_KEY, JSON.stringify(savedSids().filter(x => x !== s.session_id)));
         if (s.session_id === sessionId) switchToNewSession();
         renderSessions();
       });
       sessionListEl.appendChild(li);
     }
+  }).catch(() => {
+    sessionListEl.innerHTML = '<li><span class="s-title" style="color:#8a94a6">（会话列表获取失败）</span></li>';
   });
 }
 
-// 面板内回看指定会话的历史消息
 function viewHistory(sid, title) {
-  callGo("SessionHistory", sid).then(msgs => {
+  apiHistory(sid).then(msgs => {
     historyViewEl.classList.remove("hidden");
     sessionListEl.style.display = "none";
-    let html = `<button class="hback">← 返回列表</button>`;
+    let html = '<button class="hback">← 返回列表</button>';
     if (!msgs || !msgs.length) {
-      html += `<div class="hmsg" style="color:#8a94a6">（没有可回看的消息）</div>`;
+      html += '<div class="hmsg" style="color:#8a94a6">（没有可回看的消息）</div>';
     } else {
-      html += `<div style="color:#8a94a6;font-size:11px;margin-bottom:4px">${escapeHtml(title || "")} 共 ${msgs.length} 条</div>`;
+      html += '<div style="color:#8a94a6;font-size:11px;margin-bottom:4px">' + escapeHtml(title || "") + " 共 " + msgs.length + " 条</div>";
       for (const m of msgs) {
-        html += `<div class="hmsg ${m.role === "user" ? "user" : "assistant"}">${m.role === "user" ? "问：" : "答："}${escapeHtml(m.content)}</div>`;
+        html += '<div class="hmsg ' + (m.role === "user" ? "user" : "assistant") + '">' +
+                (m.role === "user" ? "问：" : "答：") + escapeHtml(m.content) + "</div>";
       }
     }
     historyViewEl.innerHTML = html;
@@ -502,10 +643,11 @@ function viewHistory(sid, title) {
       historyViewEl.classList.add("hidden");
       sessionListEl.style.display = "";
     });
+  }).catch(() => {
+    showBubble('<span class="err">会话历史获取失败</span>', "err", true);
   });
 }
 
-// 切换当前会话
 function switchSession(sid) {
   if (busy) { showBubble("轩正在回答中，稍等再切换～", "thinking"); return; }
   sessionId = sid;
@@ -514,7 +656,6 @@ function switchSession(sid) {
   renderSessions();
 }
 
-// 开新对话（菜单/设置面板共用）
 function switchToNewSession() {
   if (busy) { showBubble("轩正在回答中，稍等再开新对话～", "thinking"); return false; }
   localStorage.removeItem(SESSION_KEY);
@@ -528,7 +669,7 @@ function switchToNewSession() {
 document.getElementById("newChatInPanel").addEventListener("click", switchToNewSession);
 document.getElementById("refreshSessions").addEventListener("click", renderSessions);
 
-// 设置页开关：置顶 / PTT / 自动发送（后两者运行时生效并回读初始值）
+// 设置页开关：置顶 / PTT / 自动发送
 let optInitDone = false;
 function initOptionToggles() {
   if (optInitDone) return;
@@ -540,14 +681,12 @@ function initOptionToggles() {
   optPinEl.addEventListener("change", () => {
     pinTop = optPinEl.checked;
     localStorage.setItem("yh_pin_top", pinTop ? "1" : "0");
-    callGo("SetAlwaysOnTop", pinTop);
+    window.pet && window.pet.setAlwaysOnTop(pinTop);
   });
-  Promise.all([callGo("GetPTTEnabled"), callGo("GetASRAutoSend")]).then(([ptt, auto]) => {
-    optPTTEl.checked = !!ptt;
-    optAutoSendEl.checked = !!auto;
-  });
-  optPTTEl.addEventListener("change", () => callGo("SetPTTEnabled", optPTTEl.checked));
-  optAutoSendEl.addEventListener("change", () => callGo("SetASRAutoSend", optAutoSendEl.checked));
+  optPTTEl.checked = !!cfg.PTT_ENABLED;
+  optPTTEl.addEventListener("change", () => window.pet && window.pet.setPTT(optPTTEl.checked));
+  optAutoSendEl.checked = !!cfg.ASR_AUTO_SEND;
+  optAutoSendEl.addEventListener("change", () => { cfg.ASR_AUTO_SEND = optAutoSendEl.checked ? 1 : 0; });
 }
 
 // ---------- 拖拽 / 戳摸 ----------
@@ -555,7 +694,7 @@ function initOptionToggles() {
 let dragging = false, dragMoved = false, downAt = 0, downX = 0, downY = 0, grabDX = 0, grabDY = 0;
 
 petEl.addEventListener("pointerdown", e => {
-  if (e.button === 2) return; // 右键走菜单
+  if (e.button === 2) return;
   wakeUp();
   petEl.setPointerCapture(e.pointerId);
   dragging = true; dragMoved = false; downAt = Date.now();
@@ -567,10 +706,9 @@ petEl.addEventListener("pointerdown", e => {
 petEl.addEventListener("pointermove", e => {
   if (!dragging) return;
   if (!dragMoved) {
-    if (Math.hypot(e.clientX - downX, e.clientY - downY) < 5) return; // 容差内的微动不算拖
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) < 5) return;
     dragMoved = true;
     setState("drag");
-    callGo("SetDragging", true);
   }
   setPetX(e.clientX - grabDX);
   const y = Math.max(0, Math.min(window.innerHeight - petH(), e.clientY - grabDY));
@@ -579,9 +717,7 @@ petEl.addEventListener("pointermove", e => {
 petEl.addEventListener("pointerup", e => {
   if (!dragging) return;
   dragging = false;
-  callGo("SetDragging", false);
   if (state === "drag") {
-    // 落回地面（弹跳缓动），然后开心一下
     petEl.classList.add("dropping");
     petEl.style.bottom = "0px";
     setState("happy");
@@ -591,14 +727,10 @@ petEl.addEventListener("pointerup", e => {
     }, 480);
     return;
   }
-  // 未位移的快速点击 = 戳摸：播点击回应或唤起输入
-  if (Date.now() - downAt < 350 && !dragMoved) {
-    poke();
-  }
+  if (Date.now() - downAt < 350 && !dragMoved) poke();
 });
 
 function poke() {
-  // 输入/设置面板开着时，点宠物 = 关闭面板（穿透模式下点空白无效，宠物即"关闭按钮"）
   if (!inputPanel.classList.contains("hidden")) { hideInput(); return; }
   if (!settingsPanel.classList.contains("hidden")) { closeSettings(); return; }
   if (busy) { showBubble("轩正在回答中…", "thinking"); return; }
@@ -606,7 +738,6 @@ function poke() {
   const msgs = ["轩？", "干嘛戳我～", "想问什么就戳出输入框吧", "轩在呢！", "轻点轻点…"];
   showBubble(msgs[Math.floor(Math.random() * msgs.length)], "");
   setTimeout(() => { if (state === "poke") setState("idle"); }, 1600);
-  // 300ms 内第二次戳 → 唤起输入面板（戳两下比单击更不易误触）
   const now = Date.now();
   if (now - (poke.last || 0) < 600) showInput();
   poke.last = now;
@@ -619,31 +750,24 @@ petEl.addEventListener("contextmenu", e => {
   menuEl.classList.remove("hidden");
   menuEl.style.left = Math.min(e.clientX, window.innerWidth - 130) + "px";
   menuEl.style.top = Math.max(4, e.clientY - 150) + "px";
-  callGo("SetDragging", true); // 菜单期间强制可交互
   reportHitBox();
 });
 document.addEventListener("pointerdown", e => {
   if (!menuEl.classList.contains("hidden") && !menuEl.contains(e.target)) {
     menuEl.classList.add("hidden");
-    callGo("SetDragging", false);
     reportHitBox();
   }
 });
 menuEl.addEventListener("click", e => {
   const act = e.target.dataset && e.target.dataset.act;
   menuEl.classList.add("hidden");
-  callGo("SetDragging", false);
-  if (act === "input") {
-    showInput();
-  } else if (act === "new") {
-    switchToNewSession();
-  } else if (act === "settings") {
-    openSettings();
-  } else if (act === "quit") {
-    callGo("Quit");
-  }
+  reportHitBox();
+  if (act === "input") showInput();
+  else if (act === "new") switchToNewSession();
+  else if (act === "settings") openSettings();
+  else if (act === "quit") window.pet && window.pet.quit();
 });
-// 置顶初始态：跟随上次设置（localStorage），默认开
+
 let pinTop = localStorage.getItem("yh_pin_top") !== "0";
 
 // ---------- 启动 ----------
@@ -655,15 +779,17 @@ window.addEventListener("resize", () => {
   reportHitBox();
 });
 
-setPetX(Math.max(0, window.innerWidth / 2 - petW() / 2));
-setState("idle");
-ensureSession();
-if (!pinTop) callGo("SetAlwaysOnTop", false); // 上次关掉过置顶则启动即取消
-callGo("ConfigError").then(err => {
-  if (err) {
+function bootBubble() {
+  if (cfgErr) {
     setState("startled");
-    showBubble('<span class="err">' + escapeHtml(String(err)) + "</span>", "err", true);
+    showBubble('<span class="err">' + escapeHtml(cfgErr) + "</span>", "err", true);
     return;
   }
   showBubble("指挥官好，我是小小轩～<br>戳两下我提问，<b>按住左 Alt 说话</b>；右键有菜单（设置/历史对话）。", "");
-});
+}
+
+setPetX(Math.max(0, window.innerWidth / 2 - petW() / 2));
+setState("idle");
+ensureSession();
+if (!pinTop) window.pet && window.pet.setAlwaysOnTop(false);
+bootBubble(); // 配置未到时先出欢迎语；getConfig 返回后再覆盖

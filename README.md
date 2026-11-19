@@ -8,7 +8,7 @@
 <br />
 
 ![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)
-![Wails](https://img.shields.io/badge/Wails-v2%20%20%20-2980a8)
+![Electron](https://img.shields.io/badge/Electron-33-9feaf9)
 ![CGO](https://img.shields.io/badge/CGO-zero-success)
 ![Arch](https://img.shields.io/badge/Deploy-Linux%20amd64%20%7C%20Windows-555)
 ![Status](https://img.shields.io/badge/status-%E5%BC%80%E5%8F%91%E4%B8%AD-orange)
@@ -24,7 +24,7 @@
 |智能对话 | 多轮上下文 + Function Call 自主决策工具，SSE 流式逐字输出 |
 |实时数据 | 接入三角洲数据帝开放平台 **24 个工具**：物品价格、假账排行、卡战备、钥匙卡、倒子弹、制造/兑换利润、赛季任务、今日密码、市集物品等 |
 |智能改枪顾问 | 简称自动补全枪名（`K437` → `K437突击步枪`）、聚合最多 96 个社区方案、解析八维属性按「压枪 / 腰射 / 稳定 / 操控 / 射程 / 均衡 / 省钱 / 热度」排序，输出 Top5 可直接导入的改枪码 |
-|桌宠客户端 | 自研 Go/Wails 桌宠（`client/`，EXE ~17MB 单文件）：透明置顶带状窗贴屏幕底边、宠物沿地面走动（透明 webm 动画）、气泡流式回答、**按住左 Alt 说话**（SAPI 流式听写）、拖拽/戳摸/右键菜单，除宠物命中区外全窗鼠标穿透；经原生 SSE 直连服务端 |
+|桌宠客户端 | 自研桌宠（`client/`，Electron 壳 + Coopanion/dsh-pet 同款 transparent 窗口机制）：透明置顶带状窗贴屏幕底边、宠物沿地面走动（透明 webm 动画）、气泡流式回答、**按住左 Alt 说话**（SAPI 流式听写）、拖拽/戳摸/右键菜单与设置面板（历史对话），除宠物命中区外全窗鼠标穿透；渲染进程 fetch 直连服务端 SSE |
 |截图识别（后续） | 服务端多模态链路保留（`/v1/chat` images），桌宠客户端的截图上传入口列入后续版本 |
 |静态知识库 | 内置 Markdown 切片 + 向量检索 RAG 框架（1967 篇源文档随仓库分发、克隆即得），支持热更新知识库内容 |
 |工程化 | 全用户共享缓存（按上游更新频率分级 TTL + 5000 条 LRU 上限）、singleflight 防击穿、会话空闲自动清理、Bearer 令牌鉴权、零 CGO 单二进制部署 |
@@ -34,12 +34,12 @@
 ```text
 ┌──────────────────────────────────┐
 │  YHagent-Pet 桌宠客户端            │
-│  (Go/Wails · WebView2 · EXE 17MB) │
-│  透明置顶带状窗 · 全窗穿透除命中区  │
+│  (Electron · transparent 置顶带状窗)│
+│  全窗穿透除命中区 · 悬停即停        │
 │  气泡 · 按住左Alt说话(SAPI) · 拖拽  │
 └───────────────┬──────────────────┘
                 │ HTTPS + Bearer Token
-                │ 原生 SSE（/v1/chat）
+                │ 原生 SSE（/v1/chat，渲染进程 fetch 直连）
                 │ （OpenAI 兼容门面为归档可选通道）
                 ▼
               ┌────────────────────────┐
@@ -57,9 +57,9 @@
           └──────────────┘ └────────────────────┘
 ```
 
-**单仓双 Module**（根目录 `go.work` 串联，客户端不依赖任何服务端代码）：
+**Go 服务端 + Electron 桌宠客户端**：
 
-- `client/`（module `yhagent-client`）：Wails 瘦客户端，不持有任何业务 API Key，只负责桌宠形态与 SSE 事件转发；语音听写为系统 SAPI（本地、零外网依赖）
+- `client/`：Electron 壳（窗口机制移植自 dsh-pet 的 electron-helper，MIT），不持有任何业务 API Key；语音听写为系统 SAPI（本地、零外网依赖），PTT 热键为 koffi GetAsyncKeyState 轮询
 - `server/`（module `yhagent-server`）：全部智能能力、密钥、缓存、知识库都收敛在服务端，十万客户端共享一份缓存
 - `server/internal/openaicompat`：OpenAI 兼容门面（阶段 35 Coopanion 套壳通道）**归档保留**，默认关闭，存量 Coopanion 客户端仍可接入
 
@@ -67,17 +67,15 @@
 
 ```text
 YHagent/
-├── go.work                     # 串联 client / server 两个 module
-├── client/                     # 桌宠客户端（module yhagent-client，Wails v2）
-│   ├── app.go                  # 前端绑定层（事件协议：chat:* / mic:* / asr:*）
-│   ├── main.go                 # 带状窗 options + 桌宠基础设施装配
-│   ├── internal/
-│   │   ├── asr/                # SAPI 流式听写（PowerShell System.Speech 子进程）
-│   │   ├── config/             # .env 加载（远端地址/桌宠几何/PTT 全可配）
-│   │   ├── hotkey/             # 按住说话热键（GetAsyncKeyState 轮询 + 边沿检测）
-│   │   ├── remote/             # SSE 远端对话客户端（断线续传/澄清/多会话）
-│   │   └── win/                # 带状窗几何 + 穿透轮询（纯 user32 syscall）
-│   └── frontend/dist/          # 桌宠 UI（原生 HTML/CSS/JS + 透明 webm 动画）
+├── go.work                     # server module（客户端已转 Electron，不再入 workspace）
+├── client/                     # 桌宠客户端（Electron 壳）
+│   ├── package.json            # electron 33 + koffi（FFI 调 GetAsyncKeyState）
+│   ├── electron/
+│   │   ├── main.js             # 透明置顶窗/带状几何/穿透轮询/置顶看门狗/SAPI/PTT
+│   │   ├── preload.js          # contextBridge 唯一桥（渲染进程无 node 能力）
+│   │   └── sapi.ps1            # SAPI 流式听写脚本（PowerShell System.Speech）
+│   └── renderer/               # 桌宠 UI（原生 HTML/CSS/JS + 透明 webm 动画）
+│       └── app.js              # 状态机/气泡/面板 + SSE 直连（WAL 断线续传）
 └── server/                     # 云服务器（module yhagent-server）
     ├── cmd/
     │   ├── server/             # HTTP/SSE 服务入口
@@ -122,11 +120,13 @@ go run ./cmd/server
 
 ```powershell
 cd client
-Copy-Item .env.example .env    # 填 REMOTE_BASE_URL（服务地址）与 REMOTE_TOKEN（=SERVER_TOKEN）
-wails build                    # 产出 build\bin\YHagent-Pet.exe（~17MB 单文件）
+Copy-Item .env.example .env    # 填 REMOTE_BASE_URL（服务地址）与 REMOTE_TOKEN（=SERVER_TOKEN）；无 BOM 编码保存
+npm install                    # Electron + koffi（.npmrc 已配国内镜像）
+npm start                      # 开发态直接运行
+npm run dist                   # electron-builder 出 portable 包（release/ 下）
 ```
 
-把 `.env` 与 `YHagent-Pet.exe` 放同一目录双击即可：宠物贴屏幕底边走动，**戳两下**提问、**按住左 Alt** 说话、**右键宠物**有菜单（新对话/清空上下文/置顶/退出）。
+宠物贴屏幕底边走动：**戳两下**提问、**按住左 Alt** 说话、**右键宠物**有菜单（提问/新对话/设置与历史/退出）、鼠标**悬停**宠物即停下、**拖拽**可移动到任意位置后落地。
 
 > 桌宠几何/PTT 均可 `.env` 调整：`PET_BAND_HEIGHT`（带状窗高）、`PET_BOTTOM_GAP`（离底边间隙）、`PTT_ENABLED`、`PTT_KEY_VK`、`ASR_AUTO_SEND`。
 > 阶段 35 的 Coopanion 套壳通道归档保留：存量用户仍可装 [Coopanion 原版](https://github.com/Pal-AI-Lab/Coopanion/releases/latest) 手动配端点（服务端 `OPENAICOMPAT_ENABLED=1`）接入，见阶段 35 文档。
@@ -209,8 +209,8 @@ go run ./cmd/indexer
 | --- | --- | --- |
 | `REMOTE_BASE_URL` | 是 | 远端服务地址（正式环境用 https） |
 | `REMOTE_TOKEN` | 是 | 与服务端 `SERVER_TOKEN` 一致 |
-| `PET_BAND_HEIGHT` | 否 | 带状窗高度（物理像素），默认 260 |
-| `PET_BOTTOM_GAP` | 否 | 窗口底边离工作区底边间隙（物理像素），默认 3 |
+| `PET_BAND_HEIGHT` | 否 | 带状窗高度（DIP 逻辑像素），默认 260 |
+| `PET_BOTTOM_GAP` | 否 | 窗口底边离工作区底边间隙（DIP），默认 3 |
 | `PTT_ENABLED` | 否 | 按住说话开关，默认 1 |
 | `PTT_KEY_VK` | 否 | PTT 虚拟键码（十进制），默认 164（左 Alt） |
 | `ASR_AUTO_SEND` | 否 | 听写结束自动发送（说完即问），默认 1 |
@@ -312,7 +312,7 @@ Nginx 反向代理时设置 `proxy_buffering off;` 并调大 `client_max_body_si
 
 - **语言 / 运行时**：Go（标准库 `net/http` + SSE，零 CGO，可交叉编译单二进制）
 - **AI**：火山方舟豆包（对话 + 视觉 + Embedding）、ark-runtime-go
-- **桌面端**：Wails v2（WebView2 透明置顶桌宠窗；窗口几何/穿透走纯 user32 syscall，SAPI 听写走 PowerShell System.Speech）
+- **桌面端**：Electron 33（transparent 置顶桌宠窗；穿透轮询 setIgnoreMouseEvents、PTT 走 koffi FFI、SAPI 听写走 PowerShell System.Speech 子进程）
 - **观测页**：原生 HTML / CSS / JavaScript（`web/dist/trace.html`），`go:embed` 编入二进制
 - **检索**：本地余弦相似度 TopK（`float32` 向量 + gob 持久化），无外部数据库依赖
 - **稳定性**：singleflight 请求合并、分级 TTL 缓存、LRU 容量保险丝、panic 恢复、超时降级
