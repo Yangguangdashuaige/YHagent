@@ -237,7 +237,16 @@ function positionBubble() {
   const tail = bubbleEl.querySelector(".bubble-tail");
   const tx = Math.max(18, Math.min(bw - 32, cx - left - 7));
   tail.style.left = tx + "px";
+  lastBubbleAnchorX = petX(); // 记录锚定基准（跟随泵据此判断过期）
 }
+
+// 气泡跟随泵：统一兜底所有宠物移动路径（指令行走/拖拽/resize），
+// 宠物 x 一变即重定位气泡与尾巴——消灭按路径挂钩的遗漏
+let lastBubbleAnchorX = -1;
+setInterval(() => {
+  if (bubbleEl.classList.contains("hidden")) return;
+  if (petX() !== lastBubbleAnchorX) positionBubble();
+}, 50);
 
 // ---------- 轻量 Markdown ----------
 
