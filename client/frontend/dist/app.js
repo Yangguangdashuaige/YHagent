@@ -117,9 +117,14 @@ function setState(next) {
   }
 }
 
-// 走动 tick：walk 态下水平移动，边界掉头
+// 悬停即停：鼠标放在宠物身上时暂停走动（方便点击；移开恢复）
+let hoverPet = false;
+petEl.addEventListener("pointerenter", () => { hoverPet = true; });
+petEl.addEventListener("pointerleave", () => { hoverPet = false; });
+
+// 走动 tick：walk 态下水平移动，边界掉头；悬停/面板打开期间暂停
 setInterval(() => {
-  if (state !== "walk") return;
+  if (state !== "walk" || hoverPet) return;
   const maxX = window.innerWidth - petW();
   let x = petX() + walkDir * 0.7;
   if (x <= 0) { x = 0; walkDir = 1; }
@@ -162,19 +167,40 @@ function reportHitBoxSoon() {
   hitTimer = setTimeout(() => { hitTimer = null; reportHitBox(); }, 100);
 }
 function reportHitBox() {
-  // 命中盒 = 宠物矩形外扩 10px；输入面板/设置面板/菜单打开时一并纳入可交互区
+  // 输入/设置面板打开期间整窗可交互——"点空白关闭面板"的体验前提
+  //（穿透模式下空白点击本会直接落到桌面，webview 收不到事件）
+  const inputOpen = !inputPanel.classList.contains("hidden");
+  const settingsOpen = !settingsPanel.classList.contains("hidden");
+  if (inputOpen || settingsOpen) {
+    callGo("SetPetHitBox", 0, 0, window.innerWidth, window.innerHeight, window.innerWidth, window.innerHeight);
+    return;
+  }
+  // 命中盒 = 宠物矩形外扩 10px；菜单打开时一并纳入可交互区
   const r = petEl.getBoundingClientRect();
   let x = r.left - 10, right = r.right + 10, y = r.top - 10, bottom = r.bottom + 10;
-  const merge = el => {
-    const er = el.getBoundingClientRect();
-    x = Math.min(x, er.left); right = Math.max(right, er.right);
-    y = Math.min(y, er.top); bottom = Math.max(bottom, er.bottom);
-  };
-  if (!inputPanel.classList.contains("hidden")) merge(inputPanel);
-  if (!settingsPanel.classList.contains("hidden")) merge(settingsPanel);
-  if (!menuEl.classList.contains("hidden")) merge(menuEl);
+  if (!menuEl.classList.contains("hidden")) {
+    const mr = menuEl.getBoundingClientRect();
+    x = Math.min(x, mr.left); right = Math.max(right, mr.right);
+    y = Math.min(y, mr.top); bottom = Math.max(bottom, mr.bottom);
+  }
   callGo("SetPetHitBox", x, y, right - x, bottom - y, window.innerWidth, window.innerHeight);
 }
+
+// 点面板外任意处 = 关闭面板（面板打开期间整窗可交互，事件能到达 webview）。
+// 打开后 600ms 为保护期：双击开面板的第二击若没点中移动中的宠物，
+// 不应把刚弹出的面板又关掉。
+let panelOpenedAt = 0;
+window.addEventListener("pointerdown", e => {
+  const inputOpen = !inputPanel.classList.contains("hidden");
+  const settingsOpen = !settingsPanel.classList.contains("hidden");
+  if (!inputOpen && !settingsOpen) return;
+  if (Date.now() - panelOpenedAt < 600) return;
+  const t = e.target;
+  if (inputPanel.contains(t) || settingsPanel.contains(t) ||
+      petEl.contains(t) || menuEl.contains(t)) return;
+  if (inputOpen) hideInput();
+  else closeSettings();
+});
 
 // ---------- 气泡 ----------
 
@@ -325,6 +351,8 @@ window.runtime && [
 function showInput(text) {
   settingsPanel.classList.add("hidden");
   inputPanel.classList.remove("hidden");
+  panelOpenedAt = Date.now(); // 点外关闭的保护期起点
+  if (state === "walk") setState("idle"); // 面板期间停走，别让面板追着宠物跑
   positionInput();
   if (text != null) inputEl.value = text;
   inputEl.focus();
@@ -377,7 +405,7 @@ function openSettings() {
   menuEl.classList.add("hidden");
   hideInput();
   settingsPanel.classList.remove("hidden");
-  callGo("SetDragging", true); // 面板期间整窗可交互
+  panelOpenedAt = Date.now(); // 点外关闭的保护期起点
   renderSessions();
   initOptionToggles();
   reportHitBox();
