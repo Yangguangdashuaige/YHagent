@@ -124,10 +124,10 @@ func (c *Controller) applyBand() {
 	setWindowPos(c.hwnd, r.Left, r.Top, r.Width(), r.Height())
 }
 
-// setToolWindow 跳过任务栏（WS_EX_TOOLWINDOW），并常驻挂 WS_EX_LAYERED。
-// LAYERED 是鼠标穿透（WS_EX_TRANSPARENT）对系统命中测试生效的前置条件；
-// 需配 SetLayeredWindowAttributes(alpha=1)：alpha=255 时窗口表面整体不透明，
-// 会把桌面盖成一条黑框——alpha=1 近全透明，桌面正常透出。
+// setToolWindow 跳过任务栏（WS_EX_TOOLWINDOW），并常驻挂 WS_EX_LAYERED +
+// 色键透明。LAYERED 是鼠标穿透（WS_EX_TRANSPARENT）对命中测试生效的前置
+// 条件；色键方案见 setLayeredColorKey 注释——窗口底色（品红）被抠透明，
+// 透出桌面，WebView2 子窗口内容正常显示。
 func (c *Controller) setToolWindow() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -136,7 +136,7 @@ func (c *Controller) setToolWindow() {
 	}
 	ex := getExStyle(c.hwnd)
 	setExStyle(c.hwnd, ex|wsExToolWin|wsExLayered)
-	setLayeredAlpha(c.hwnd, 1)
+	setLayeredColorKey(c.hwnd)
 }
 
 // pollLoop dsh-pet 穿透轮询：60ms 光标 vs 命中盒
@@ -190,10 +190,10 @@ func (c *Controller) geometryLoop() {
 }
 
 // applyStyleLocked 实际写扩展样式（调用方持锁）。
-// WS_EX_LAYERED 全程常驻（启动时挂一次 + alpha=1，见 ensureLayeredLocked），
+// WS_EX_LAYERED 全程常驻（启动时挂一次 + 色键透明，见 setToolWindow），
 // 轮询只切换 WS_EX_TRANSPARENT 位——避免 60ms 轮询反复增删 LAYERED 引起
-// 视觉闪变；alpha=255 会让窗口表面整体不透明（黑框盖住桌面），alpha=1 的
-// 窗口表面近全透明，WebView2 子窗口不参与父表面的 alpha 合成、照常渲染。
+// 视觉闪变；透明度走色键（窗口底色品红被抠透，子窗口内容不受影响），
+// 不能走 LWA_ALPHA（整体窗口透明度，会把 WebView2 内容一并合成掉）。
 func (c *Controller) applyStyleLocked(hwnd uintptr, passThru bool) {
 	ex := getExStyle(hwnd)
 	if passThru {

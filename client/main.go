@@ -103,8 +103,12 @@ func main() {
 		Frameless:  true, // 无边框桌宠形态
 		AlwaysOnTop: true, // 悬浮于游戏之上
 		DisableResize: true, // 带状窗尺寸由几何巡检管理，不允许用户拖拽
-		// 透明背景：WebView 透明 + 窗口背景全透明，视觉全由前端宠物/气泡呈现
-		BackgroundColour: options.NewRGBA(0, 0, 0, 0),
+		// 窗口底色 = 品红色键（internal/win.setLayeredColorKey 会把该色抠成
+		// 全透明）：WebView2 透明区露出底色→被色键抠掉→透出桌面；宠物/气泡
+		// 由 WebView2 子窗口渲染，不经过窗口表面、正常显示。
+		// 不能用 alpha 透明：LWA_ALPHA 是整体窗口透明度，会把子窗口内容
+		// 一并合成掉（255=黑框盖桌面，1=宠物也隐形）。
+		BackgroundColour: options.NewRGBA(255, 0, 254, 255),
 		AssetServer: &assetserver.Options{
 			Assets: distFS,
 		},

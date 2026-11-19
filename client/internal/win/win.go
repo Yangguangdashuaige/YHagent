@@ -20,7 +20,8 @@ const (
 
 	monitorDefaultToNearest = 2
 
-	lwaAlpha = 2 // 按 alpha 通道设置分层属性
+	lwaAlpha    = 2 // LWA_ALPHA：整体窗口透明度（会把子窗口内容一并合成）
+	lwaColorKey = 1 // LWA_COLORKEY：色键抠透明（仅窗口表面匹配色生效）
 )
 
 // gwlExStyle GetWindowLongPtr 的扩展样式槽位。负值无法用常量转 uintptr
@@ -112,9 +113,12 @@ func monitorWorkArea(hwnd uintptr) (Rect, bool) {
 	return mi.rcWork, ok != 0
 }
 
-// setLayeredAlpha 给分层窗口设置整体不透明度（不调用的话 WS_EX_LAYERED
-// 窗口不会绘制）。alpha=255 时窗口表面整体不透明——桌宠带状窗会盖住桌面
-// 呈现"黑框"；alpha=1 近全透明，桌面正常透出，WebView2 子窗口不受影响。
-func setLayeredAlpha(hwnd uintptr, alpha byte) {
-	procSetLayeredWindowAttrs.Call(hwnd, 0, uintptr(alpha), uintptr(lwaAlpha))
+// setLayeredColorKey 给常驻 LAYERED 窗口挂色键透明：窗口底色（品红
+// 0xFF00FE，见 main.go BackgroundColour）被抠成全透明——透明区透出桌面，
+// WebView2 子窗口内容（宠物/气泡）不经过窗口表面、正常显示不受影响。
+// 这是 LWA_ALPHA 的两个极端（255=黑框盖桌面 / 1=宠物也隐形）之外的正解：
+// LWA_ALPHA 是整体窗口透明度，会把子窗口内容一并合成掉。
+func setLayeredColorKey(hwnd uintptr) {
+	const crKey = 0x00FE00FF // COLORREF 布局 0x00BBGGRR：RGB(255,0,254) → B=0xFE,G=0,R=0xFF
+	procSetLayeredWindowAttrs.Call(hwnd, uintptr(crKey), 0, uintptr(lwaColorKey))
 }
