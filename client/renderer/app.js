@@ -108,22 +108,50 @@ let hoverPet = false;
 petEl.addEventListener("pointerenter", () => { hoverPet = true; });
 petEl.addEventListener("pointerleave", () => { hoverPet = false; });
 
-// 走动 tick：walk 态下水平移动，边界掉头；悬停/面板打开期间暂停
+// 行走 tick：不做随机漫游，只朝语音/文字指令指定的目标走，到达即停（驻守模式）
+let targetX = null;
 setInterval(() => {
-  if (state !== "walk" || hoverPet) return;
-  const maxX = window.innerWidth - petW();
-  let x = petX() + walkDir * 0.7;
-  if (x <= 0) { x = 0; walkDir = 1; }
-  if (x >= maxX) { x = maxX; walkDir = -1; }
-  setPetX(x);
+  if (state !== "walk" || targetX == null || hoverPet) return;
+  const d = targetX - petX();
+  const step = 4;
+  if (Math.abs(d) <= step) { targetX = null; setState("idle"); return; }
+  walkDir = d > 0 ? 1 : -1;
+  setPetX(petX() + walkDir * step);
   petEl.style.transform = walkDir < 0 ? "scaleX(-1)" : "";
 }, 16);
+
+// 语音/文字位置指令解析："去左边/最右边/回中间/往左一点/挪到右边"等，
+// 命中即本地执行移动（不发给服务端消耗对话轮次）
+function parseMoveCmd(t) {
+  if (!t || !/(左|右|中)/.test(t) || !/(去|到|走|回|靠|挪|待|呆)/.test(t)) return null;
+  const w = window.innerWidth, pw = petW();
+  if (/最左|最左边/.test(t)) return 0;
+  if (/最右|最右边/.test(t)) return w - pw;
+  if (/中间|居中|回家|回来/.test(t)) return (w - pw) / 2;
+  if (/往左|向左|左一点|左边去|去左/.test(t)) return Math.max(0, petX() - w * 0.25);
+  if (/往右|向右|右一点|右边去|去右/.test(t)) return Math.min(w - pw, petX() + w * 0.25);
+  return null;
+}
+
+// 指派宠物走向目标位置（到达自动停下驻守）
+function movePetTo(x) {
+  hideInput();
+  wakeUp();
+  targetX = Math.max(0, Math.min(window.innerWidth - petW(), x));
+  if (Math.abs(targetX - petX()) < 4) {
+    setState("idle");
+    showBubble("轩就在这儿呀～", "");
+    return;
+  }
+  setState("walk");
+  showBubble("轩这就过去～", "");
+}
 
 function scheduleIdle() {
   clearTimeout(walkTimer);
   clearTimeout(sleepTimer);
+  // 驻守模式：不再随机漫游（walkTimer 保留作未来扩展），仅长时间无交互入睡
   if (state !== "idle") return;
-  walkTimer = setTimeout(() => { if (state === "idle") setState("walk"); }, 6000 + Math.random() * 10000);
   sleepTimer = setTimeout(() => { if (state === "idle") setState("sleep"); }, SLEEP_AFTER_MS);
 }
 
@@ -413,6 +441,9 @@ function send(text) {
   text = (text || "").trim();
   if (!text || busy) { if (busy) showBubble("轩还在回答上一个问题哦…", "thinking"); return; }
   if (cfgErr) { setState("startled"); showBubble('<span class="err">' + escapeHtml(cfgErr) + "</span>", "err", true); return; }
+  // 位置指令本地消化（语音/文字"去左边/回中间"等），不进服务端对话
+  const dest = parseMoveCmd(text);
+  if (dest != null) { movePetTo(dest); return; }
   hideInput();
   busy = true; answerText = "";
   setState("think");
@@ -723,6 +754,7 @@ petEl.addEventListener("pointerup", e => {
   if (state === "drag") {
     petEl.classList.add("dropping");
     petEl.style.bottom = "0px";
+    targetX = null; // 手动放下后取消未完成的行走指令，就地驻守
     setState("happy");
     setTimeout(() => {
       petEl.classList.remove("dropping");
@@ -788,7 +820,7 @@ function bootBubble() {
     showBubble('<span class="err">' + escapeHtml(cfgErr) + "</span>", "err", true);
     return;
   }
-  showBubble("指挥官好，我是小小轩～<br>戳两下我提问，<b>按住左 Alt 说话</b>；右键有菜单（设置/历史对话）。", "");
+  showBubble("指挥官好，我是小小轩～<br>戳两下我提问，<b>按住左 Alt 说话</b>；说「去左边 / 去右边 / 回中间」指挥我挪窝；右键有菜单。", "");
 }
 
 setPetX(Math.max(0, window.innerWidth / 2 - petW() / 2));
