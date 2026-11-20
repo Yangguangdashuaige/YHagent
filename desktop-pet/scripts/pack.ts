@@ -1,0 +1,203 @@
+/**
+ * Assembles `build/app/`, the directory electron-builder packages, then runs electron-builder.
+ *
+ * The workspace's pnpm layout (symlinked packages) is not what an installed app should carry, so
+ * the app directory is built flat: the app code, the release notes, the staged Cortico copy, a `package.json` with
+ * only the runtime dependencies installed by npm, and the workspace packages (`WORKSPACE`) copied into
+ * `node_modules/` as real directories. electron-builder runs with `build/app` as its project directory: its
+ * `package-lock.json` makes electron-builder list the shipped node_modules with npm there, instead of taking the
+ * pnpm workspace's, which hold the native packages of the build machine's architecture only. After packing, the
+ * packed app must hold the target architecture's native packages (`NATIVE`), or the build fails.
+ *
+ * Run: `pnpm run build:installer` (builds build/cortico first). Output: `dist/YHagent-Pet-Setup-<version>.exe` on
+ * Windows (`YHagent-Pet-Setup-<version>-arm64.exe` for Windows on Arm), `dist/YHagent-Pet-<version>-mac-<arch>.dmg` and
+ * `.zip` on a Mac, `dist/YHagent-Pet-<version>-linux-x64.AppImage` and `.deb` on Linux. `PACK_ARCH` (x64 or arm64)
+ * builds for another architecture than the machine's: npm installs that architecture's native packages (esbuild,
+ * koffi, sherpa-onnx), electron-builder packs that Electron and the Windows build takes that MinGit, so one Apple
+ * silicon Mac builds both Mac downloads and one x64 Windows machine both Windows ones. In such a build koffi's
+ * install script, which loads koffi on the build machine, finds the workspace's own through the NODE_PATH that
+ * pnpm's `tsx` shim sets.
+ *
+ * `COOPANION_CHANNEL=steam` with `STEAM_APP_ID` builds for Steam instead: the app directory without an
+ * installer (`dist/win-unpacked`, `dist/linux-unpacked`), which Steam installs and updates, carrying
+ * steamworks.js for the Workshop (app/steam.cjs) and without the whale pack, which goes out through the Workshop.
+ * steamworks.js has x64 libraries only. `COOPANION_CHANNEL=portable` (Windows) builds the portable zip,
+ * `dist/YHagent-Pet-<version>-win-<arch>-portable.zip`: the app directory to unpack anywhere, without the updater.
+ * The channel and app id go into the app's package.json as `coopanion` (app/main.cjs).
+ */
+import { createHash } from 'node:crypto';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, sep } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { unzipSync } from 'fflate';
+import { prepareFunAsr } from './prepare-funasr.ts';
+import { FUNASR_MODEL } from '../packages/cortico-world-desktop-pet/src/runtime/store.ts';
+
+const ROOT = fileURLToPath(new URL('../', import.meta.url));
+const OUT = join(ROOT, 'build', 'app');
+const run = (cmd: string, args: string[], cwd: string) => {
+  const r = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' });
+  if (r.status !== 0) process.exit(r.status ?? 1);
+};
+
+const ARCH = process.env.PACK_ARCH || process.arch;
+const STEAM = process.env.COOPANION_CHANNEL === 'steam';
+const STEAM_APP_ID = Number(process.env.STEAM_APP_ID);
+if (STEAM && !(Number.isInteger(STEAM_APP_ID) && STEAM_APP_ID > 0)) {
+  console.error('COOPANION_CHANNEL=steam 需要 STEAM_APP_ID(Steamworks 后台的 App ID)');
+  process.exit(1);
+}
+if (STEAM && process.platform !== 'win32' && process.platform !== 'linux') {
+  console.error('Steam 版只在 Windows 和 Linux 上构建');
+  process.exit(1);
+}
+if (STEAM && ARCH !== 'x64') {
+  console.error('Steam 版只有 x64:steamworks.js 没有其他架构的库');
+  process.exit(1);
+}
+const PORTABLE = process.env.COOPANION_CHANNEL === 'portable';
+if (PORTABLE && process.platform !== 'win32') {
+  console.error('便携版只在 Windows 上构建');
+  process.exit(1);
+}
+const rootPkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as Record<string, unknown> & { version: string };
+const WORKSPACE = ['cortico-world-desktop-pet', 'cortico-provider-coo'];
+/**
+ * Runtime dependencies: Core (express, ws, undici for the per-host system proxy), the TypeScript loader, pnpm for extension installs, the updater
+ * (app/updater.cjs, not in the portable build) or for Steam steamworks.js (app/steam.cjs), and the workspace packages' own.
+ */
+const DEPS: Record<string, string> = {
+  express: '^4.22.3', ws: '^8.21.3', undici: '7.29.1', tsx: '^4.23.15', pnpm: '11.28.6',
+  ...STEAM ? { 'steamworks.js': '0.4.0' } : PORTABLE ? {} : { 'electron-updater': '^6.8.9' },
+};
+for (const name of WORKSPACE) {
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'packages', name, 'package.json'), 'utf8')) as { dependencies?: Record<string, string> };
+  // a workspace package one of them depends on is copied in below; npm cannot fetch a `workspace:` version
+  for (const [dep, version] of Object.entries(pkg.dependencies ?? {})) if (!WORKSPACE.includes(dep)) DEPS[dep] = version;
+}
+/**
+ * sherpa-onnx-node loads its Windows on Arm binary from the package beside it and, at this version, does not
+ * depend on that package. As an optional dependency npm installs it for that target alone.
+ */
+const OPTIONAL_DEPS = { 'sherpa-onnx-win-arm64': DEPS['sherpa-onnx-node'] };
+
+/**
+ * Git for Windows' MinGit, which the Windows build carries for the history of Coo's workspace (core/persona.ts;
+ * app/main.cjs puts its cmd\ first on the Core's PATH). Pinned by version and SHA-256 for each architecture; the
+ * download is kept in build/cache/.
+ */
+const MINGIT: Record<string, { url: string; sha256: string }> = {
+  x64: {
+    url: 'https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.1/MinGit-2.56.0-64-bit.zip',
+    sha256: '064b440ff870ed5198527e8f3a92cdf5bd2fd0fedf5e718af95e3fdaddeff718',
+  },
+  arm64: {
+    url: 'https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.1/MinGit-2.56.0-arm64.zip',
+    sha256: 'cb3b0f2d486ea52673227151a5baf5bc13861ff80e74e94e46d614d1bfcd5c06',
+  },
+};
+
+async function addMinGit(dir: string): Promise<void> {
+  const mingit = MINGIT[ARCH];
+  if (!mingit) throw new Error(`没有 ${ARCH} 的 MinGit`);
+  const cached = join(ROOT, 'build', 'cache', mingit.url.split('/').pop()!);
+  if (!existsSync(cached)) {
+    const res = await fetch(mingit.url);
+    if (!res.ok) throw new Error(`MinGit 下载失败:HTTP ${res.status} ${mingit.url}`);
+    mkdirSync(dirname(cached), { recursive: true });
+    writeFileSync(cached, Buffer.from(await res.arrayBuffer()));
+  }
+  const zip = readFileSync(cached);
+  const sum = createHash('sha256').update(zip).digest('hex');
+  if (sum !== mingit.sha256) {
+    rmSync(cached);
+    throw new Error(`MinGit 校验不符:得到 ${sum},应为 ${mingit.sha256}`);
+  }
+  for (const [name, data] of Object.entries(unzipSync(zip))) {
+    if (name.endsWith('/')) continue;
+    const file = join(dir, name);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, data);
+  }
+  console.log(`MinGit ${relative(ROOT, dir)}`);
+}
+
+const skip = (base: string) => (src: string) => {
+  const rel = relative(base, src).split(sep);
+  // the top-level extensions/ of the staged Cortico is a junction to the developer's own data
+  if (rel[0] === 'extensions') return false;
+  // the Steam build's whale comes from the Workshop
+  if (STEAM && rel[1] === 'whale' && (rel[0] === 'web' || rel[0] === 'examples')) return false;
+  return !rel.some((p) => ['node_modules', '.git', 'tests', 'scratch'].includes(p));
+};
+
+rmSync(OUT, { recursive: true, force: true });
+mkdirSync(OUT, { recursive: true });
+const asrCache = join(ROOT, 'build', 'cache', 'funasr');
+await prepareFunAsr(asrCache);
+cpSync(asrCache, join(OUT, 'voice-models'), { recursive: true });
+cpSync(join(ROOT, 'installer', 'FunASR-MODEL-LICENSE.txt'), join(OUT, 'voice-models', FUNASR_MODEL.id, 'MODEL_LICENSE'));
+cpSync(join(ROOT, 'LICENSE'), join(OUT, 'LICENSE'));
+cpSync(join(ROOT, 'app'), join(OUT, 'app'), { recursive: true });
+cpSync(join(ROOT, 'core'), join(OUT, 'core'), { recursive: true });
+// the coopanion World (core/notice.ts) tells Coo these after an update
+cpSync(join(ROOT, 'docs', 'releases'), join(OUT, 'docs', 'releases'), { recursive: true });
+cpSync(join(ROOT, 'build', 'cortico'), join(OUT, 'build', 'cortico'), { recursive: true, filter: (src) => !src.endsWith('.map') && skip(join(ROOT, 'build', 'cortico'))(src) });
+// the settings window (app/main.cjs serves it)
+cpSync(join(ROOT, 'build', 'console'), join(OUT, 'build', 'console'), { recursive: true, filter: (src) => !src.endsWith('.map') });
+// the coopanion World's panel bundle (core/companion.ts registers it)
+cpSync(join(ROOT, 'build', 'panels'), join(OUT, 'build', 'panels'), { recursive: true, filter: (src) => !src.endsWith('.map') });
+writeFileSync(join(OUT, 'package.json'), JSON.stringify({
+  name: rootPkg.name, productName: rootPkg.productName, version: rootPkg.version, description: rootPkg.description,
+  license: rootPkg.license, author: rootPkg.author, homepage: rootPkg.homepage, type: 'module', main: 'app/main.cjs',
+  dependencies: DEPS,
+  optionalDependencies: OPTIONAL_DEPS,
+  coopanion: STEAM ? { channel: 'steam', steamAppId: STEAM_APP_ID } : { channel: PORTABLE ? 'portable' : 'github' },
+}, null, 2));
+run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund', '--loglevel=error', `--os=${process.platform}`, `--cpu=${ARCH}`], OUT);
+if (STEAM) {
+  // steamworks.js carries the Steam library of every platform; this build loads its own platform's
+  const own = process.platform === 'win32' ? 'win64' : 'linux64';
+  const dist = join(OUT, 'node_modules', 'steamworks.js', 'dist');
+  for (const dir of ['win64', 'linux64', 'osx']) if (dir !== own) rmSync(join(dist, dir), { recursive: true, force: true });
+}
+const manifest = JSON.parse(readFileSync(join(OUT, 'package.json'), 'utf8')) as { dependencies: Record<string, string> };
+for (const name of WORKSPACE) {
+  const from = join(ROOT, 'packages', name);
+  cpSync(from, join(OUT, 'node_modules', name), { recursive: true, filter: skip(from) });
+  // listed only now: npm must not fetch them, but electron-builder ships only listed dependencies
+  manifest.dependencies[name] = (JSON.parse(readFileSync(join(from, 'package.json'), 'utf8')) as { version: string }).version;
+}
+writeFileSync(join(OUT, 'package.json'), JSON.stringify(manifest, null, 2));
+if (process.platform === 'win32') await addMinGit(join(OUT, 'mingit'));
+console.log(`app directory ready: ${relative(ROOT, OUT)}`);
+
+const target = process.platform === 'darwin' ? '--mac' : process.platform === 'linux' ? '--linux' : '--win';
+/**
+ * The Windows on Arm installer has its own file name and its own update file, `latest-arm64.yml`: the channel goes
+ * into the app's app-update.yml, where electron-updater reads which file to fetch. The x64 installer keeps the
+ * names in electron-builder.yml, which the installed x64 copies update from.
+ */
+const WIN_ARM64 = process.platform === 'win32' && ARCH === 'arm64'
+  ? [`-c.nsis.artifactName=YHagent-Pet-Setup-${rootPkg.version}-arm64.exe`, '-c.publish.channel=latest-arm64'] : [];
+/**
+ * 7za compresses Arm64 executables through its ARM64 filter, which the installer's unpacker (nsis7z.dll) does not
+ * know: it leaves those files out, and the install directory has no YHagent-Pet.exe and no DLL. BCJ is a filter it
+ * decodes. Only the installer's package is a 7z; the portable zip is not affected.
+ */
+if (WIN_ARM64.length) process.env.ELECTRON_BUILDER_7Z_FILTER = 'BCJ';
+run(join(ROOT, 'node_modules', '.bin', process.platform === 'win32' ? 'electron-builder.cmd' : 'electron-builder'), [target, ...PORTABLE ? ['zip'] : [], `--${ARCH}`, ...STEAM ? ['--dir'] : [], '--publish', 'never', '--projectDir', OUT, '--config', join(ROOT, 'electron-builder.yml'), ...WIN_ARM64, ...process.argv.slice(2)], ROOT);
+
+/** The native packages the Core loads, for the target platform and architecture: esbuild (tsx), koffi (computer use), sherpa-onnx (speech). */
+const NATIVE = [`@esbuild/${process.platform}-${ARCH}`, `@koromix/koffi-${process.platform}-${ARCH}`, `sherpa-onnx-${process.platform === 'win32' ? 'win' : process.platform}-${ARCH}`];
+// the app directory electron-builder packed: dist/mac, dist/win-unpacked, dist/linux-unpacked for x64, with -<arch> otherwise
+const packed = process.platform === 'darwin'
+  ? join(ROOT, 'dist', ARCH === 'x64' ? 'mac' : `mac-${ARCH}`, `${rootPkg.productName as string}.app`, 'Contents', 'Resources', 'app')
+  : join(ROOT, 'dist', `${process.platform === 'win32' ? 'win' : 'linux'}${ARCH === 'x64' ? '' : `-${ARCH}`}-unpacked`, 'resources', 'app');
+const missing = NATIVE.filter((name) => !existsSync(join(packed, 'node_modules', name, 'package.json')));
+if (missing.length > 0) {
+  console.error(`打包出的应用缺少 ${process.platform}-${ARCH} 的原生包:${missing.join('、')}(${relative(ROOT, packed)})`);
+  process.exit(1);
+}
+console.log(`native packages in ${relative(ROOT, packed)}: ${NATIVE.join(', ')}`);

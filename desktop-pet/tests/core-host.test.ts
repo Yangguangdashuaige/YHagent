@@ -1,0 +1,125 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { spawn } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const require = createRequire(import.meta.url);
+const repo = fileURLToPath(new URL('../', import.meta.url));
+const roots: string[] = [];
+afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
+/** stop()'s wait for extensions in the `installing-stuck` run; its shutdown countdown is 100 ms. */
+const STUCK_EXTENSIONS_MS = 300;
+
+async function exercise(mode: 'clean' | 'hung' | 'console' | 'installing' | 'installing-hung' | 'installing-stuck') {
+  const root = mkdtempSync(join(tmpdir(), 'coo-core-host-'));
+  roots.push(root);
+  mkdirSync(join(root, 'core'));
+  symlinkSync(join(repo, 'node_modules'), join(root, 'node_modules'), 'junction');
+  writeFileSync(join(root, 'core/boot.ts'), `
+    process.on('SIGTERM', () => {});
+    process.on('disconnect', () => process.exit(0));
+    process.on('message', (msg) => {
+      if (msg.type === 'companion:shutdown') {
+        if (process.env.COOPANION_TEST_STOP.startsWith('installing')) {
+          process.send({ type: 'cortico:shutdown', phase: 'waiting-extensions' });
+          if (process.env.COOPANION_TEST_STOP !== 'installing-stuck') setTimeout(() => {
+            require('node:fs').writeFileSync('settled', 'done');
+            process.send({ type: 'cortico:shutdown', phase: 'stopping' });
+            if (process.env.COOPANION_TEST_STOP === 'installing') process.exit(0);
+          }, 250);
+        } else if (process.env.COOPANION_TEST_STOP !== 'hung') process.exit(0);
+      }
+      if (msg.type === 'test:exit') process.exit(0);
+    });
+    process.send({ type: 'companion:ready', port: 1, dataDir: process.cwd() });
+  `);
+  writeFileSync(join(root, 'drive.cjs'), `
+    const { once } = require('node:events');
+    const { CoreHost } = require(process.env.COOPANION_TEST_HOST);
+    const host = new CoreHost({ appRoot: process.cwd(), logDir: 'logs', env: process.env, resolveProxy: async () => 'DIRECT' });
+    const states = [];
+    const exits = [];
+    host.on('state', (state, exit) => { states.push(state); if (exit) exits.push(exit); });
+    (async () => {
+      const ready = once(host, 'ready');
+      await host.start();
+      await ready;
+      const original = host.child;
+      const exited = once(original, 'exit');
+      let replacement = null;
+      if (process.env.COOPANION_TEST_STOP === 'hung') {
+        const stop = host.stop.bind(host);
+        host.stop = () => stop(30);
+        const readyAgain = once(host, 'ready');
+        await host.restart();
+        await readyAgain;
+        replacement = host.child.pid;
+      } else if (process.env.COOPANION_TEST_STOP === 'console') {
+        host.expectStop();
+        host.send({ type: 'test:exit' });
+        await exited;
+        // longer than the 3 s restart delay: a restart would show up as a new child
+        await new Promise((done) => setTimeout(done, 3500));
+        replacement = host.child?.pid ?? null;
+      }
+      const began = Date.now();
+      await host.stop(process.env.COOPANION_TEST_STOP.startsWith('installing') ? 100 : undefined,
+        process.env.COOPANION_TEST_STOP === 'installing-stuck' ? ${STUCK_EXTENSIONS_MS} : undefined);
+      const elapsed = Date.now() - began;
+      const [code, signal] = await exited;
+      console.log(JSON.stringify({ code, signal, elapsed, original: original.pid, replacement,
+        child: host.child, port: host.port, state: host.state, crashes: host.crashes, states, exits,
+        settled: require('node:fs').existsSync('settled') }));
+    })().catch((err) => { console.error(err); process.exitCode = 1; host.child?.kill('SIGKILL'); });
+  `);
+  const child = spawn(require('electron'), [join(root, 'drive.cjs')], {
+    cwd: root,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', COOPANION_TEST_STOP: mode, COOPANION_TEST_HOST: join(repo, 'app/core-host.cjs') },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 10_000,
+    killSignal: 'SIGKILL',
+  });
+  let stdout = '', stderr = '';
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const code = await new Promise<number | null>((resolve, reject) => { child.on('close', resolve); child.on('error', reject); });
+  expect(code, stderr).toBe(0);
+  return JSON.parse(stdout.trim());
+}
+
+describe('Core shutdown', () => {
+  it.each(['installing', 'installing-hung'] as const)('waits past the grace period for mutations, then resumes the shutdown deadline (%s)', async mode => {
+    const result = await exercise(mode);
+    expect(result).toMatchObject({ settled: true, child: null, state: 'stopped', crashes: [] });
+    if (mode === 'installing') expect(result.code).toBe(0);
+    else expect(result.code !== 0 || result.signal !== null).toBe(true);
+  });
+  it('starts the shutdown countdown when the wait for extensions runs out without Core reporting stopping', async () => {
+    const result = await exercise('installing-stuck');
+    expect(result).toMatchObject({ settled: false, child: null, state: 'stopped', crashes: [] });
+    expect(result.code !== 0 || result.signal !== null).toBe(true);
+    expect(result.elapsed).toBeGreaterThanOrEqual(STUCK_EXTENSIONS_MS);
+  });
+  it('exits promptly after a cooperative shutdown without keeping the grace timer alive', async () => {
+    const result = await exercise('clean');
+    expect(result).toMatchObject({ code: 0, child: null, port: null, state: 'stopped', crashes: [] });
+    expect(result.states).toEqual(['starting', 'running', 'stopped']);
+  });
+
+  it('restarts after a child that ignores shutdown is killed, without counting a crash', async () => {
+    const result = await exercise('hung');
+    expect(result.replacement).not.toBe(result.original);
+    expect(result).toMatchObject({ child: null, port: null, state: 'stopped', crashes: [] });
+    expect(result.states).toEqual(['starting', 'running', 'stopped', 'starting', 'running', 'stopped']);
+  });
+
+  it('leaves Core stopped after the console asked for a shutdown, with no crash notification', async () => {
+    const result = await exercise('console');
+    expect(result).toMatchObject({ replacement: null, child: null, port: null, state: 'stopped', crashes: [] });
+    expect(result.states).toEqual(['starting', 'running', 'stopped']);
+    expect(result.exits).toEqual([]);
+  });
+});

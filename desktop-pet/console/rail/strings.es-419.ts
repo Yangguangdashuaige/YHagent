@@ -1,0 +1,41 @@
+import type { en } from './strings.ts';
+
+export const S: Partial<typeof en> = {
+  // index.ts
+  navAria: 'Navegación de la configuración',
+  groupWorlds: 'World',
+  moduleInstancesAria: 'Instancias de World',
+
+  runResume: 'Reanudar',
+  runPause: 'Pausar',
+  shutdownAria: 'Apagar',
+  finishing: 'Apagando…',
+  shutdownTitle: 'Apagar',
+  shutdownBody: 'El proceso se cerrará y la conexión se cortará.',
+  confirmShutdownTitle: '⚠ Apagar',
+  confirmShutdownAgainTitle: '⚠⚠ ¿Confirmar apagado?',
+  confirmShutdownAgainBody: '¿Detener la ejecución y salir del proceso?',
+  stepIncomplete: 'incompleto',
+  doneShutdown: 'Apagado',
+  resultLocalIncomplete: 'Pasos de apagado local incompletos',
+  resultExternalUnverified: 'Apagado localmente; estado externo sin verificar',
+  resultUnverified: 'Pasos de apagado ejecutados; estado sin verificar',
+  resultDefault: 'Pasos de apagado ejecutados.',
+  noReceipt: (msg: string) =>
+    `No se recibió el resultado del apagado (${msg}); es posible que el proceso haya terminado.`,
+  docTitle: (name: string) => `Configuración · ${name}`,
+  renameTitle: 'Haz clic para cambiar el nombre',
+  renameFailed: (msg: string) => `No se guardó el nombre visible: ${msg}`,
+  // avatar.ts
+  changeAvatar: 'Cambiar el avatar de Coo',
+  uploadAvatar: 'Subir y recortar el avatar de Coo',
+  unreadable: 'No se pudo leer esta imagen',
+  cropPreview: 'Vista previa del recorte del avatar',
+  zoomAria: 'Zoom del avatar',
+  zoom: 'Zoom',
+  note: "Arrastra para mover; usa la rueda o el control para ampliar.",
+  cancel: 'Cancelar',
+  save: 'Guardar avatar',
+  cropTitle: 'Recortar avatar',
+  noCanvas: 'El navegador no pudo crear un lienzo de imagen',
+};

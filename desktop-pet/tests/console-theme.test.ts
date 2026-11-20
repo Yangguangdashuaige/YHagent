@@ -1,0 +1,50 @@
+import { describe, expect, it } from 'vitest';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { figurePacks } from 'cortico-world-desktop-pet';
+import { COO_SCHEME, figureSchemes, followPetLook } from '../core/console-theme.ts';
+
+const coo = figurePacks([]).packs[0]!;
+const hue = { a: '#955d4a', a2: '#77603d', on: '#ffffff', t: '#955d4a', c3: '#987656', c4: '#639871' };
+const packs = [coo, {
+  ...coo,
+  id: 'whale',
+  manifest: {
+    ...coo.manifest,
+    axes: [],
+    presets: ['claude', 'kimi'].map((id) => ({ id, name: { en: id }, pick: {}, console: { light: hue, dark: hue } })),
+  },
+}];
+const WHALE_SCHEMES = figureSchemes(packs);
+
+const theme = (dir: string) => JSON.parse(readFileSync(join(dir, 'theme.json'), 'utf8')) as { selectedId: string; mode: string; custom: Array<{ id: string }> };
+
+describe('console colours follow the pet', () => {
+  it('switches between Coo and each whale scheme, keeping the light/dark mode', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cc-theme-'));
+    followPetLook(dir, { figure: 'coo', scheme: 'claude' }, packs);
+    expect(theme(dir).selectedId).toBe(COO_SCHEME);
+    writeFileSync(join(dir, 'theme.json'), JSON.stringify({ ...theme(dir), mode: 'dark' }));
+    followPetLook(dir, { figure: 'whale', scheme: 'claude' }, packs);
+    expect(theme(dir)).toMatchObject({ selectedId: 'coo-whale-claude', mode: 'dark' });
+    expect(theme(dir).custom.map((s) => s.id)).toEqual(WHALE_SCHEMES.map((s) => s.id));
+    followPetLook(dir, { figure: 'coo' }, packs);
+    expect(theme(dir).selectedId).toBe(COO_SCHEME);
+  });
+
+  it('gives a look that is no preset the colours of the preset with its colour scheme', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cc-theme-'));
+    followPetLook(dir, { figure: 'whale', scheme: 'claude-cape' }, packs);
+    expect(theme(dir).selectedId).toBe('coo-whale-claude');
+  });
+
+  it('leaves a scheme picked on the appearance page, and keeps the person\'s own schemes', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cc-theme-'));
+    const mine = { id: 'mine', name: '我的', note: '', palettes: { light: {}, dark: {} } };
+    writeFileSync(join(dir, 'theme.json'), JSON.stringify({ selectedId: 'navigator', mode: 'system', custom: [mine] }));
+    followPetLook(dir, { figure: 'whale', scheme: 'kimi' }, packs);
+    expect(theme(dir).selectedId).toBe('navigator');
+    expect(theme(dir).custom.map((s) => s.id)).toEqual(['mine', ...WHALE_SCHEMES.map((s) => s.id)]);
+  });
+});
