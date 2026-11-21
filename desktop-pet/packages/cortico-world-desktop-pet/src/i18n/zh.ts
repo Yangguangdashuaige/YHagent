@@ -51,7 +51,7 @@ export default {
   hotkey: {
     cannotRead: (why: string) => `无法读取键盘状态：${why}`,
     macNoKey: 'Mac 上没有这个按键，请更换说话键',
-    macPermission: '没有「输入监控」权限：在「系统设置 → 隐私与安全性 → 输入监控」里打开 Coopanion，再重启它；已经开着的话，先用「−」把 Coopanion 移出列表再加回来：更新后的新版本不认旧授权',
+    macPermission: '没有「输入监控」权限：在「系统设置 → 隐私与安全性 → 输入监控」里打开 小小轩，再重启它；已经开着的话，先用「−」把 小小轩 移出列表再加回来：更新后的新版本不认旧授权',
     linuxNoKey: 'Linux 上无法读取该按键（不支持鼠标侧键），请更换说话键',
     linuxNoDisplay: '按键收音在 Linux 上需要 X11（或 XWayland）：没有找到 DISPLAY',
     linuxNoX11: '按键收音连不上 X11 显示',

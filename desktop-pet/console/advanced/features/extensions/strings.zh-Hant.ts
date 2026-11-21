@@ -38,7 +38,7 @@ export const S: Partial<typeof en> = {
   removeInUseProvider: '還有模型連線在用這個供應商，先刪除這些連線。',
   removeBody: '將從共用擴充功能目錄移除此擴充套件，重新啟動處理程序後生效。使用它的其他 Bot 也會受到影響。不會刪除 Memory、既有設定或本機擴充功能原始碼。',
   builtin: '內建擴充功能',
-  builtinNote: '隨 Coopanion 提供，不能單獨刪除。',
+  builtinNote: '隨 小小轩 提供，不能單獨刪除。',
 
   installedAction: '安裝',
   updatedAction: '更新',
@@ -116,7 +116,7 @@ export const S: Partial<typeof en> = {
   npm: '從 npm 安裝',
   local: '從本機目錄安裝',
   npmHelp: '輸入 npm 套件名稱，可附帶 @版本或標籤；不要填寫網頁連結。',
-  localHelp: '選擇執行 Cortico 的電腦上包含 package.json 的擴充功能目錄。',
+  localHelp: '選擇執行 小小轩 的電腦上包含 package.json 的擴充功能目錄。',
   folder: '選擇資料夾',
   pathLabel: '擴充功能專案目錄',
   packageLabel: '套件名稱與版本',

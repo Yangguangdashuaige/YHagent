@@ -7,7 +7,7 @@ const ja: Translation<CoreText> = {
   settings: {
     autoUpdate: { title: "自動更新", description: "更新を自動でダウンロードし、アプリ終了時にインストールします。オフにすると確認とダウンロードが直ちに止まり、ダウンロード済みの更新も自動ではインストールされません。" },
     language: { title: '言語', description: '画面の表示と Coo の話す言葉にこの言語を使います。すぐに反映されます。' },
-    telemetry: { title: '匿名の利用統計', description: '会話内容を含まない利用回数と設定を送信し、Coopanion の改善に役立てます。送信する項目は docs/TELEMETRY.md に記載されています。' },
+    telemetry: { title: '匿名の利用統計', description: '会話内容を含まない利用回数と設定を送信し、Pal AI Lab の改善に役立てます。送信する項目は docs/TELEMETRY.md に記載されています。' },
     contextRing: { title: 'コンテキストリング', description: 'チャットページの入力欄に、以前の会話を整理するまでの残りを円で表示します。' },
     roundsSoft: { title: 'まとめのリマインド', suffix: '回', description: '1 回のウェイクでモデルへのリクエストがこの回数に達すると、今の作業を片付けてターンを終えるよう Coo に促します。' },
     roundsHard: { title: '1 回のウェイクのリクエスト上限', suffix: '回', description: '1 回のウェイクでモデルにリクエストできる最大回数です。達するとターンが終わります。' },
@@ -15,7 +15,7 @@ const ja: Translation<CoreText> = {
 
   failure: {
     text: (n: number, status: number, reason: string, advice: string) => `モデルへのリクエストが ${n} 回続けて失敗しました。エラー${status ? ` ${status}` : ''}：${reason}。${advice}`,
-    reasoningReplay: (n: number) => `モデルへのリクエストが ${n} 回続けて失敗しました。このサービスはツールを呼び出すたびに思考内容を送り返すよう求めていますが、Coopanion ではこのサービスに対してそれがオフになっています。開発者に報告してください：https://github.com/Pal-AI-Lab/Coopanion/issues`,
+    reasoningReplay: (n: number) => `モデルへのリクエストが ${n} 回続けて失敗しました。このサービスはツールを呼び出すたびに思考内容を送り返すよう求めていますが、小小轩 ではこのサービスに対してそれがオフになっています。開発者に報告してください：https://github.com/Yangguangdashuaige/YHagent/issues`,
     advice: {
       key: '設定の「スタート」ページで API Key を確認してください。接続のテストもそこでできます。',
       model: '設定の「スタート」ページでモデル名を確認してください。接続のテストもそこでできます。',

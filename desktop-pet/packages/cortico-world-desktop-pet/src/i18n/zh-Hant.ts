@@ -38,7 +38,7 @@ const zhHant: Translation<PetText> = {
   hotkey: {
     cannotRead: (why: string) => `無法讀取鍵盤狀態：${why}`,
     macNoKey: 'Mac 上沒有這個按鍵，請更換說話鍵',
-    macPermission: '沒有「輸入監控」權限：在「系統設定 → 隱私權與安全性 → 輸入監控」裡開啟 Coopanion，再重新啟動它；已經開啟的話，先用「−」把 Coopanion 移出列表再加回來：更新後的新版本不會沿用舊的授權',
+    macPermission: '沒有「輸入監控」權限：在「系統設定 → 隱私權與安全性 → 輸入監控」裡開啟 小小轩，再重新啟動它；已經開啟的話，先用「−」把 小小轩 移出列表再加回來：更新後的新版本不會沿用舊的授權',
     linuxNoKey: 'Linux 上無法讀取該按鍵（不支援滑鼠側鍵），請更換說話鍵',
     linuxNoDisplay: '按鍵收音在 Linux 上需要 X11（或 XWayland）：沒有設定 DISPLAY',
     linuxNoX11: '按鍵收音連不上 X11 顯示',

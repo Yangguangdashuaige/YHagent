@@ -7,7 +7,7 @@ const de: Translation<CoreText> = {
   settings: {
     autoUpdate: { title: "Automatische Updates", description: "Updates werden automatisch heruntergeladen und beim Beenden installiert. Ausschalten stoppt sofort die Suche und Downloads und verhindert die automatische Installation bereits heruntergeladener Updates." },
     language: { title: 'Sprache', description: 'Die Oberfläche und Coo verwenden diese Sprache. Gilt sofort.' },
-    telemetry: { title: 'Anonyme Nutzungsstatistik', description: 'Sendet Nutzungszahlen und Einstellungen, nie Unterhaltungen, um Coopanion zu verbessern. Die Felder stehen in docs/TELEMETRY.md.' },
+    telemetry: { title: 'Anonyme Nutzungsstatistik', description: 'Sendet Nutzungszahlen und Einstellungen, nie Unterhaltungen, um Pal AI Lab zu verbessern. Die Felder stehen in docs/TELEMETRY.md.' },
     contextRing: { title: 'Kontextring', description: 'Zeigt im Eingabefeld der Chat-Seite einen Ring, wie weit es noch ist, bis das frühere Gespräch aufgeräumt wird.' },
     roundsSoft: { title: 'Abschluss-Erinnerung', suffix: 'Anfragen', description: 'Nach so vielen Modellanfragen in einem Aufwachen wird Coo erinnert, das Laufende abzuschließen und die Runde zu beenden.' },
     roundsHard: { title: 'Anfragen pro Aufwachen', suffix: 'Anfragen', description: 'Höchstzahl der Modellanfragen in einem Aufwachen; ist sie erreicht, endet die Runde.' },
@@ -15,7 +15,7 @@ const de: Translation<CoreText> = {
 
   failure: {
     text: (n: number, status: number, reason: string, advice: string) => `Meine letzten ${n} Anfragen an das Modell sind fehlgeschlagen. Fehler${status ? ` ${status}` : ''}: ${reason}.${advice && ` ${advice}`}`,
-    reasoningReplay: (n: number) => `Meine letzten ${n} Anfragen an das Modell sind fehlgeschlagen: Dieser Dienst verlangt, dass das Nachdenken vor jedem Werkzeugaufruf zurückgeschickt wird, und Coopanion hat das für ihn ausgeschaltet. Bitte melde das den Entwicklern: https://github.com/Pal-AI-Lab/Coopanion/issues`,
+    reasoningReplay: (n: number) => `Meine letzten ${n} Anfragen an das Modell sind fehlgeschlagen: Dieser Dienst verlangt, dass das Nachdenken vor jedem Werkzeugaufruf zurückgeschickt wird, und 小小轩 hat das für ihn ausgeschaltet. Bitte melde das den Entwicklern: https://github.com/Yangguangdashuaige/YHagent/issues`,
     advice: {
       key: 'Prüf den API Key auf der Seite Start in den Einstellungen; dort kannst du die Verbindung testen.',
       model: 'Prüf den Modellnamen auf der Seite Start in den Einstellungen; dort kannst du die Verbindung testen.',

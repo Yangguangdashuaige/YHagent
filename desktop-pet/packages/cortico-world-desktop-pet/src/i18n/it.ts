@@ -38,7 +38,7 @@ const it: Translation<PetText> = {
   hotkey: {
     cannotRead: (why: string) => `Impossibile leggere la tastiera: ${why}`,
     macNoKey: 'Una tastiera Mac non ha questo tasto; scegli un altro tasto per parlare',
-    macPermission: "Manca il permesso Monitoraggio input: attiva Coopanion in Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input, poi riavvialo. Se è già attivo, rimuovi Coopanion dall'elenco con «−» e aggiungilo di nuovo: una versione aggiornata non eredita il vecchio permesso",
+    macPermission: "Manca il permesso Monitoraggio input: attiva 小小轩 in Impostazioni di Sistema → Privacy e sicurezza → Monitoraggio input, poi riavvialo. Se è già attivo, rimuovi 小小轩 dall'elenco con «−» e aggiungilo di nuovo: una versione aggiornata non eredita il vecchio permesso",
     linuxNoKey: 'Linux non può leggere questo tasto (i tasti laterali del mouse non funzionano); scegli un altro tasto per parlare',
     linuxNoDisplay: 'Su Linux il tasto per parlare richiede X11 (o XWayland): DISPLAY non è impostato',
     linuxNoX11: 'Il tasto per parlare non riesce a collegarsi al display X11',

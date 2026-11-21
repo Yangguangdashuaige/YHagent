@@ -38,7 +38,7 @@ const de: Translation<PetText> = {
   hotkey: {
     cannotRead: (why: string) => `Die Tastatur kann nicht gelesen werden: ${why}`,
     macNoKey: 'Eine Mac-Tastatur hat diese Taste nicht; wähle eine andere Sprechtaste',
-    macPermission: 'Keine Berechtigung für Eingabeüberwachung: Schalte Coopanion unter Systemeinstellungen → Datenschutz & Sicherheit → Eingabeüberwachung ein und starte es dann neu. Ist es schon eingeschaltet, entferne Coopanion mit „−“ aus der Liste und füge es wieder hinzu: Eine aktualisierte Version übernimmt die alte Berechtigung nicht',
+    macPermission: 'Keine Berechtigung für Eingabeüberwachung: Schalte 小小轩 unter Systemeinstellungen → Datenschutz & Sicherheit → Eingabeüberwachung ein und starte es dann neu. Ist es schon eingeschaltet, entferne 小小轩 mit „−“ aus der Liste und füge es wieder hinzu: Eine aktualisierte Version übernimmt die alte Berechtigung nicht',
     linuxNoKey: 'Linux kann diese Taste nicht lesen (Maus-Seitentasten funktionieren nicht); wähle eine andere Sprechtaste',
     linuxNoDisplay: 'Die Sprechtaste braucht unter Linux X11 (oder XWayland): DISPLAY ist nicht gesetzt',
     linuxNoX11: 'Die Sprechtaste kann sich nicht mit dem X11-Display verbinden',

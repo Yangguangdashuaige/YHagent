@@ -133,12 +133,12 @@ export const S: Partial<typeof en> = {
   footSoftPost: (max: string) => `; 단계 예산 ${max}.`,
 
   // onboarding.ts
-  obWho: 'Cortico',
-  obWelcome: 'Cortico에 오신 것을 환영합니다! 이제 첫 번째 Cortico 봇을 배포해 봅시다.',
+  obWho: '小小轩',
+  obWelcome: '小小轩에 오신 것을 환영합니다! 이제 첫 번째 小小轩 봇을 배포해 봅시다.',
   obProvider: '먼저 모델 공급자를 설정하세요:',
   obProviderNone: '아직 사용할 수 있는 모델 공급자가 없습니다',
   obProviderReady: '모델 공급자 설정 완료',
-  obWorlds: '다음으로, 봇이 연결할 외부 환경 모듈(Cortico World)을 활성화하고 설정하세요. 처음에는 콘솔 대화만 활성화해도 됩니다.',
+  obWorlds: '다음으로, 봇이 연결할 외부 환경 모듈(小小轩 World)을 활성화하고 설정하세요. 처음에는 콘솔 대화만 활성화해도 됩니다.',
   obWorldsState: (labels: readonly string[]) => `현재 외부 환경 ${labels.length}개가 활성화되어 있습니다: ${labels.join(', ')}`,
   obPrompts: '마지막으로, 여기서 시스템 프롬프트를 편집해 인격 설명, 행동 규칙, 말투 등을 원하는 대로 정할 수 있습니다!',
   obReady: '준비 완료!',

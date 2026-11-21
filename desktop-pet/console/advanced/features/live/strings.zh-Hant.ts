@@ -133,12 +133,12 @@ export const S: Partial<typeof en> = {
   footSoftPost: (max: string) => `；階段預算 ${max}。`,
 
   // onboarding.ts
-  obWho: 'Cortico',
-  obWelcome: '歡迎使用 Cortico！現在，讓我們開始部署你的第一個 Cortico Bot。',
+  obWho: '小小轩',
+  obWelcome: '歡迎使用 小小轩！現在，讓我們開始部署你的第一個 小小轩 Bot。',
   obProvider: '首先，請設定模型供應商：',
   obProviderNone: '尚未設定可用的模型供應商',
   obProviderReady: '模型供應商已設定',
-  obWorlds: '接下來，請啟用並設定你的 Bot 接入的外部環境模組（Cortico World）。也可以先僅啟用控制台對話。',
+  obWorlds: '接下來，請啟用並設定你的 Bot 接入的外部環境模組（小小轩 World）。也可以先僅啟用控制台對話。',
   obWorldsState: (labels: readonly string[]) => `目前已經啟用了 ${labels.length} 個外部環境：${labels.join('、')}`,
   obPrompts: '最後，你可以在這裡方便地編輯系統提示詞，來提供人格描述、行為規範、語言風格等客製化內容！',
   obReady: '準備就緒！',

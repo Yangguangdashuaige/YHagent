@@ -65,6 +65,7 @@ if (x11Restart) {
 // only renders the app's own pages.
 app.commandLine.appendSwitch('enable-unsafe-swiftshader');
 const APP_ROOT = app.getAppPath();
+const APP_NAME = '小小轩';
 const ICONS = join(__dirname, 'icons');
 /** Window icon: on Windows the .ico, so the taskbar picks the size it draws instead of scaling a 512 px PNG. */
 const WINDOW_ICON = join(ICONS, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
@@ -98,7 +99,7 @@ function askDataLocation({ ask, record }) {
   const language = configuredLanguage(join(record.data, 'home')) ?? systemLanguage(app);
   const t = textOf(language);
   const when = new Date(record.startedAt).toLocaleString(language);
-  const box = (options) => dialog.showMessageBoxSync({ title: 'YHagent-Pet', noLink: true, defaultId: 0, ...options });
+  const box = (options) => dialog.showMessageBoxSync({ title: APP_NAME, noLink: true, defaultId: 0, ...options });
   const bind = (data) => {
     writeRecord(DATA_RECORD, { data, program: PROGRAM_DIR, startedAt: record.startedAt });
     return true;
@@ -131,7 +132,7 @@ if (located?.ask && !PET_HOST) {
     if (askDataLocation(located)) app.relaunch();
     app.exit(0);
   }).catch((err) => {
-    dialog.showErrorBox('YHagent-Pet', String(err?.message ?? err));
+    dialog.showErrorBox(APP_NAME, String(err?.message ?? err));
     app.exit(1);
   });
   return;
@@ -159,7 +160,7 @@ if (INSTALLED && !dataWritable()) {
     const { configuredLanguage, systemLanguage, textOf } = require('./i18n/index.cjs');
     const t = textOf(configuredLanguage(join(DATA, 'home')) ?? systemLanguage(app));
     const suggested = join(process.env.LOCALAPPDATA ?? app.getPath('home'), 'Programs', 'YHagent-Pet');
-    dialog.showErrorBox('YHagent-Pet', t.dataNotWritable(DATA, suggested));
+    dialog.showErrorBox(APP_NAME, t.dataNotWritable(DATA, suggested));
     app.exit(1);
   });
   return;
@@ -493,7 +494,7 @@ function openSettings(path = '') {
   const area = screen.getPrimaryDisplay().workAreaSize;
   settings = new BrowserWindow({
     ...readSettingsSize(join(userData, 'settings-size.json'), area),
-    title: 'YHagent-Pet', icon: WINDOW_ICON, autoHideMenuBar: true, show: false,
+    title: APP_NAME, icon: WINDOW_ICON, autoHideMenuBar: true, show: false,
     ...settingsChromeOptions(process.platform),
     backgroundColor: '#f4f5f4',
     webPreferences: { partition: SETTINGS_PARTITION, preload: join(__dirname, 'settings-preload.cjs'), contextIsolation: true, sandbox: true, spellcheck: false },
@@ -501,7 +502,7 @@ function openSettings(path = '') {
   // the taskbar button takes its icon and relaunch target from the running program, not from a pinned
   // shortcut to the same app id whose program has moved (a reinstall elsewhere, a new portable folder)
   if (process.platform === 'win32' && app.isPackaged) {
-    settings.setAppDetails({ appId: APP_ID, appIconPath: process.execPath, appIconIndex: 0, relaunchCommand: `"${process.execPath}"`, relaunchDisplayName: 'YHagent-Pet' });
+    settings.setAppDetails({ appId: APP_ID, appIconPath: process.execPath, appIconIndex: 0, relaunchCommand: `"${process.execPath}"`, relaunchDisplayName: APP_NAME });
   }
   settings.once('ready-to-show', () => bringForward(settings));
   settings.on('page-title-updated', (e) => e.preventDefault());
@@ -568,7 +569,7 @@ const loginItem = {
     if (!on) { rmSync(AUTOSTART, { force: true }); return; }
     const exe = process.env.APPIMAGE || process.execPath;
     mkdirSync(dirname(AUTOSTART), { recursive: true });
-    writeFileSync(AUTOSTART, `[Desktop Entry]\nType=Application\nName=YHagent-Pet\nExec="${exe}" --background\nX-GNOME-Autostart-enabled=true\n`);
+    writeFileSync(AUTOSTART, `[Desktop Entry]\nType=Application\nName=${APP_NAME}\nExec="${exe}" --background\nX-GNOME-Autostart-enabled=true\n`);
   },
 };
 
@@ -606,6 +607,20 @@ async function togglePet() {
 // window, the tray): the show/hide entry follows, which matters on Linux, where the menu is set beforehand
 core.on('pet-shown', (shown) => { petOnDesktop = shown; refreshTray(); });
 
+async function showAbout() {
+  const t = T();
+  const { response } = await dialog.showMessageBox({
+    type: 'info', title: t.aboutTitle, message: `${APP_NAME} ${app.getVersion()}`,
+    detail: t.aboutDetail, buttons: [t.aboutSource, t.aboutLicense, t.aboutClose],
+    defaultId: 2, cancelId: 2, noLink: true,
+  });
+  if (response === 0) await shell.openExternal('https://github.com/Yangguangdashuaige/YHagent/tree/feat/yhpet-stage34/desktop-pet');
+  if (response === 1) {
+    const error = await shell.openPath(join(APP_ROOT, 'LICENSE'));
+    if (error) await shell.openExternal('https://www.gnu.org/licenses/agpl-3.0.html');
+  }
+}
+
 function trayItems() {
   const t = T(), running = core.state === 'running';
   return [
@@ -613,6 +628,7 @@ function trayItems() {
     { label: petOnDesktop ? t.trayHidePet : t.trayShowPet, enabled: running, click: () => void togglePet().catch(() => { /* Core went away meanwhile */ }) },
     { label: clickThrough ? t.trayClickThroughOff : t.trayClickThroughOn, enabled: running, click: () => void setClickThrough(!clickThrough) },
     { type: 'separator' },
+    { label: t.aboutTitle, click: () => void showAbout().catch((error) => dialog.showErrorBox(t.aboutTitle, String(error))) },
     { label: t.trayRestart, click: () => void core.restart() },
     { label: t.trayQuit, click: () => app.quit() },
   ];
@@ -630,7 +646,7 @@ async function popupTray() {
 
 function refreshTray() {
   if (!tray) return;
-  tray.setToolTip(clickThrough ? T().trayClickThroughTip : 'YHagent-Pet');
+  tray.setToolTip(clickThrough ? T().trayClickThroughTip : APP_NAME);
   if (LINUX) tray.setContextMenu(Menu.buildFromTemplate(trayItems()));
 }
 
@@ -695,8 +711,8 @@ core.on('state', (state, exit) => {
     : exit.kind === 'ports-busy' ? T().corePortsBusy(exit.from, exit.to)
       : exit.kind === 'incomplete' ? T().coreIncomplete(RELEASES_URL, exit.logFile)
         : exit.kind === 'failed' ? T().coreFailed(exit.times, exit.code, exit.logFile) : T().coreRestarting(exit.code);
-  if (Notification.isSupported()) new Notification({ title: 'YHagent-Pet', body: detail, icon: WINDOW_ICON }).show();
-  if (state === 'failed') dialog.showErrorBox('YHagent-Pet', detail);
+  if (Notification.isSupported()) new Notification({ title: APP_NAME, body: detail, icon: WINDOW_ICON }).show();
+  if (state === 'failed') dialog.showErrorBox(APP_NAME, detail);
 });
 
 core.on('open', (path) => openSettings(path));
@@ -728,7 +744,7 @@ app.on('before-quit', (e) => {
 function askRestoreStranded() {
   const response = dialog.showMessageBoxSync({
     type: 'question',
-    title: 'YHagent-Pet',
+    title: APP_NAME,
     message: T().strandedMessage,
     detail: T().strandedDetail(STRANDED_DATA, dirname(DATA)),
     buttons: [T().strandedRestore, T().strandedKeep],

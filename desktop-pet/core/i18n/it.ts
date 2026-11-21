@@ -7,7 +7,7 @@ const it: Translation<CoreText> = {
   settings: {
     autoUpdate: { title: "Aggiornamenti automatici", description: "Scarica gli aggiornamenti automaticamente e li installa alla chiusura. Disattivando questa opzione, ricerca e download si interrompono subito e gli aggiornamenti già scaricati non vengono installati automaticamente." },
     language: { title: 'Lingua', description: "L'interfaccia e Coo usano questa lingua. Ha effetto subito." },
-    telemetry: { title: "Statistiche d'uso anonime", description: "Invia conteggi d'uso e impostazioni, mai le conversazioni, per aiutare a migliorare Coopanion. I campi sono elencati in docs/TELEMETRY.md." },
+    telemetry: { title: "Statistiche d'uso anonime", description: "Invia conteggi d'uso e impostazioni, mai le conversazioni, per aiutare a migliorare Pal AI Lab. I campi sono elencati in docs/TELEMETRY.md." },
     contextRing: { title: 'Anello del contesto', description: 'Mostra nella casella di testo della pagina Chat un anello con quanto manca al riordino della conversazione precedente.' },
     roundsSoft: { title: 'Promemoria di chiusura', suffix: 'richieste', description: 'Dopo questo numero di richieste al modello in un risveglio, Coo riceve un invito a finire ciò che sta facendo e chiudere il turno.' },
     roundsHard: { title: 'Richieste per risveglio', suffix: 'richieste', description: 'Il massimo di richieste al modello in un risveglio; raggiunto il limite, il turno finisce.' },
@@ -15,7 +15,7 @@ const it: Translation<CoreText> = {
 
   failure: {
     text: (n: number, status: number, reason: string, advice: string) => `Le mie ultime ${n} richieste al modello non sono riuscite. Errore${status ? ` ${status}` : ''}: ${reason}.${advice && ` ${advice}`}`,
-    reasoningReplay: (n: number) => `Le mie ultime ${n} richieste al modello sono fallite: questo servizio richiede che il ragionamento venga rinviato prima di ogni chiamata a uno strumento, e Coopanion lo ha disattivato per lui. Segnalalo agli sviluppatori: https://github.com/Pal-AI-Lab/Coopanion/issues`,
+    reasoningReplay: (n: number) => `Le mie ultime ${n} richieste al modello sono fallite: questo servizio richiede che il ragionamento venga rinviato prima di ogni chiamata a uno strumento, e 小小轩 lo ha disattivato per lui. Segnalalo agli sviluppatori: https://github.com/Yangguangdashuaige/YHagent/issues`,
     advice: {
       key: "Controlla l'API Key nella pagina Inizio delle impostazioni, dove puoi testare la connessione.",
       model: 'Controlla il nome del modello nella pagina Inizio delle impostazioni, dove puoi testare la connessione.',

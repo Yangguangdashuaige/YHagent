@@ -9,9 +9,9 @@
  * pnpm workspace's, which hold the native packages of the build machine's architecture only. After packing, the
  * packed app must hold the target architecture's native packages (`NATIVE`), or the build fails.
  *
- * Run: `pnpm run build:installer` (builds build/cortico first). Output: `dist/YHagent-Pet-Setup-<version>.exe` on
- * Windows (`YHagent-Pet-Setup-<version>-arm64.exe` for Windows on Arm), `dist/YHagent-Pet-<version>-mac-<arch>.dmg` and
- * `.zip` on a Mac, `dist/YHagent-Pet-<version>-linux-x64.AppImage` and `.deb` on Linux. `PACK_ARCH` (x64 or arm64)
+ * Run: `pnpm run build:installer` (builds build/cortico first). Output: `dist/小小轩-Setup-<version>.exe` on
+ * Windows (`小小轩-Setup-<version>-arm64.exe` for Windows on Arm), `dist/小小轩-<version>-mac-<arch>.dmg` and
+ * `.zip` on a Mac, `dist/小小轩-<version>-linux-x64.AppImage` and `.deb` on Linux. `PACK_ARCH` (x64 or arm64)
  * builds for another architecture than the machine's: npm installs that architecture's native packages (esbuild,
  * koffi, sherpa-onnx), electron-builder packs that Electron and the Windows build takes that MinGit, so one Apple
  * silicon Mac builds both Mac downloads and one x64 Windows machine both Windows ones. In such a build koffi's
@@ -22,7 +22,7 @@
  * installer (`dist/win-unpacked`, `dist/linux-unpacked`), which Steam installs and updates, carrying
  * steamworks.js for the Workshop (app/steam.cjs) and without the whale pack, which goes out through the Workshop.
  * steamworks.js has x64 libraries only. `COOPANION_CHANNEL=portable` (Windows) builds the portable zip,
- * `dist/YHagent-Pet-<version>-win-<arch>-portable.zip`: the app directory to unpack anywhere, without the updater.
+ * `dist/小小轩-<version>-win-<arch>-portable.zip`: the app directory to unpack anywhere, without the updater.
  * The channel and app id go into the app's package.json as `coopanion` (app/main.cjs).
  */
 import { createHash } from 'node:crypto';
@@ -182,7 +182,7 @@ const target = process.platform === 'darwin' ? '--mac' : process.platform === 'l
  * names in electron-builder.yml, which the installed x64 copies update from.
  */
 const WIN_ARM64 = process.platform === 'win32' && ARCH === 'arm64'
-  ? [`-c.nsis.artifactName=YHagent-Pet-Setup-${rootPkg.version}-arm64.exe`, '-c.publish.channel=latest-arm64'] : [];
+  ? [`-c.nsis.artifactName=${rootPkg.productName}-Setup-${rootPkg.version}-arm64.exe`, '-c.publish.channel=latest-arm64'] : [];
 /**
  * 7za compresses Arm64 executables through its ARM64 filter, which the installer's unpacker (nsis7z.dll) does not
  * know: it leaves those files out, and the install directory has no YHagent-Pet.exe and no DLL. BCJ is a filter it

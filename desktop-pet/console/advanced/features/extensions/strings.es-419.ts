@@ -38,7 +38,7 @@ export const S: Partial<typeof en> = {
   removeInUseProvider: 'Una conexión de modelo todavía usa este proveedor. Elimina primero esa conexión.',
   removeBody: 'Quita este paquete del directorio compartido de extensiones; surte efecto después de reiniciar el proceso. Afecta a otros Bots que lo usen. Memory, la configuración guardada y los directorios de código fuente locales se conservan.',
   builtin: 'Integrada',
-  builtinNote: 'Incluida con Coopanion; no se puede eliminar por separado.',
+  builtinNote: 'Incluida con 小小轩; no se puede eliminar por separado.',
 
   installedAction: 'Instalación',
   updatedAction: 'Actualización',
@@ -116,7 +116,7 @@ export const S: Partial<typeof en> = {
   npm: 'Desde npm',
   local: 'Desde un directorio local',
   npmHelp: 'Ingresa un nombre de paquete npm, opcionalmente seguido de @versión o una etiqueta. No ingreses la URL de un sitio web.',
-  localHelp: 'Elige en el equipo de Cortico una carpeta de extensión con package.json.',
+  localHelp: 'Elige en el equipo de 小小轩 una carpeta de extensión con package.json.',
   folder: 'Elegir carpeta',
   pathLabel: 'Directorio de la extensión',
   packageLabel: 'Paquete y versión',

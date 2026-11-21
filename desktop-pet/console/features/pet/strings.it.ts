@@ -2,7 +2,7 @@ import type { en } from './strings.ts';
 
 export const S: Partial<typeof en> = {
   launchAtLoginLabel: "Avvio automatico",
-  launchAtLogin: "Avvia Coopanion all’accesso",
+  launchAtLogin: "Avvia 小小轩 all’accesso",
   autoUpdateLabel: "Aggiornamenti automatici",
   autoUpdate: "Scarica e installa gli aggiornamenti automaticamente",
   autoUpdateHint: "Scarica gli aggiornamenti automaticamente e li installa alla chiusura. Disattivando questa opzione, ricerca e download si interrompono subito e gli aggiornamenti già scaricati non vengono installati automaticamente.",

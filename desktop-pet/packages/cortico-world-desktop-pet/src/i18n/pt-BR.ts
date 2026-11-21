@@ -38,7 +38,7 @@ const ptBR: Translation<PetText> = {
   hotkey: {
     cannotRead: (why: string) => `Não foi possível ler o teclado: ${why}`,
     macNoKey: 'O teclado do Mac não tem essa tecla; escolha outra tecla para falar',
-    macPermission: 'Sem permissão de Monitoramento de Entrada: ative o Coopanion em Ajustes do Sistema → Privacidade e Segurança → Monitoramento de Entrada e reinicie-o. Se já estiver ativado, remova o Coopanion da lista com “−” e adicione-o de novo: uma versão atualizada não herda a permissão antiga',
+    macPermission: 'Sem permissão de Monitoramento de Entrada: ative o 小小轩 em Ajustes do Sistema → Privacidade e Segurança → Monitoramento de Entrada e reinicie-o. Se já estiver ativado, remova o 小小轩 da lista com “−” e adicione-o de novo: uma versão atualizada não herda a permissão antiga',
     linuxNoKey: 'O Linux não consegue ler essa tecla (os botões laterais do mouse não funcionam); escolha outra tecla para falar',
     linuxNoDisplay: 'A tecla para falar precisa do X11 (ou XWayland) no Linux: DISPLAY não está definido',
     linuxNoX11: 'A tecla para falar não consegue se conectar à tela do X11',

@@ -133,12 +133,12 @@ export const S: Partial<typeof en> = {
   footSoftPost: (max: string) => `; budget della fase ${max}.`,
 
   // onboarding.ts
-  obWho: 'Cortico',
-  obWelcome: 'Benvenuto in Cortico! Configuriamo il tuo primo bot Cortico.',
+  obWho: '小小轩',
+  obWelcome: 'Benvenuto in 小小轩! Configuriamo il tuo primo bot 小小轩.',
   obProvider: 'Per prima cosa, configura un provider di modelli:',
   obProviderNone: 'Ancora nessun provider di modelli utilizzabile',
   obProviderReady: 'Provider di modelli configurato',
-  obWorlds: 'Poi attiva e configura gli ambienti esterni a cui accede il tuo bot (World di Cortico). Va bene anche iniziare solo con la chat della console.',
+  obWorlds: 'Poi attiva e configura gli ambienti esterni a cui accede il tuo bot (World di 小小轩). Va bene anche iniziare solo con la chat della console.',
   obWorldsState: (labels: readonly string[]) =>
     `Attualmente ${labels.length === 1 ? 'è attivo 1 ambiente esterno' : `sono attivi ${labels.length} ambienti esterni`}: ${labels.join(', ')}`,
   obPrompts: 'Infine, qui modifichi il prompt di sistema: chi è, come si comporta, come parla.',

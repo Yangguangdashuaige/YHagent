@@ -7,7 +7,7 @@ const fr: Translation<CoreText> = {
   settings: {
     autoUpdate: { title: "Mises à jour automatiques", description: "Télécharge les mises à jour et les installe à la fermeture. Désactiver cette option arrête immédiatement les recherches et téléchargements et empêche l’installation automatique des mises à jour déjà téléchargées." },
     language: { title: 'Langue', description: "L'interface et Coo utilisent cette langue. Prend effet immédiatement." },
-    telemetry: { title: "Statistiques d'utilisation anonymes", description: "Envoie des comptages d'utilisation et les réglages, jamais les conversations, pour aider à améliorer Coopanion. Les champs sont listés dans docs/TELEMETRY.md." },
+    telemetry: { title: "Statistiques d'utilisation anonymes", description: "Envoie des comptages d'utilisation et les réglages, jamais les conversations, pour aider à améliorer Pal AI Lab. Les champs sont listés dans docs/TELEMETRY.md." },
     contextRing: { title: 'Anneau de contexte', description: 'Affiche dans la zone de saisie de la page Discussion un anneau indiquant combien il reste avant la mise en ordre de la conversation précédente.' },
     roundsSoft: { title: 'Rappel de conclusion', suffix: 'requêtes', description: "Après ce nombre de requêtes au modèle dans un même réveil, un rappel demande à Coo de conclure ce qui est en cours et de terminer le tour." },
     roundsHard: { title: 'Requêtes par réveil', suffix: 'requêtes', description: 'Le maximum de requêtes au modèle dans un même réveil ; le tour se termine quand il est atteint.' },
@@ -15,7 +15,7 @@ const fr: Translation<CoreText> = {
 
   failure: {
     text: (n: number, status: number, reason: string, advice: string) => `Mes ${n} dernières requêtes au modèle ont échoué. Erreur${status ? ` ${status}` : ''} : ${reason}.${advice && ` ${advice}`}`,
-    reasoningReplay: (n: number) => `Mes ${n} dernières requêtes au modèle ont échoué : ce service exige que la réflexion soit renvoyée avant chaque appel d'outil, et Coopanion a désactivé cela pour lui. Merci de le signaler aux développeurs : https://github.com/Pal-AI-Lab/Coopanion/issues`,
+    reasoningReplay: (n: number) => `Mes ${n} dernières requêtes au modèle ont échoué : ce service exige que la réflexion soit renvoyée avant chaque appel d'outil, et 小小轩 a désactivé cela pour lui. Merci de le signaler aux développeurs : https://github.com/Yangguangdashuaige/YHagent/issues`,
     advice: {
       key: "Vérifiez l'API Key sur la page Accueil des paramètres, où vous pouvez tester la connexion.",
       model: 'Vérifiez le nom du modèle sur la page Accueil des paramètres, où vous pouvez tester la connexion.',

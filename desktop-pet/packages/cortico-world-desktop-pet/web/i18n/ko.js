@@ -1,7 +1,7 @@
 // 한국어: text of the pet page and the dressing page. Keys as in en.js; a key left out reads en.js.
 export default {
   // the pet page
-  'pet.title': 'Cortico 펫',
+  'pet.title': '小小轩',
   'bubble.close': '닫기',
   'bubble.skip': '건너뛰기',
   'bubble.ownPlaceholder': '답을 입력하세요…',

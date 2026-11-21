@@ -434,7 +434,7 @@ describe('installation feedback', () => {
     button(root, '从本机目录安装').click();
     await flush();
     const path = root.querySelector('input[aria-label="扩展项目目录"]');
-    expect(root.textContent).toContain('运行 Cortico 的电脑');
+    expect(root.textContent).toContain('运行小小轩的电脑');
     path.value = 'C:/work/my-world';
     path.dispatchEvent(new Event('input'));
     button(root, '安装').click();
@@ -1449,7 +1449,7 @@ describe('World library and catalog', () => {
     ctx.router.navigate(['world']); window.dispatchEvent(new HashChangeEvent('hashchange')); await flush();
     const remove = [...root.querySelectorAll('.world-blade')].find(item => item.dataset.key === 'world:builtin').querySelector('.iobtn-remove');
     expect(remove.getAttribute('aria-disabled')).toBe('true');
-    expect(remove.title).toBe('随 Coopanion 提供，不能单独删除。');
+    expect(remove.title).toBe('随小小轩提供，不能单独删除。');
     remove.click(); await flush();
     expect(document.querySelector('.modal')).toBeNull();
   });

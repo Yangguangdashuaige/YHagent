@@ -9,7 +9,7 @@ export default {
   settings: {
     autoUpdate: { title: "自动更新", description: "自动下载并在退出时安装更新。关闭后立即停止检查和下载，已下载的更新也不会自动安装。" },
     language: { title: '语言', description: '界面和 Coo 说话都使用这种语言，修改后立即生效。' },
-    telemetry: { title: '匿名使用统计', description: '发送不含对话内容的使用次数与设置，帮助改进 Coopanion。字段见 docs/TELEMETRY.md。' },
+    telemetry: { title: '匿名使用统计', description: '发送不含对话内容的使用次数与设置，帮助改进 Pal AI Lab。字段见 docs/TELEMETRY.md。' },
     contextRing: { title: '上下文圆环', description: '在对话页输入框显示一个圆环，表示离整理之前的对话还有多远。' },
     roundsSoft: { title: '收尾提醒', suffix: '次', description: '单次唤醒请求模型达到此次数时，提醒 Coo 完成当前任务后结束本轮。' },
     roundsHard: { title: '单次唤醒上限', suffix: '次', description: '单次唤醒最多请求模型的次数，达到后结束本轮。' },
@@ -19,7 +19,7 @@ export default {
   failure: {
     text: (n: number, status: number, reason: string, advice: string) => `我连着 ${n} 次没能从模型那里拿到回复。错误${status ? ` ${status}` : ''}：${reason}。${advice}`,
     /** 服务商预设关掉了 `sendSyntheticReasoning`,端点却要它而回 400 时的说明 */
-    reasoningReplay: (n: number) => `我连着 ${n} 次没能从模型那里拿到回复：这家服务商要求每次调用工具前都回传思考内容，Coopanion 对它关掉了这一项。请把这件事反馈给开发者：https://github.com/Pal-AI-Lab/Coopanion/issues`,
+    reasoningReplay: (n: number) => `我连着 ${n} 次没能从模型那里拿到回复：这家服务商要求每次调用工具前都回传思考内容，小小轩 对它关掉了这一项。请把这件事反馈给开发者：https://github.com/Yangguangdashuaige/YHagent/issues`,
     /** 按状态码选一句接在原因后面;没有对应建议的状态码只说原因 */
     advice: {
       key: '请在设置的「开始」页检查 API Key，那里可以测试连接。',

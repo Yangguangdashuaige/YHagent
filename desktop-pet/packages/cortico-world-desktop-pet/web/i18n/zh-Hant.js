@@ -1,7 +1,7 @@
 // 繁體中文: text of the pet page and the dressing page. Keys as in en.js; a key left out reads zh.js.
 export default {
   // the pet page
-  'pet.title': 'Cortico 桌寵',
+  'pet.title': '小小轩',
   'bubble.close': '關閉',
   'bubble.skip': '略過',
   'bubble.ownPlaceholder': '輸入你的回答…',

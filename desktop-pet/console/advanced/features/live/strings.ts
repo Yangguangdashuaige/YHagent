@@ -142,12 +142,12 @@ const zh = {
   footSoftPost: (max: string) => `；阶段预算 ${max}。`,
 
   // onboarding.ts
-  obWho: 'Cortico',
-  obWelcome: '欢迎使用 Cortico！现在，让我们开始部署你的第一个 Cortico Bot。',
+  obWho: '小小轩',
+  obWelcome: '欢迎使用 小小轩！现在，让我们开始部署你的第一个 小小轩 Bot。',
   obProvider: '首先，请配置模型提供商：',
   obProviderNone: '尚未配置可用的模型提供商',
   obProviderReady: '模型提供商已配置',
-  obWorlds: '接下来，请启用并配置你的 Bot 接入的外部环境模组（Cortico World）。也可以先仅启用控制台对话。',
+  obWorlds: '接下来，请启用并配置你的 Bot 接入的外部环境模组（小小轩 World）。也可以先仅启用控制台对话。',
   obWorldsState: (labels: readonly string[]) => `当前已经启用了 ${labels.length} 个外部环境：${labels.join('、')}`,
   obPrompts: '最后，你可以在这里方便地编辑系统提示词，来提供人格描述、行为规范、语言风格等定制化内容！',
   obReady: '准备就绪！',
@@ -289,12 +289,12 @@ export const en: typeof zh = {
   footSoftPost: (max: string) => `; stage budget ${max}.`,
 
   // onboarding.ts
-  obWho: 'Cortico',
-  obWelcome: "Welcome to Cortico! Let's set up your first Cortico Bot.",
+  obWho: '小小轩',
+  obWelcome: "Welcome to 小小轩! Let's set up your first 小小轩 Bot.",
   obProvider: 'First, configure a model provider:',
   obProviderNone: 'No usable model provider yet',
   obProviderReady: 'Model provider configured',
-  obWorlds: 'Next, enable and configure the external environments your bot reaches (Cortico Worlds). Console chat alone is a fine start.',
+  obWorlds: 'Next, enable and configure the external environments your bot reaches (小小轩 Worlds). Console chat alone is a fine start.',
   obWorldsState: (labels: readonly string[]) =>
     `Currently ${labels.length} external environment${labels.length === 1 ? '' : 's'} enabled: ${labels.join(', ')}`,
   obPrompts: 'Finally, the system prompt is edited here: who Coo is, how Coo behaves and talks.',

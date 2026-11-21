@@ -54,7 +54,7 @@ const en: PetText = {
   hotkey: {
     cannotRead: (why: string) => `Cannot read the keyboard: ${why}`,
     macNoKey: 'A Mac keyboard has no such key; pick another talk key',
-    macPermission: 'No Input Monitoring permission: turn Coopanion on under System Settings → Privacy & Security → Input Monitoring, then restart it. If it is on already, remove Coopanion from the list with "−" and add it back: an updated version does not inherit the old permission',
+    macPermission: 'No Input Monitoring permission: turn 小小轩 on under System Settings → Privacy & Security → Input Monitoring, then restart it. If it is on already, remove 小小轩 from the list with "−" and add it back: an updated version does not inherit the old permission',
     linuxNoKey: 'Linux cannot read this key (mouse side buttons do not work); pick another talk key',
     linuxNoDisplay: 'The talk key needs X11 (or XWayland) on Linux: DISPLAY is not set',
     linuxNoX11: 'The talk key cannot connect to the X11 display',

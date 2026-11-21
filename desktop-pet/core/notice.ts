@@ -249,8 +249,8 @@ const zh = {
   settingLine: (name: string, from: string, to: string) => `- ${name}:${from} → ${to}`,
   changed: '[设置变化] 对方刚改了这些设置,已经生效:',
 
-  updatedFrom: (from: string, to: string) => `[应用更新] Coopanion 刚从 ${from} 更新到 ${to}。`,
-  updatedTo: (to: string) => `[应用更新] Coopanion 刚更新到 ${to}。`,
+  updatedFrom: (from: string, to: string) => `[应用更新] 小小轩 刚从 ${from} 更新到 ${to}。`,
+  updatedTo: (to: string) => `[应用更新] 小小轩 刚更新到 ${to}。`,
   noNotes: '这个版本没有附带更新说明。',
   notesIntro: (several: boolean) => `下面是${several ? '这之间各版本' : '这个版本'}的更新说明,原文是写给对方看的:`,
   notesOutro: '\n挑对方用得上的新功能和修复,用你自己的话告诉对方,不用照念,也不用一次说完。',
@@ -323,8 +323,8 @@ const en: typeof zh = {
   settingLine: (name, from, to) => `- ${name}: ${from} → ${to}`,
   changed: '[settings changed] The person just changed these settings, now in effect:',
 
-  updatedFrom: (from, to) => `[app update] Coopanion was just updated from ${from} to ${to}.`,
-  updatedTo: (to) => `[app update] Coopanion was just updated to ${to}.`,
+  updatedFrom: (from, to) => `[app update] 小小轩 was just updated from ${from} to ${to}.`,
+  updatedTo: (to) => `[app update] 小小轩 was just updated to ${to}.`,
   noNotes: ' This version came without release notes.',
   notesIntro: (several) => ` Below are the release notes of ${several ? 'each version in between' : 'this version'}, written for the person to read:`,
   notesOutro: '\nPick the new features and fixes the person can use and tell them in your own words; no need to read them out or to say it all at once.',

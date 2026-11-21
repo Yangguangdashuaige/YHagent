@@ -7,7 +7,7 @@ const zhHant: Translation<CoreText> = {
   settings: {
     autoUpdate: { title: "自動更新", description: "自動下載並在結束應用程式時安裝更新。關閉後立即停止檢查和下載，已下載的更新也不會自動安裝。" },
     language: { title: '語言', description: '介面和 Coo 說話都使用這種語言，修改後立即生效。' },
-    telemetry: { title: '匿名使用統計', description: '傳送不含對話內容的使用次數與設定，幫助改進 Coopanion。欄位見 docs/TELEMETRY.md。' },
+    telemetry: { title: '匿名使用統計', description: '傳送不含對話內容的使用次數與設定，幫助改進 Pal AI Lab。欄位見 docs/TELEMETRY.md。' },
     contextRing: { title: '上下文圓環', description: '在對話頁輸入框顯示一個圓環，表示離整理之前的對話還有多遠。' },
     roundsSoft: { title: '收尾提醒', suffix: '次', description: '單次喚醒請求模型達到此次數時，提醒 Coo 完成目前任務後結束本輪。' },
     roundsHard: { title: '單次喚醒上限', suffix: '次', description: '單次喚醒最多請求模型的次數，達到後結束本輪。' },
@@ -15,7 +15,7 @@ const zhHant: Translation<CoreText> = {
 
   failure: {
     text: (n: number, status: number, reason: string, advice: string) => `我連續 ${n} 次沒能從模型那裡拿到回覆。錯誤${status ? ` ${status}` : ''}：${reason}。${advice}`,
-    reasoningReplay: (n: number) => `我連續 ${n} 次沒能從模型那裡拿到回覆：這家服務商要求每次呼叫工具前都回傳思考內容，Coopanion 對它關掉了這一項。請把這件事回報給開發者：https://github.com/Pal-AI-Lab/Coopanion/issues`,
+    reasoningReplay: (n: number) => `我連續 ${n} 次沒能從模型那裡拿到回覆：這家服務商要求每次呼叫工具前都回傳思考內容，小小轩 對它關掉了這一項。請把這件事回報給開發者：https://github.com/Yangguangdashuaige/YHagent/issues`,
     advice: {
       key: '請在設定的「開始」頁檢查 API Key，那裡可以測試連線。',
       model: '請在設定的「開始」頁檢查模型名稱，那裡可以測試連線。',

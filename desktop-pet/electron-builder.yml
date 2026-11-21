@@ -3,7 +3,7 @@
 # scripts/pack.ts runs electron-builder with build/app as the project directory, so relative paths here start
 # from build/app, and electron-builder takes the app's node_modules from build/app's npm install.
 appId: com.yhagent.desktop.pet
-productName: YHagent-Pet
+productName: 小小轩
 copyright: Copyright © 2026 Pal-AI-Lab
 electronVersion: 44.4.4
 # Electron locale codes for the languages in app/i18n/index.cjs.
@@ -27,12 +27,14 @@ publish:
   owner: Yangguangdashuaige
   repo: YHagent
 win:
+  # Keep the Windows program and uninstaller paths compatible with earlier installs.
+  executableName: YHagent-Pet
   # x64 or arm64, whichever scripts/pack.ts asks for
   target:
     - target: nsis
   icon: app/icons/icon.ico
   # the portable zip (COOPANION_CHANNEL=portable, scripts/pack.ts asks for the zip target); the installer is named under nsis
-  artifactName: YHagent-Pet-${version}-win-${arch}-portable.${ext}
+  artifactName: ${productName}-${version}-win-${arch}-portable.${ext}
 # Asks where to install. The app keeps its data beside the executable and has per-user shortcuts.
 nsis:
   oneClick: false
@@ -41,7 +43,7 @@ nsis:
   include: nsis.nsh
   createDesktopShortcut: always
   createStartMenuShortcut: true
-  shortcutName: YHagent-Pet
+  shortcutName: 小小轩
   # the installer's own pages follow the system language among these (NSIS has one Spanish, es_ES);
   # the app's language is the app's own setting
   installerLanguages: [en_US, zh_CN, zh_TW, ja_JP, ko_KR, fr_FR, de_DE, es_ES, pt_BR, it_IT, ru_RU]
@@ -49,8 +51,8 @@ nsis:
   displayLanguageSelector: false
   runAfterFinish: true
   deleteAppDataOnUninstall: false
-  # the x64 installer; scripts/pack.ts names the Windows on Arm one YHagent-Pet-Setup-<version>-arm64.exe
-  artifactName: YHagent-Pet-Setup-${version}.exe
+  # scripts/pack.ts adds the architecture suffix to the Windows on Arm installer.
+  artifactName: ${productName}-Setup-${version}.exe
 # No Developer ID: the app is signed ad hoc ("-"), which Apple silicon needs to launch it at all;
 # the first open goes through Privacy & Security → Open Anyway (see the README). It lives in the
 # menu bar (LSUIElement), not the Dock; its data is in ~/Library/Application Support/YHagent-Pet.
@@ -63,14 +65,14 @@ mac:
   category: public.app-category.lifestyle
   icon: app/icons/icon.png
   identity: "-"
-  artifactName: YHagent-Pet-${version}-mac-${arch}.${ext}
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
   hardenedRuntime: false
   gatekeeperAssess: false
   extendInfo:
     LSUIElement: true
     # English for every language: electron-builder has no option for per-language InfoPlist.strings
-    NSMicrophoneUsageDescription: Coo listens to you through the microphone. Speech is recognized on this Mac; recordings are not uploaded.
-    NSAppleEventsUsageDescription: While using the computer for you, Coo uses this to bring the app you name to the front.
+    NSMicrophoneUsageDescription: 小小轩 uses the microphone for local speech recognition. Recordings stay on this Mac.
+    NSAppleEventsUsageDescription: 小小轩 uses this to bring the app you name to the front.
 dmg:
   writeUpdateInfo: false
 # x64 only. Data goes to ~/.config/YHagent-Pet. The app runs on X11 (XWayland under Wayland, see app/main.cjs);
@@ -83,11 +85,11 @@ linux:
       arch: [x64]
   icon: app/icons/icon.png
   category: Utility
-  executableName: coopanion
+  executableName: yhagent-pet
   synopsis: An AI companion pet on your desktop
   maintainer: Pal-AI-Lab <phantivia@gmail.com>
   # ${arch} would read x86_64 for the AppImage and amd64 for the deb
-  artifactName: YHagent-Pet-${version}-linux-x64.${ext}
+  artifactName: ${productName}-${version}-linux-x64.${ext}
   desktop:
     entry:
       StartupWMClass: YHagent-Pet

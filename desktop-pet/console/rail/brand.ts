@@ -1,32 +1,25 @@
-import { coopanionLettering } from '../branding.ts';
-import { brandMark, christmasHat } from '../base/ui/icons.ts';
+import { christmasHat } from '../base/ui/icons.ts';
 
-/** The same C and two eyes form the wordmark and the compact mark; CSS moves their strokes. */
 export function sidebarBrand(doc: Document, signal: AbortSignal): HTMLDivElement {
   const lockup = doc.createElement('div');
   lockup.className = 'companion-lockup';
   lockup.setAttribute('role', 'img');
-  lockup.setAttribute('aria-label', 'Coopanion');
+  lockup.setAttribute('aria-label', '小小轩');
 
-  const mark = brandMark(doc, 'companion-brand');
-  const lettering = coopanionLettering(doc);
-  mark.setAttribute('viewBox', lettering.getAttribute('viewBox')!);
-  mark.children[0]!.classList.add('companion-brand-c');
-  mark.children[1]!.classList.add('companion-brand-o-first');
-  mark.children[2]!.classList.add('companion-brand-o-second');
+  const prefix = doc.createElement('span');
+  prefix.className = 'companion-brand-prefix';
+  prefix.textContent = '小小';
+  const mark = doc.createElement('span');
+  mark.className = 'companion-brand-mark';
+  mark.textContent = '轩';
+  lockup.append(prefix, mark);
 
-  const tail = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
-  tail.classList.add('companion-brand-tail');
-  tail.setAttribute('stroke-width', '16');
-  tail.setAttribute('stroke-linejoin', 'round');
-  tail.append(...Array.from(lettering.children).slice(3));
-  mark.append(tail);
-  lockup.append(mark);
+  const hat = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  hat.classList.add('companion-brand-hat');
+  hat.setAttribute('viewBox', '0 -45 180 128');
+  hat.setAttribute('aria-hidden', 'true');
+  hat.append(christmasHat(doc));
 
-  const hat = christmasHat(doc);
-  hat.classList.add('companion-brand-c', 'companion-brand-hat');
-
-  // Rechecked at local midnight and on focus or visibility changes.
   const win = doc.defaultView!;
   let midnightTimer: ReturnType<typeof setTimeout> | undefined;
   const refresh = (): void => {

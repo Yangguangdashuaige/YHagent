@@ -135,7 +135,7 @@ function companionGroup(language: Language): ConfigGroup {
     owner: 'persona',
     schema: {
       type: 'object',
-      title: 'Coopanion',
+      title: '小小轩',
       properties: {
         language: { type: 'string', title: s.language.title, description: s.language.description, enum: [...LANGUAGES], 'x-options': LANGUAGE_OPTIONS, 'x-hot': true },
         [TELEMETRY_KEY]: { type: 'boolean', title: s.telemetry.title, description: s.telemetry.description },

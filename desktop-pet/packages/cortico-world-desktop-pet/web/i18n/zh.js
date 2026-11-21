@@ -1,7 +1,7 @@
 // 简体中文:桌宠页和装扮页的文字。{name} 是填进去的值。键与 en.js 相同;繁体中文缺的键读这里。
 export default {
   // 桌宠页
-  'pet.title': 'Cortico 桌宠',
+  'pet.title': '小小轩',
   'bubble.close': '关闭',
   /** 引导等多步对话右上角的关闭按钮 */
   'bubble.skip': '跳过',

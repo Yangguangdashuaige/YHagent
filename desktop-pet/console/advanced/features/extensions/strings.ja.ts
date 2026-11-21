@@ -38,7 +38,7 @@ export const S: Partial<typeof en> = {
   removeInUseProvider: 'このプロバイダーを使うモデル接続が残っています。先にその接続を削除してください。',
   removeBody: 'このパッケージを共有の拡張機能ディレクトリから削除します。プロセスの再起動後に反映されます。これを使っている他のボットにも影響します。Memory、保存済みの設定、ローカルの拡張機能ソースは削除されません。',
   builtin: '組み込み',
-  builtinNote: 'Coopanion に同梱されているため、個別には削除できません。',
+  builtinNote: '小小轩 に同梱されているため、個別には削除できません。',
 
   installedAction: 'インストール',
   updatedAction: '更新',
@@ -116,7 +116,7 @@ export const S: Partial<typeof en> = {
   npm: 'npm からインストール',
   local: 'ローカルディレクトリからインストール',
   npmHelp: 'npm パッケージ名を入力してください。@バージョンまたはタグを付けられます。Web ページの URL は入力しないでください。',
-  localHelp: 'Cortico を実行しているコンピューター上の、package.json を含む拡張ディレクトリを選択します。',
+  localHelp: '小小轩 を実行しているコンピューター上の、package.json を含む拡張ディレクトリを選択します。',
   folder: 'フォルダーを選択',
   pathLabel: '拡張機能のプロジェクトディレクトリ',
   packageLabel: 'パッケージ名とバージョン',

@@ -1,7 +1,7 @@
 // Português (Brasil): text of the pet page and the dressing page. Keys as in en.js; a key left out reads en.js.
 export default {
   // the pet page
-  'pet.title': 'Pet do Cortico',
+  'pet.title': '小小轩',
   'bubble.close': 'Fechar',
   'bubble.skip': 'Pular',
   'bubble.ownPlaceholder': 'Digite sua resposta…',

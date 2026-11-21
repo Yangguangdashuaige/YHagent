@@ -12,7 +12,7 @@ const zh = {
   settingsTab: '设置', marketTab: '扩展市场',
   pageTitle: '模型供应商', navLabel: '模型供应商', navGroup: 'Core', create: '+ 新建供应商实例', newName: '未命名实例',
   createHint: '实例 = 填写一组供应商配置，保存成卡片',
-  empty: '还没有模型供应商', emptyHint: '添加一条模型连接后，Cortico 才能进行模型推理。',
+  empty: '还没有模型供应商', emptyHint: '添加一条模型连接后，小小轩 才能进行模型推理。',
   activate: '设为当前供应商', active: '当前模型', missing: '当前模型供应商不存在，配置中引用：',
   inUse: (names: string) => `其他实例使用中：${names}`, selectedBy: (names: string) => `已被 ${names} 选用（未运行）`,
   names: (list: string[]) => list.join('、'),

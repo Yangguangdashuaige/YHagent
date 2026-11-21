@@ -7,7 +7,7 @@ const ptBR: Translation<CoreText> = {
   settings: {
     autoUpdate: { title: "Atualizações automáticas", description: "Baixa atualizações automaticamente e as instala ao sair. Desativar esta opção interrompe imediatamente a busca e os downloads e impede a instalação automática de atualizações já baixadas." },
     language: { title: 'Idioma', description: 'A interface e Coo usam este idioma. Vale na hora.' },
-    telemetry: { title: 'Estatísticas de uso anônimas', description: 'Envia contagens de uso e configurações, nunca conversas, para ajudar a melhorar o Coopanion. Os campos estão listados em docs/TELEMETRY.md.' },
+    telemetry: { title: 'Estatísticas de uso anônimas', description: 'Envia contagens de uso e configurações, nunca conversas, para ajudar a melhorar o Pal AI Lab. Os campos estão listados em docs/TELEMETRY.md.' },
     contextRing: { title: 'Anel de contexto', description: 'Mostra na caixa de texto da página Chat um anel com quanto falta para organizar a conversa anterior.' },
     roundsSoft: { title: 'Lembrete para encerrar', suffix: 'solicitações', description: 'Depois dessa quantidade de solicitações ao modelo em um mesmo despertar, Coo recebe um lembrete para terminar o que está fazendo e encerrar o turno.' },
     roundsHard: { title: 'Solicitações por despertar', suffix: 'solicitações', description: 'O máximo de solicitações ao modelo em um despertar; ao chegar nele, o turno termina.' },
@@ -15,7 +15,7 @@ const ptBR: Translation<CoreText> = {
 
   failure: {
     text: (n: number, status: number, reason: string, advice: string) => `Minhas últimas ${n} solicitações ao modelo falharam. Erro${status ? ` ${status}` : ''}: ${reason}.${advice && ` ${advice}`}`,
-    reasoningReplay: (n: number) => `Minhas últimas ${n} solicitações ao modelo falharam: este serviço exige que o raciocínio seja reenviado antes de cada chamada de ferramenta, e o Coopanion está com isso desativado para ele. Por favor, avise os desenvolvedores: https://github.com/Pal-AI-Lab/Coopanion/issues`,
+    reasoningReplay: (n: number) => `Minhas últimas ${n} solicitações ao modelo falharam: este serviço exige que o raciocínio seja reenviado antes de cada chamada de ferramenta, e o 小小轩 está com isso desativado para ele. Por favor, avise os desenvolvedores: https://github.com/Yangguangdashuaige/YHagent/issues`,
     advice: {
       key: 'Confira a API Key na página Início das configurações, onde você pode testar a conexão.',
       model: 'Confira o nome do modelo na página Início das configurações, onde você pode testar a conexão.',

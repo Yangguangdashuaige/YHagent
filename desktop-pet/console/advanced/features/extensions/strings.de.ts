@@ -38,7 +38,7 @@ export const S: Partial<typeof en> = {
   removeInUseProvider: 'Eine Modellverbindung verwendet diesen Anbieter noch. Zuerst diese Verbindung löschen.',
   removeBody: 'Entfernt dieses Paket aus dem gemeinsamen Erweiterungsverzeichnis; gilt nach dem Neustart des Prozesses. Andere Bots, die es nutzen, sind betroffen. Memory, gespeicherte Konfiguration und lokale Quellverzeichnisse bleiben erhalten.',
   builtin: 'Integriert',
-  builtinNote: 'Wird mit Coopanion ausgeliefert; kann nicht einzeln gelöscht werden.',
+  builtinNote: 'Wird mit 小小轩 ausgeliefert; kann nicht einzeln gelöscht werden.',
 
   installedAction: 'Installation',
   updatedAction: 'Aktualisierung',
@@ -116,7 +116,7 @@ export const S: Partial<typeof en> = {
   npm: 'Von npm',
   local: 'Aus lokalem Verzeichnis',
   npmHelp: 'Gib einen npm-Paketnamen ein, optional gefolgt von @Version oder einem Tag. Keine Website-URL eingeben.',
-  localHelp: 'Wähle auf dem Cortico-Host ein Erweiterungsverzeichnis mit package.json.',
+  localHelp: 'Wähle auf dem 小小轩-Host ein Erweiterungsverzeichnis mit package.json.',
   folder: 'Ordner wählen',
   pathLabel: 'Erweiterungsverzeichnis',
   packageLabel: 'Paket und Version',

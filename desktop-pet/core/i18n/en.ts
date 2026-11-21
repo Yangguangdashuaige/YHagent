@@ -12,7 +12,7 @@ const en: CoreText = {
   settings: {
     autoUpdate: { title: "Automatic updates", description: "Download updates automatically and install them when you quit. Turning this off stops checks and downloads immediately and prevents downloaded updates from installing automatically." },
     language: { title: 'Language', description: 'The interface and Coo use this language. Takes effect at once.' },
-    telemetry: { title: 'Anonymous usage statistics', description: 'Sends usage counts and settings, never conversations, to help improve Coopanion. The fields are listed in docs/TELEMETRY.md.' },
+    telemetry: { title: 'Anonymous usage statistics', description: 'Sends usage counts and settings, never conversations, to help improve Pal AI Lab. The fields are listed in docs/TELEMETRY.md.' },
     contextRing: { title: 'Context ring', description: "Shows a ring in the Chat page's input box with how far the conversation is from being tidied up." },
     roundsSoft: { title: 'Wrap-up reminder', suffix: 'requests', description: 'After this many model requests in one wake-up, Coo is reminded to finish the current task and end the turn.' },
     roundsHard: { title: 'Requests per wake-up', suffix: 'requests', description: 'The most model requests in one wake-up; the turn ends when it is reached.' },
@@ -21,7 +21,7 @@ const en: CoreText = {
   /** What the pet's bubble says after several model requests in a row failed. */
   failure: {
     text: (n: number, status: number, reason: string, advice: string) => `My last ${n} requests to the model failed. Error${status ? ` ${status}` : ''}: ${reason}.${advice && ` ${advice}`}`,
-    reasoningReplay: (n: number) => `My last ${n} requests to the model failed: this service requires the thinking to be sent back before every tool call, and Coopanion has that turned off for it. Please report this to the developers: https://github.com/Pal-AI-Lab/Coopanion/issues`,
+    reasoningReplay: (n: number) => `My last ${n} requests to the model failed: this service requires the thinking to be sent back before every tool call, and 小小轩 has that turned off for it. Please report this to the developers: https://github.com/Yangguangdashuaige/YHagent/issues`,
     advice: {
       key: 'Check the API Key on the Start page in settings, where you can test the connection.',
       model: 'Check the model name on the Start page in settings, where you can test the connection.',

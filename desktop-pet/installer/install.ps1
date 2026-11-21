@@ -1,6 +1,4 @@
-# Coopanion one-line installer for Windows 10 or 11 (x64) and Windows 11 (Arm64).
-#
-#   irm https://raw.githubusercontent.com/Pal-AI-Lab/Coopanion/main/installer/install.ps1 | iex
+﻿# 小小轩下载安装脚本 for Windows 10 or 11 (x64) and Windows 11 (Arm64).
 #
 # Downloads the installer of the latest GitHub release into %TEMP%, runs it, and deletes it — unless
 # it exits with an error, in which case the download stays for a retry. The installer is per-user (no
@@ -8,10 +6,10 @@
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$repo = 'Pal-AI-Lab/Coopanion'
+$repo = 'Yangguangdashuaige/YHagent'
 Write-Host 'Looking for the latest version...'
-$release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers @{ 'User-Agent' = 'Coopanion-installer' }
-$installers = $release.assets | Where-Object { $_.name -like 'Coopanion-Setup-*.exe' }
+$release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers @{ 'User-Agent' = 'Xiaoxiaoxuan-installer' }
+$installers = $release.assets | Where-Object { $_.name -like '小小轩-Setup-*.exe' }
 # the machine's processor, whatever this PowerShell was built for; a release without an Arm installer
 # gives the x64 one, which Windows on Arm runs under emulation
 $arm = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment').PROCESSOR_ARCHITECTURE -eq 'ARM64'
@@ -30,4 +28,4 @@ if ($process.ExitCode -ne 0) {
     throw "The installer exited with code $($process.ExitCode); nothing was installed. The installer was kept at $target."
 }
 Remove-Item $target -ErrorAction SilentlyContinue
-Write-Host 'Coopanion is installed; its icon is on the desktop. On first start, Coo asks which model service to use and for its API key.'
+Write-Host '小小轩已安装。可通过桌面快捷方式打开，首次启动请填写 YHagent 服务地址和访问令牌。'

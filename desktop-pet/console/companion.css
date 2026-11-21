@@ -63,20 +63,11 @@ body.companion-sidebar:has(> .modal, > .extension-lightbox[open]) .companion-tit
 }
 #rail.is-collapsed { width: 72px; }
 #rail .brand { display: block; flex: none; min-width: 0; padding: 20px 18px 10px; overflow: hidden; }
-/* open, the C's left edge is on the nav icons'; collapsed, the small C is centred on them (the rail's middle, x=36) */
-.companion-lockup { margin-left: 11px; width: 174px; height: 39px; overflow: visible; clip-path: inset(-16px 0 0 -8px); color: var(--foreground); transition: width var(--rail-motion), margin-left var(--rail-motion); }
-.is-collapsed .companion-lockup { width: 36px; margin-left: .5px; }
-.companion-brand { display: block; width: 174px; height: auto; overflow: visible; }
-.companion-brand .accent { stroke: var(--accent); }
-.companion-brand-c, .companion-brand-o-first, .companion-brand-o-second { transition: transform var(--rail-motion); }
-.companion-brand-c { transform: translate(-22px, 28px) scale(.5); }
-.companion-brand-o-first { transform: translate(-42.80151519px, -65.5px) scale(1.5); }
-.companion-brand-o-second { transform: translate(-38.80151519px, -65.5px) scale(1.5); }
-.companion-brand-tail { opacity: 1; transition: opacity var(--rail-motion), transform var(--rail-motion); }
-.is-collapsed .companion-brand-c,
-.is-collapsed .companion-brand-o-first,
-.is-collapsed .companion-brand-o-second { transform: translate(-20px, 6px) scale(.7); }
-.is-collapsed .companion-brand-tail { opacity: 0; transform: translateX(-18px); }
+.companion-lockup { display: flex; align-items: center; height: 39px; margin-left: 10px; color: var(--foreground); font-size: 28px; font-weight: 760; letter-spacing: .04em; line-height: 1; white-space: nowrap; }
+.companion-brand-mark { position: relative; color: var(--accent); }
+.companion-brand-hat { position: absolute; width: .82em; height: .58em; top: -.37em; right: .12em; }
+.is-collapsed .companion-lockup { justify-content: center; width: 36px; margin-left: 0; font-size: 23px; }
+.is-collapsed .companion-brand-prefix { display: none; }
 
 #rail nav.stack {
   display: block; padding: 8px 12px 32px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none;

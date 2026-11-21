@@ -4,7 +4,8 @@
 import { APP_CHANNEL, APP_VERSION } from '../app-version.ts';
 import { S } from './strings.ts';
 
-const REPO_URL = 'https://github.com/Pal-AI-Lab/Coopanion';
+const REPO_URL = 'https://github.com/Yangguangdashuaige/YHagent';
+const SOURCE_URL = `${REPO_URL}/tree/feat/yhpet-stage34/desktop-pet`;
 const RELEASES_URL = `${REPO_URL}/releases/latest`;
 
 /** 更新器的一步(app/updater.cjs)。 */
@@ -15,7 +16,7 @@ declare global {
     coopanionUpdate?: { step(): UpdateStep | null; onStep(listener: (step: UpdateStep | null) => void): () => void };
   }
 }
-const RELEASE_API = 'https://api.github.com/repos/Pal-AI-Lab/Coopanion/releases/latest';
+const RELEASE_API = 'https://api.github.com/repos/Yangguangdashuaige/YHagent/releases/latest';
 /** 与 Cortico WebUI 查框架 Release 同一时限。 */
 const RELEASE_TIMEOUT_MS = 15_000;
 
@@ -41,9 +42,10 @@ let pending: Promise<ReleaseUpdate | null> | null = null;
 
 function checkRelease(): Promise<ReleaseUpdate | null> {
   pending ??= fetch(RELEASE_API, { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(RELEASE_TIMEOUT_MS) })
-    .then((res) => (res.ok ? res.json() as Promise<{ tag_name?: unknown; html_url?: unknown }> : null))
+    .then((res) => (res.ok ? res.json() as Promise<{ tag_name?: unknown; html_url?: unknown; assets?: Array<{ name?: unknown }> }> : null))
     .then((release) => {
       if (typeof release?.tag_name !== 'string' || typeof release.html_url !== 'string') return null;
+      if (!release.assets?.some((asset) => typeof asset.name === 'string' && /^(小小轩|YHagent-Pet)-/.test(asset.name))) return null;
       const url = new URL(release.html_url);
       if (url.protocol !== 'https:' || url.hostname !== 'github.com') return null;
       return isNewer(release.tag_name, APP_VERSION) ? { version: release.tag_name.replace(/^v/, ''), url: url.href } : null;
@@ -77,7 +79,7 @@ function stepHint(doc: Document, { phase, version }: UpdateStep): HTMLElement {
 }
 
 export function mountRelease(doc: Document, container: Element, signal: AbortSignal): void {
-  const repo = link(doc, 'companion-version', `v${APP_VERSION} - GitHub`, REPO_URL);
+  const repo = link(doc, 'companion-version', `v${APP_VERSION} - GitHub`, SOURCE_URL);
   repo.title = S.repoHint;
   container.appendChild(repo);
   if (APP_CHANNEL === 'steam') return;

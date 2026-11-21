@@ -133,12 +133,12 @@ export const S: Partial<typeof en> = {
   footSoftPost: (max: string) => ` ; budget de l'étape ${max}.`,
 
   // onboarding.ts
-  obWho: 'Cortico',
-  obWelcome: 'Bienvenue dans Cortico ! Configurons votre premier bot Cortico.',
+  obWho: '小小轩',
+  obWelcome: 'Bienvenue dans 小小轩 ! Configurons votre premier bot 小小轩.',
   obProvider: 'Commencez par configurer un fournisseur de modèle :',
   obProviderNone: 'Aucun fournisseur de modèle utilisable pour le moment',
   obProviderReady: 'Fournisseur de modèle configuré',
-  obWorlds: 'Ensuite, activez et configurez les environnements externes auxquels votre bot accède (World Cortico). Commencer avec la seule discussion de la console convient aussi.',
+  obWorlds: 'Ensuite, activez et configurez les environnements externes auxquels votre bot accède (World 小小轩). Commencer avec la seule discussion de la console convient aussi.',
   obWorldsState: (labels: readonly string[]) =>
     `${labels.length} environnement${labels.length > 1 ? 's' : ''} externe${labels.length > 1 ? 's' : ''} actuellement activé${labels.length > 1 ? 's' : ''} : ${labels.join(', ')}`,
   obPrompts: 'Enfin, le prompt système se modifie ici : qui est Coo, comment Coo se comporte et parle.',

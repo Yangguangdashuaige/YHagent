@@ -2,7 +2,7 @@
 // the other languages' files beside it hold the keys translated so far.
 export default {
   // the pet page
-  'pet.title': 'Cortico Pet',
+  'pet.title': '小小轩',
   'bubble.close': 'Close',
   /** The close button at the top of a conversation in steps, such as the introduction. */
   'bubble.skip': 'Skip',
