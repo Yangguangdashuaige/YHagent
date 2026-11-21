@@ -773,6 +773,9 @@ ipcMain.on('settings:update', (e) => { e.returnValue = { auto: SELF_UPDATE, step
 
 app.whenReady().then(() => {
   const settingsSession = session.fromPartition(SETTINGS_PARTITION);
+  // Electron includes the product name in the default user agent. Its protocol handler builds
+  // Fetch headers from it, which cannot represent the Chinese display name.
+  settingsSession.setUserAgent(settingsSession.getUserAgent().replaceAll(APP_NAME, 'YHagent-Pet'));
   settingsSession.protocol.handle('http', serveWindow);
   keepRemoteOut(settingsSession);
   app.setAppUserModelId(APP_ID);
