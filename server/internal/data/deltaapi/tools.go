@@ -82,7 +82,7 @@ func RegisterTools(reg *ai.Registry, c *Client) {
 	reg.Register(ai.NewFunctionTool(
 		"delta_ready_build_v4",
 		"查询实时卡战备V4配装方案（市场购买为主，含花费最少/实用优先等多套方案），每分钟更新。"+
-			"用户说“卡战备、凑战备、11W/18W/55W/60W/78W配装”时优先使用。",
+			"适用于 11W/18W/55W/60W/78W 标准档位。其他明确数值（例如 187500）用 delta_diy_ready_build 按原数值查询。",
 		map[string]any{
 			"lv": ai.EnumIntProp("战备档位：0=11W机密 1=18W机密 2=55W绝密巴克什 3=60W绝密航天 5=78W绝密监狱", 0, 1, 2, 3, 5),
 		},
