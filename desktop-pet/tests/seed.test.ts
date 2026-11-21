@@ -29,10 +29,29 @@ describe('first-run seed', () => {
       expect(read(join(home, 'providers', endpoint, 'config.json'))).toMatchObject({ kind: 'coo', secret: vendor.secret, spec: { model: vendor.model } });
       expect(readFileSync(join(home, DEPLOYMENT, 'workspace', 'CONSTITUTION.md'), 'utf8')).toContain('后勤联络员');
       expect(read(join(home, DEPLOYMENT, 'config.json'))).toMatchObject({
-        worlds: { 'desktop-pet': { enabled: true, asr: { engine: 'funasr' } }, bilibili: { enabled: false } },
+        worlds: {
+          'desktop-pet': { enabled: true, skin: { figure: 'recon-scout', scheme: 'field' }, asr: { engine: 'funasr', mic: { hotkey: 'LeftAlt*2' } } },
+          bilibili: { enabled: false },
+        },
       });
       expect(readFileSync(join(home, DEPLOYMENT, 'avatar.png')).subarray(1, 4).toString()).toBe('PNG');
     }
+  });
+
+  it('upgrades the old hold-only left Alt default once', () => {
+    const home = mkdtempSync(join(tmpdir(), 'cc-seed-'));
+    const deployment = join(home, DEPLOYMENT);
+    mkdirSync(deployment);
+    const path = join(deployment, 'config.json');
+    const writeKey = (hotkey: string) => writeFileSync(path, JSON.stringify({
+      worlds: { 'desktop-pet': { asr: { mic: { hotkey, mode: 'hold' } } } },
+    }));
+    writeKey('LeftAlt');
+    seed(home, 'zh');
+    expect(read(path)).toMatchObject({ worlds: { 'desktop-pet': { asr: { mic: { hotkey: 'LeftAlt*2', mode: 'hold' } } } } });
+    writeKey('LeftAlt');
+    seed(home, 'zh');
+    expect(read(path)).toMatchObject({ worlds: { 'desktop-pet': { asr: { mic: { hotkey: 'LeftAlt' } } } } });
   });
 
   it('replaces a self-description still exactly as 0.1.1 seeded it, CRLF or LF', () => {

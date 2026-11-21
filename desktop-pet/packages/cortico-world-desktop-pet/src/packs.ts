@@ -370,6 +370,7 @@ export interface PackScan { packs: FigurePack[]; problems: PackProblem[] }
 export const BUILTIN_PACKS: ReadonlyArray<{ dir: string; base: string }> = [
   { dir: fileURLToPath(new URL('../web/coo/', import.meta.url)), base: '/web/coo/' },
   { dir: fileURLToPath(new URL('../web/whale/', import.meta.url)), base: '/web/whale/' },
+  { dir: fileURLToPath(new URL('../web/recon-scout/', import.meta.url)), base: '/web/recon-scout/' },
 ];
 
 /** The built-in packs and those installed under `roots` (each subdirectory one pack); problems are worded in `language`. */
@@ -390,7 +391,12 @@ export function scanPacks(builtin: ReadonlyArray<{ dir: string; base: string }>,
     const m = readManifest(dir, isBuiltin, skipped, t);
     if (typeof m === 'string') { problems.push({ dir, reason: m, loaded: false }); return; }
     const taken = packs.find((p) => p.id === m.id);
-    if (taken) { problems.push({ dir, reason: t.idTaken(m.id, taken.builtin), loaded: false }); return; }
+    if (taken) {
+      // The installer includes the newer edition of the previously downloadable scout.
+      if (taken.builtin && m.id === 'recon-scout' && m.version === '1.0.0') return;
+      problems.push({ dir, reason: t.idTaken(m.id, taken.builtin), loaded: false });
+      return;
+    }
     for (const reason of skipped) problems.push({ dir, reason, loaded: true });
     packs.push({ id: m.id, dir, base: base(m.id), builtin: isBuiltin, manifest: m });
   };

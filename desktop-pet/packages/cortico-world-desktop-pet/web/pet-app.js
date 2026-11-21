@@ -654,7 +654,7 @@ function stepDialog(dt) {
         if (held) it.holdUntil += dt;
         // a question or guide card waiting behind the line ends a fixed hold where the automatic one would
         const cut = !it.rush && queue.some((q) => q.kind === 'ask' || q.kind === 'dialog') ? it.extraHold : 0;
-        if (T < it.holdUntil - cut) return;
+        if (T < it.holdUntil - cut || (!it.rush && !it.hushed && !cut && speech.playing)) return;
       }
       it.i++;
       it.beatDone = false;

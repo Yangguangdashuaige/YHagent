@@ -37,6 +37,7 @@ import {
 } from './config.ts';
 import { capFor, cutChars, petText, type PetText } from './i18n/index.ts';
 import { SpeechText, speechTextSteps } from './speech/index.ts';
+import { createCuteVoice } from './speech/cute-voice.ts';
 import { PetServer, type PageMessage } from './server.ts';
 import { StatusTracker, type DescribeTool } from './status.ts';
 import { WindowHost, resolveHostCommand } from './window-host.ts';
@@ -516,6 +517,7 @@ export class DesktopPetWorld implements World {
       text: () => this.ui,
       overlay: () => this.cfg.window.exportOverlay,
       speech: (text) => this.speechText.units(text, this.appLanguage),
+      voice: createCuteVoice(),
     });
   }
 

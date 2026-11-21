@@ -276,6 +276,7 @@ const core = new CoreHost({
     CORTICO_START_PAUSED: '0',
     CORTICO_DESKTOP_PET_HOST: JSON.stringify(petHost),
     YHPET_FUNASR_ROOT: app.isPackaged ? join(APP_ROOT, 'voice-models') : '',
+    YHPET_TTS_ROOT: app.isPackaged ? join(APP_ROOT, 'voice-models', 'melo-tts') : process.env.YHPET_TTS_ROOT,
     // pnpm keeps its store and caches in LOCALAPPDATA unless told otherwise; pnpm 11 reads the pnpm_config_ prefix
     pnpm_config_store_dir: join(PNPM_DIR, 'store'),
     pnpm_config_cache_dir: join(PNPM_DIR, 'cache'),

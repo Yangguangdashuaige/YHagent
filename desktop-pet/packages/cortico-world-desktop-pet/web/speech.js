@@ -74,7 +74,7 @@ export function createSpeech(sfx, {
   unitsOf = (text) => fetch('/api/speech', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) })
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then((d) => d.units),
 } = {}) {
-  if (local) return createLocalSpeech(local, onUnit);
+  if (local) return createLocalSpeech(sfx, local, onUnit);
   let on = false, hz = 400, ups = 13;
   /** The bank once fetched: manifest and encoded audio; `buffer` once decoded. */
   let bank = null, fetching = null, decoding = null;
@@ -198,30 +198,129 @@ export function createSpeech(sfx, {
   };
 }
 
-/** Reads with an installed Mandarin voice when the operating system provides one. */
-function createLocalSpeech(getSynth, onUnit) {
+/** Keep each request short and prefer splitting at sentence boundaries. */
+function voicePhrases(text) {
+  const characters = Array.from(text.replace(/https?:\/\/[^\s]+/gi, '').trim());
+  const phrases = [];
+  for (let start = 0; start < characters.length;) {
+    let end = Math.min(start + 110, characters.length);
+    if (end < characters.length) {
+      for (let i = end - 1; i >= start + 55; i--) {
+        if (!/[。！？!?；;\n]/u.test(characters[i])) continue;
+        end = i + 1;
+        break;
+      }
+    }
+    phrases.push(characters.slice(start, end).join(''));
+    start = end;
+  }
+  return phrases;
+}
+
+function createLocalSpeech(sfx, getSynth, onUnit) {
   let enabled = false;
+  let pitch = 1;
+  let pending = null;
+  let source = null;
+  let mouth = null;
   let speaking = null;
+
+  function installedVoice(synth, text) {
+    const chinese = synth.getVoices().filter((item) => item.localService && /^zh(?:-|$)/i.test(item.lang));
+    const voice = chinese.find((item) => /xiaoxiao|xiaoyi|huihui|yaoyao|晓晓|晓伊|慧慧|瑶瑶/i.test(item.name))
+      ?? chinese.find((item) => /^zh-cn$/i.test(item.lang)) ?? chinese[0];
+    if (!voice) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = voice;
+    utterance.lang = voice.lang;
+    utterance.pitch = Math.min(1.45, pitch * 1.16);
+    utterance.rate = 0.96;
+    speaking = utterance;
+    const done = () => { if (speaking === utterance) speaking = null; };
+    utterance.onend = utterance.onerror = done;
+    synth.speak(utterance);
+  }
+
+  async function loadPhrase(ctx, text, signal) {
+    try {
+      const reply = await fetch('/api/voice', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text }), signal: AbortSignal.any([signal, AbortSignal.timeout(8500)]),
+      });
+      if (reply.ok) return await ctx.decodeAudioData(await reply.arrayBuffer());
+    } catch { /* The system voice can read an unplayed phrase if local synthesis fails. */ }
+    return null;
+  }
+
+  function playPhrase(out, buffer) {
+    return new Promise((resolve) => {
+      const audio = out.ctx.createBufferSource();
+      audio.buffer = buffer;
+      audio.playbackRate.value = pitch;
+      audio.connect(out.master);
+      audio.onended = () => {
+        audio.disconnect();
+        if (source === audio) {
+          source = null;
+          clearInterval(mouth);
+          mouth = null;
+        }
+        resolve();
+      };
+      audio.start();
+      source = audio;
+      mouth = setInterval(onUnit, 110);
+    });
+  }
+
   return {
     configure(prefs) {
       enabled = prefs.enabled === true;
+      if (Number.isFinite(prefs.pitchHz)) pitch = Math.max(0.8, Math.min(1.25, prefs.pitchHz / 400));
       if (!enabled) this.stop();
     },
-    get active() { return speaking !== null; },
+    get active() { return Boolean(pending || source || speaking); },
+    get playing() { return Boolean(pending || source || speaking); },
     begin(text) {
       this.stop();
       const synth = enabled && getSynth();
-      const voice = synth && synth.getVoices().find((item) => item.localService && /^zh(?:-|$)/i.test(item.lang));
-      if (!voice) return;
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.voice = voice;
-      utterance.lang = voice.lang;
-      speaking = synth;
-      synth.speak(utterance);
+      const out = synth && sfx.output('talk');
+      if (!out) return;
+      const phrases = voicePhrases(text);
+      if (!phrases.length) return;
+      const request = new AbortController();
+      pending = request;
+      void (async () => {
+        let index = 0;
+        try {
+          let next = loadPhrase(out.ctx, phrases[0], request.signal);
+          for (; index < phrases.length; index++) {
+            const buffer = await next;
+            if (pending !== request) return;
+            if (!buffer) throw new Error('Local voice unavailable');
+            if (index + 1 < phrases.length) next = loadPhrase(out.ctx, phrases[index + 1], request.signal);
+            await playPhrase(out, buffer);
+            if (pending !== request) return;
+          }
+        } catch {
+          if (pending === request) {
+            request.abort();
+            installedVoice(synth, phrases.slice(index).join(''));
+          }
+        } finally {
+          if (pending === request) pending = null;
+        }
+      })();
     },
     reveal() { onUnit(); },
     stop() {
-      speaking?.cancel();
+      pending?.abort();
+      pending = null;
+      source?.stop();
+      source = null;
+      clearInterval(mouth);
+      mouth = null;
+      if (speaking) globalThis.speechSynthesis?.cancel();
       speaking = null;
     },
   };

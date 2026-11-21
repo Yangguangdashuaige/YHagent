@@ -8,6 +8,7 @@ import { LANGUAGES, type Language } from 'cortico/core/language.ts';
 import { readTextFile } from 'cortico/core/util.ts';
 import { appLanguage } from './language.ts';
 import { EARLIER_PERSONAS } from './seed-history.ts';
+import { writeState } from './state-file.ts';
 
 export const DEPLOYMENT = 'companion';
 export const CONSOLE_PORT = 17788;
@@ -19,6 +20,7 @@ const OLD_MODULE = 'deepseek';
 /** When computer use asks first (`worlds.desktop-pet.cua.permission`): new installs get it written out, so a config without it is from before and keeps the default it had. */
 const CUA_ASK = 'ask-once';
 const OLD_CUA_ASK = 'ask-each-turn';
+const TALK_HOTKEY = 'LeftAlt*2';
 const SEED_DIR = fileURLToPath(new URL('./seed/', import.meta.url));
 /**
  * The self-descriptions Coo can start from, in the order the introduction offers them: Coo as it ships, four
@@ -69,9 +71,10 @@ export function seed(home: string, language: Language): void {
           enabled: true,
           roam: 'calm',
           doubleClickChat: true,
+          skin: { figure: 'recon-scout', scheme: 'field' },
           speech: { enabled: true },
           cua: { enabled: false, permission: CUA_ASK },
-          asr: { engine: 'funasr', language: 'zh', mic: { hotkey: 'LeftAlt' }, recording: { enabled: false } },
+          asr: { engine: 'funasr', language: 'zh', mic: { hotkey: TALK_HOTKEY }, recording: { enabled: false } },
         },
         bilibili: { enabled: false },
       },
@@ -88,10 +91,24 @@ export function seed(home: string, language: Language): void {
     keepCuaAsking(config);
     moveTerminalToConsole(deploy, config);
   }
+  migrateTalkHotkey(deploy, config);
 }
 
 type Section = Record<string, unknown>;
 type WorldSections = { worlds?: Record<string, Section | undefined> };
+
+function migrateTalkHotkey(deploy: string, file: string): void {
+  const marker = join(deploy, 'talk-hotkey-v2');
+  if (existsSync(marker)) return;
+  const config = JSON.parse(readTextFile(file)) as WorldSections;
+  const voice = config.worlds?.['desktop-pet']?.asr as { mic?: Section } | undefined;
+  const mic = voice?.mic;
+  if (mic?.hotkey === 'LeftAlt' && (mic.mode === undefined || mic.mode === 'hold')) {
+    mic.hotkey = TALK_HOTKEY;
+    writeState(file, JSON.stringify(config, null, 2) + '\n');
+  }
+  writeFileSync(marker, '2\n');
+}
 
 /**
  * Cortico 0.2.0 renamed the `terminal` World to `console` and `logging.console` to `logging.stdout`:

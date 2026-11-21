@@ -32,6 +32,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
 import { prepareFunAsr } from './prepare-funasr.ts';
+import { prepareMeloTts } from './prepare-melo-tts.ts';
 import { FUNASR_MODEL } from '../packages/cortico-world-desktop-pet/src/runtime/store.ts';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -137,6 +138,7 @@ mkdirSync(OUT, { recursive: true });
 const asrCache = join(ROOT, 'build', 'cache', 'funasr');
 await prepareFunAsr(asrCache);
 cpSync(asrCache, join(OUT, 'voice-models'), { recursive: true });
+await prepareMeloTts(join(ROOT, 'build', 'cache', 'melo-tts-int8'), join(OUT, 'voice-models', 'melo-tts'));
 cpSync(join(ROOT, 'installer', 'FunASR-MODEL-LICENSE.txt'), join(OUT, 'voice-models', FUNASR_MODEL.id, 'MODEL_LICENSE'));
 cpSync(join(ROOT, 'LICENSE'), join(OUT, 'LICENSE'));
 cpSync(join(ROOT, 'app'), join(OUT, 'app'), { recursive: true });

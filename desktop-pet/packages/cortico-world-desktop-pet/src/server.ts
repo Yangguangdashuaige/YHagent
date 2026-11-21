@@ -94,6 +94,7 @@ export interface PetServerOptions {
   text?(): PetText;
   /** Whether the OBS overlay is served; off when absent. */
   overlay?(): boolean;
+  voice?: (text: string) => Promise<Buffer | null>;
   /** The syllables `text` is spoken as; `POST /api/speech` answers 404 without it. */
   speech?(text: string): SpeechUnit[];
 }
@@ -356,6 +357,15 @@ export class PetServer {
       if (!this.opts.speech) { res.writeHead(404).end(); return; }
       if (typeof msg?.text !== 'string') return json(res, 400, { error: 'bad json' });
       return json(res, 200, { units: this.opts.speech(msg.text) });
+    }
+    if (req.method === 'POST' && path === '/api/voice') {
+      if (!this.opts.voice) { res.writeHead(404).end(); return; }
+      const msg = parse(await readBody(req) ?? '');
+      if (typeof msg?.text !== 'string') return json(res, 400, { error: 'bad json' });
+      const audio = await this.opts.voice(msg.text).catch(() => null);
+      if (!audio) { res.writeHead(503).end(); return; }
+      res.writeHead(200, { 'content-type': 'audio/wav', 'cache-control': 'no-store' }).end(audio);
+      return;
     }
     if (req.method === 'GET' && path === '/api/looks') return json(res, 200, this.opts.looks());
     if (req.method === 'POST' && path === '/api/looks') {

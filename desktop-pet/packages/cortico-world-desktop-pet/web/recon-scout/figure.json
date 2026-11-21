@@ -1,0 +1,52 @@
+{
+  "manifest": 2,
+  "api": 2,
+  "id": "recon-scout",
+  "version": "1.1.0",
+  "name": { "zh": "战术侦察员", "zh-Hant": "戰術偵察員", "en": "Recon Scout" },
+  "about": {
+    "zh": "深蓝短发、薄荷色三角发夹和通讯耳机的 Q 版侦察员，有野外侦察与深蓝夜勤两套装扮。",
+    "en": "A chibi scout with navy hair, a mint triangular hair clip, and a radio earpiece. She has field and night-shift outfits."
+  },
+  "entry": "figure.js",
+  "export": "createScout",
+  "thumb": "field.png",
+  "axes": [
+    {
+      "id": "outfit",
+      "name": { "zh": "皮肤", "zh-Hant": "造型", "en": "Outfit" },
+      "options": [
+        { "id": "field", "name": { "zh": "野外侦察", "zh-Hant": "野外偵察", "en": "Field Recon" }, "thumb": "field.png" },
+        { "id": "night", "name": { "zh": "深蓝夜勤", "zh-Hant": "深藍夜勤", "en": "Night Shift" }, "thumb": "night.png" }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "id": "field",
+      "pick": { "outfit": "field" },
+      "name": { "zh": "野外侦察", "zh-Hant": "野外偵察", "en": "Field Recon" },
+      "accent": "#79875a",
+      "bubble": {
+        "light": { "fill": "#f3f0e2", "text": "#293023", "line": "#7a8258" },
+        "dark": { "fill": "#2c3429", "text": "#f4ecd0", "line": "#a6ab72" }
+      }
+    },
+    {
+      "id": "night",
+      "pick": { "outfit": "night" },
+      "name": { "zh": "深蓝夜勤", "zh-Hant": "深藍夜勤", "en": "Night Shift" },
+      "accent": "#729fbf",
+      "bubble": {
+        "light": { "fill": "#eaf1f8", "text": "#232c49", "line": "#6576a1" },
+        "dark": { "fill": "#26283c", "text": "#ebf0ff", "line": "#9aa5d4" }
+      }
+    }
+  ],
+  "vocab": [
+    { "id": "happy", "kind": "expression", "names": { "zh": ["开心"], "en": ["glad"] }, "about": { "zh": "高兴时亮起闪光。", "en": "Sparkles cheerfully." }, "seconds": 0.9 },
+    { "id": "thinking", "kind": "expression", "names": { "zh": ["思考"], "en": ["ponder"] }, "about": { "zh": "头边浮起三个光点。", "en": "Shows three pulsing dots." }, "seconds": 0.9 },
+    { "id": "hop", "kind": "motion", "names": { "zh": ["跳一下"], "en": ["bounce"] }, "about": { "zh": "在原地轻轻跳一下。", "en": "Hops in place." }, "seconds": 0.6 },
+    { "id": "sleep", "kind": "motion", "names": { "zh": ["睡觉"], "en": ["nap"] }, "about": { "zh": "伏低打盹，冒出睡意符号。", "en": "Settles down for a nap." }, "seconds": 1, "lasting": true }
+  ]
+}
