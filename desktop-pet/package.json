@@ -1,7 +1,7 @@
 {
   "name": "yhagent-pet",
   "productName": "小小轩",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "Desktop companion for YHagent and Delta Force",
   "license": "AGPL-3.0-or-later",
@@ -53,6 +53,7 @@
     "esbuild": "^0.28.2",
     "fflate": "0.8.3",
     "jsdom": "^30.1.0",
+    "qrcode-generator": "2.0.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-textarea-autosize": "^8.5.9",

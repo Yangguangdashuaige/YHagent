@@ -11,6 +11,7 @@ import {
   type WebUiPanel,
 } from '../../base/protocol.ts';
 import type { WebUiAssetEntry } from 'cortico/web/shared/webui-protocol.ts';
+import { bilibiliLoginPanel } from '../../features/bilibili-login.ts';
 import { S } from './strings.ts';
 
 export interface StyleLink {
@@ -118,6 +119,7 @@ export class ConsolePageLoader {
     panelId: string,
     asset: WebUiAssetEntry | undefined,
   ): Promise<WebUiPanel> {
+    if (pageId === 'world:bilibili' && panelId === 'login') return bilibiliLoginPanel;
     const bundle = await this.load(pageId, asset);
     const panel = bundle.panels[panelId];
     // 分别报告键缺失与实现不合法。

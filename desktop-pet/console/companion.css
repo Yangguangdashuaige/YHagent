@@ -69,6 +69,8 @@ body.companion-sidebar:has(> .modal, > .extension-lightbox[open]) .companion-tit
 .is-collapsed .companion-lockup { justify-content: center; width: 36px; margin-left: 0; font-size: 23px; }
 .is-collapsed .companion-brand-prefix { display: none; }
 
+.bilibili-login-qr { max-inline-size: 100%; block-size: auto; margin-block: 12px; image-rendering: pixelated; }
+
 #rail nav.stack {
   display: block; padding: 8px 12px 32px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none;
   scroll-padding-block: 32px;

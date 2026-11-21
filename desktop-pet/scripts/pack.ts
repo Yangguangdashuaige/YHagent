@@ -141,6 +141,7 @@ cpSync(asrCache, join(OUT, 'voice-models'), { recursive: true });
 await prepareMeloTts(join(ROOT, 'build', 'cache', 'melo-tts-int8'), join(OUT, 'voice-models', 'melo-tts'));
 cpSync(join(ROOT, 'installer', 'FunASR-MODEL-LICENSE.txt'), join(OUT, 'voice-models', FUNASR_MODEL.id, 'MODEL_LICENSE'));
 cpSync(join(ROOT, 'LICENSE'), join(OUT, 'LICENSE'));
+cpSync(join(ROOT, 'installer', 'QR-CODE-LICENSE.txt'), join(OUT, 'QR-CODE-LICENSE.txt'));
 cpSync(join(ROOT, 'app'), join(OUT, 'app'), { recursive: true });
 cpSync(join(ROOT, 'core'), join(OUT, 'core'), { recursive: true });
 // the coopanion World (core/notice.ts) tells Coo these after an update
