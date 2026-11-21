@@ -202,11 +202,12 @@ export function createSpeech(sfx, {
 function voicePhrases(text) {
   const characters = Array.from(text.replace(/https?:\/\/[^\s]+/gi, '').trim());
   const phrases = [];
+  const limit = 36;
   for (let start = 0; start < characters.length;) {
-    let end = Math.min(start + 110, characters.length);
+    let end = Math.min(start + limit, characters.length);
     if (end < characters.length) {
-      for (let i = end - 1; i >= start + 55; i--) {
-        if (!/[。！？!?；;\n]/u.test(characters[i])) continue;
+      for (let i = end - 1; i >= start + limit / 2; i--) {
+        if (!/[。！？!?；;，,、\n]/u.test(characters[i])) continue;
         end = i + 1;
         break;
       }
@@ -245,7 +246,7 @@ function createLocalSpeech(sfx, getSynth, onUnit) {
     try {
       const reply = await fetch('/api/voice', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text }), signal: AbortSignal.any([signal, AbortSignal.timeout(8500)]),
+        body: JSON.stringify({ text }), signal: AbortSignal.any([signal, AbortSignal.timeout(18000)]),
       });
       if (reply.ok) return await ctx.decodeAudioData(await reply.arrayBuffer());
     } catch { /* The system voice can read an unplayed phrase if local synthesis fails. */ }
