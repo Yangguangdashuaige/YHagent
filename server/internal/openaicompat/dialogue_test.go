@@ -48,6 +48,7 @@ func TestDailyKeyPricesAreDeliveredWhenModelOnlySummarizes(t *testing.T) {
 			previous := trace.Default
 			recorder := trace.NewRecorder(t.TempDir(), 1)
 			trace.Default = recorder
+			t.Cleanup(recorder.Close)
 			t.Cleanup(func() { trace.Default = previous })
 			f := NewFacade(&fakeLLM{script: []fakeTurn{{toolCalls: []chat.ChatCompletionMessageToolCall{lookup}}, tc.answer}}, reg, Config{})
 			defer close(f.relays.closed)
