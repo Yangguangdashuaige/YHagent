@@ -365,13 +365,14 @@ export function chatgptEntry(model = CHATGPT.model) {
 
 /** A new endpoint's config for `v` on `region` (`kind: 'coo'`) with `model`; the key goes into its `.env` under `v.secret`. */
 export function vendorEntry(v: Vendor, model = v.model, region: Region = 'cn') {
+  const yhagent = v.id === YHAGENT.id;
   return {
     kind: 'coo',
     baseUrl: siteOf(v, region).baseUrl,
     secret: v.secret,
-    spec: { model, thinking: v.id !== YHAGENT.id, reasoningEffort: 'high', maxTokens: 8192 },
+    spec: { model, thinking: !yhagent, maxTokens: 8192, ...(yhagent ? {} : { reasoningEffort: 'high' }) },
     multimodal: (v.vision ?? []).includes(model),
     pricing: [],
-    options: v.id === YHAGENT.id ? { protocol: 'chat' } : {},
+    options: yhagent ? { protocol: 'chat' } : {},
   };
 }

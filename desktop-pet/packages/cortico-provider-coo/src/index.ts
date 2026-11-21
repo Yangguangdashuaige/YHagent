@@ -86,6 +86,10 @@ function optionsGroup(name: string, t: CooText): ConfigGroup {
 function normalize(entry: LLMProviderEntry): LLMProviderEntry {
   const options: Record<string, unknown> = { ...entry.options };
   if (options.protocol === '') delete options.protocol;
+  if (entry.secret === YHAGENT.secret && entry.spec?.thinking === false && entry.spec.reasoningEffort !== undefined) {
+    const { reasoningEffort: _effort, ...spec } = entry.spec;
+    return { ...entry, spec, options };
+  }
   return { ...entry, options };
 }
 

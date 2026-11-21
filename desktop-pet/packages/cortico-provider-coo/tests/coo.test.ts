@@ -4,6 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { dryMountProvider } from 'cortico/extensions/dry-mount.ts';
+import { validateEntry } from 'cortico/providers/configuration.ts';
 import { priceUsage, unknownMeters } from 'cortico/core/generation.ts';
 import { snapshotPrice } from 'cortico/providers/pricebook.ts';
 import { nullLogger } from 'cortico/core/util.ts';
@@ -47,6 +48,16 @@ async function stub(): Promise<{ url: string; seen: Array<{ path: string; auth: 
 }
 
 describe('Coo Pet Provider', () => {
+  it('accepts a fresh YHagent endpoint and repairs a saved high effort with thinking off', () => {
+    const fresh = vendorEntry(YHAGENT) as LLMProviderEntry;
+    expect(validateEntry(COO, fresh).spec).toEqual({ model: YHAGENT.model, thinking: false, maxTokens: 8192 });
+    const legacy = { ...fresh, spec: { ...fresh.spec!, reasoningEffort: 'high', temperature: 0.4 } };
+    const saved = validateEntry(COO, legacy);
+    expect(saved.spec).toEqual({ ...fresh.spec, temperature: 0.4 });
+    expect(legacy.spec.reasoningEffort).toBe('high');
+    expect(validateEntry(COO, { ...legacy, spec: { ...legacy.spec, thinking: true } }).spec?.reasoningEffort).toBe('high');
+  });
+
   it('runs the YHagent connection check against the HTTP address entered by the operator', async () => {
     const address = 'http://203.0.113.8:8080';
     const config = { ...vendorEntry(YHAGENT), baseUrl: address } as LLMProviderEntry;
