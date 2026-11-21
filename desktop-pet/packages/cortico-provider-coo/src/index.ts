@@ -34,7 +34,7 @@ import { vendorPrices } from './pricing.ts';
 import { VendorResponses, responsesAudioMime } from './responses.ts';
 import { cooText } from './strings.ts';
 import { plainRemote } from './address.ts';
-import { PROTOCOLS, VENDORS, effortOf, locate, siteOf, vendorOf, vendorName, type Language as VendorLanguage, type Protocol } from './vendors.ts';
+import { PROTOCOLS, VENDORS, YHAGENT, effortOf, locate, siteOf, vendorOf, vendorName, yhagentBaseUrl, type Language as VendorLanguage, type Protocol } from './vendors.ts';
 
 /** vendors.ts spells out Cortico's `Language`; this stops compiling when the two differ. */
 const SAME_LANGUAGES: [Language, VendorLanguage] extends [VendorLanguage, Language] ? true : never = true;
@@ -60,7 +60,7 @@ const cooOptions = (entry: LLMProviderEntry): CooOptions => (entry.options ?? {}
 const MODELS_MAX = 2000;
 
 export const protocolOf = (entry: LLMProviderEntry): Protocol =>
-  cooOptions(entry).protocol ?? locate(entry.baseUrl)?.site.protocol ?? 'responses';
+  entry.secret === YHAGENT.secret ? 'chat' : cooOptions(entry).protocol ?? locate(entry.baseUrl)?.site.protocol ?? 'responses';
 
 /** The Messages API states an oversized prompt as `prompt is too long`, the Gemini API as a token count over the maximum. */
 function contextOverflow(error: { status: number; body: string }): boolean {
@@ -118,13 +118,16 @@ export const COO = {
     const { protocol } = cooOptions(entry);
     if (protocol !== undefined && !PROTOCOLS.includes(protocol))
       throw new Error(cooText(language).badProtocol(PROTOCOLS.join(' / ')));
-    if (plainRemote(entry.baseUrl)) throw new Error(cooText(language).httpRemote);
+    if (entry.secret === YHAGENT.secret) yhagentBaseUrl(entry.baseUrl);
+    else if (plainRemote(entry.baseUrl)) throw new Error(cooText(language).httpRemote);
   },
   accepts: (entry, _spec, mime) => takes(entry, mime),
   prices: (entry, _request, at) => vendorPrices(vendorOf(entry.baseUrl)?.id, at.startedAt),
   contextOverflow,
   create(name: string, entry: LLMProviderEntry, host): ProviderInstance {
-    if (plainRemote(entry.baseUrl)) {
+    const yhagent = entry.secret === YHAGENT.secret;
+    const baseUrl = yhagent ? yhagentBaseUrl(entry.baseUrl) : entry.baseUrl;
+    if (!yhagent && plainRemote(baseUrl)) {
       // an endpoint saved before the rule stays listed; each request fails before anything is sent
       const client = new VendorResponses({ baseUrl: entry.baseUrl, log: host.log }, {});
       client.respond = () => Promise.reject(new Error(cooText('en').httpRemote));
@@ -132,7 +135,7 @@ export const COO = {
     }
     const apiKey = entry.secret ? host.secret(entry.secret) : undefined;
     const current = () => host.currentEntry?.() ?? entry;
-    const located = locate(entry.baseUrl);
+    const located = locate(baseUrl);
     const vendor = located?.vendor ?? null;
     const protocol = protocolOf(entry);
     const media = { enabled: () => current().multimodal === true, read: host.readBlob };
@@ -184,13 +187,13 @@ export const COO = {
     }
     const effort = (model: string) => (located ? effortOf(located.vendor, located.site, model) : undefined);
     const headers: Record<string, string> = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
-    const catalog = new ModelCatalog(() => ({ baseUrl: entry.baseUrl, headers }));
+    const catalog = new ModelCatalog(() => ({ baseUrl, headers }));
     return {
       listModels: async () => withStated(await catalog.list()),
       contextWindow: (model) => stated(model) ?? catalog.contextWindow(model),
       compatibilityKey,
       ...withFallback(protocol === 'chat'
-        ? new VendorChat({ baseUrl: entry.baseUrl, apiKey, media, keepThinking: host.keepThinking, log: host.log, effort, syntheticReasoning: vendor?.syntheticReasoning, yhagent: entry.secret === 'YHAGENT_TOKEN' })
+        ? new VendorChat({ baseUrl, apiKey, media, keepThinking: host.keepThinking, log: host.log, effort, syntheticReasoning: vendor?.syntheticReasoning, yhagent })
         : new VendorResponses({
           baseUrl: entry.baseUrl,
           apiKey,

@@ -112,9 +112,8 @@ export const YHAGENT = {
 
 export function yhagentBaseUrl(value: string): string {
   const url = new URL(value.trim());
-  const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-  if ((url.protocol !== 'https:' && !(loopback && url.protocol === 'http:')) || url.username || url.password || url.search || url.hash) {
-    throw new Error('YHagent URL must use HTTPS or loopback HTTP and contain no credentials, query, or fragment.');
+  if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) {
+    throw new Error('YHagent URL must use HTTP or HTTPS and contain no credentials, query, or fragment.');
   }
   const path = url.pathname.replace(/\/+$/, '');
   return url.origin + (path.endsWith('/v1') ? path : path + '/v1');

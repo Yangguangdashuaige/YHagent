@@ -33,15 +33,14 @@ win:
   icon: app/icons/icon.ico
   # the portable zip (COOPANION_CHANNEL=portable, scripts/pack.ts asks for the zip target); the installer is named under nsis
   artifactName: YHagent-Pet-${version}-win-${arch}-portable.${ext}
-# Asks where to install. Every file the app writes stays under that directory (data in data\),
-# so the start-menu entry, which Windows keeps under AppData, is not created.
+# Asks where to install. The app keeps its data beside the executable and has per-user shortcuts.
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   include: nsis.nsh
   createDesktopShortcut: true
-  createStartMenuShortcut: false
+  createStartMenuShortcut: true
   shortcutName: YHagent-Pet
   # the installer's own pages follow the system language among these (NSIS has one Spanish, es_ES);
   # the app's language is the app's own setting

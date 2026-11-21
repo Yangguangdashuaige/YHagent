@@ -47,6 +47,27 @@ async function stub(): Promise<{ url: string; seen: Array<{ path: string; auth: 
 }
 
 describe('Coo Pet Provider', () => {
+  it('runs the YHagent connection check against the HTTP address entered by the operator', async () => {
+    const address = 'http://203.0.113.8:8080';
+    const config = { ...vendorEntry(YHAGENT), baseUrl: address } as LLMProviderEntry;
+    expect(() => COO.validateEntry!(config, 'zh')).not.toThrow();
+    expect(() => COO.validateEntry!({ ...config, baseUrl: 'ftp://203.0.113.8' }, 'zh')).toThrow('HTTP or HTTPS');
+    const fetcher = vi.fn(async () => Response.json({
+      id: 'test', model: YHAGENT.model,
+      choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+    }));
+    vi.stubGlobal('fetch', fetcher);
+    try {
+      const client = COO.create('yhagent', config, host('test-access-token') as never).client;
+      await client.respond({ model: YHAGENT.model, input: 'ping' });
+      const request = fetcher.mock.calls[0] as unknown as [string, RequestInit];
+      expect(request[0]).toBe(address + '/v1/chat/completions');
+      expect(new Headers(request[1].headers).get('authorization')).toBe('Bearer test-access-token');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('reads YHagent streaming calls and sends the original tool ID in the next request', async () => {
     const seen: Array<{ headers: IncomingHttpHeaders; path: string; body: Record<string, unknown> }> = [];
     server = createServer(async (req, res) => {
