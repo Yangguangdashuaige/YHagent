@@ -384,6 +384,7 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 		if len(pendingCalls) == 0 {
 			answer := answerBuilder.String()
 			span.Answer(answer)
+			span.AddDialogue("assistant", answer)
 			session.append(NewAssistantTextMessage(answer))
 			if wal != nil {
 				wal.MarkDone() // 回合正常结束：WAL 只读，供断线回放
@@ -449,6 +450,7 @@ func (a *Agent) ChatWithSessionMulti(ctx context.Context, sessionID, userText st
 		wal.MarkDone()
 	}
 	span.Answer(tip)
+	span.AddDialogue("assistant", tip)
 	session.append(NewAssistantTextMessage(tip))
 	session.persist()
 	log.Printf("[agent] 会话 %s 达到最大工具轮数 %d，已兜底结束", sessionID, maxToolRounds)

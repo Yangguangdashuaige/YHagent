@@ -2007,15 +2007,20 @@ export class DesktopPetWorld implements World {
 
   private async say(args: Record<string, unknown>): Promise<ToolOutcome> {
     const script = typeof args.script === 'string' ? args.script : '';
+    const rawDetails = typeof args.details === 'string' ? args.details.trim() : '';
+    const details = rawDetails.length > 16_000 ? `${rawDetails.slice(0, 16_000)}…` : rawDetails;
     const shown = this.shownImages(args.images);
     if (!shown.ok) return { text: shown.reason, failed: true };
     const { beats, dropped } = parseScript(script, this.vocab());
     const spoken = beats.some((b) => b.text || b.actions.length || b.anchors.length);
-    if (!spoken && shown.blobs.length === 0) return { text: this.t.sayEmpty, failed: true };
+    if (!spoken && shown.blobs.length === 0 && !details) return { text: this.t.sayEmpty, failed: true };
     const id = nextId('s');
-    if (spoken && !this.server.sendPet({ t: 'say', id, beats })) return this.notConnected('pet_say');
+    const displayed = !spoken || this.server.sendPet({ t: 'say', id, beats });
+    if (!displayed && !details) return this.notConnected('pet_say');
     void this.closeActivity();
-    void this.record({ kind: 'say', beats: beats.map((b) => ({ text: b.text, ...moodOf(b.actions, this.vocab()) })) }, beats.map((b) => b.text).join(''), shown.blobs);
+    void this.record({ kind: 'say', beats: beats.map((b) => ({ text: b.text, ...moodOf(b.actions, this.vocab()) })), ...(details ? { details } : {}) },
+      [...beats.map((b) => b.text), details].filter(Boolean).join('\n'), shown.blobs);
+    if (details && (!displayed || !spoken)) return { text: 'Saved answer details in the Chat page.' };
     if (!spoken) return { text: this.t.imagesShown(shown.blobs.length, this.chat.size > 0) };
     const now = Date.now();
     const selfSec = estimateSeconds(beats, this.cfg.window.bubbleSpeed, this.cfg.speech.enabled ? speechTextSteps : undefined, this.cfg.window.sayBubbleHoldSec);

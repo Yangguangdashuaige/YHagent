@@ -320,7 +320,7 @@ func (e *errLLM) ChatStream(
 func TestFuseSystemPrompt(t *testing.T) {
 	cfg := Config{BaseSystemPrompt: "业务规则", PassthroughSystem: false}
 	got := fuseSystemPrompt(cfg, "人格")
-	if !strings.Contains(got, "业务规则") || !strings.Contains(got, "人格") || !strings.Contains(got, "pet_*") {
+	if !strings.Contains(got, "业务规则") || !strings.Contains(got, "人格") || !strings.Contains(got, "pet_say") || !strings.Contains(got, "details") {
 		t.Fatalf("融合结果: %q", got)
 	}
 	cfg.PassthroughSystem = true

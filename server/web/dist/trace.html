@@ -237,7 +237,7 @@
         if (md === "plan" && t.mode !== "plan") return false;
         if (md === "react" && t.mode === "plan") return false;
         if (kw) {
-          const hay = ((t.query || "") + " " + (t.session_id || "") + " " + (t.trace_id || "") + " " + (t.answer_text || "")).toLowerCase();
+          const hay = [t.query, t.session_id, t.trace_id, t.answer_text, ...(t.dialogue || []).map(line => line.text)].join(" ").toLowerCase();
           if (!hay.includes(kw)) return false;
         }
         return true;
@@ -393,11 +393,16 @@
       meta.push('会话: <span class="sess" data-sess="' + escapeHtml(t.session_id || "") + '" title="点击按此会话筛选">' +
         escapeHtml((t.session_id || "").slice(0, 8)) + "…</span>");
       meta.push("回答: " + (t.answer_chars || 0) + " 字");
+      if (t.continued_from) meta.push('续接 <span class="ref" data-jump-trace="' + escapeHtml(t.continued_from) + '">' + escapeHtml(t.continued_from) + '</span>');
       if (t.error) meta.push('<span class="fail">错误: ' + escapeHtml(t.error) + "</span>");
       detail.innerHTML = '<div class="meta">' + meta.join(" · ") + "</div>";
 
-      // 回答预览：直接看这条 trace 答了什么（前 ~160 字符）
-      if (t.answer_text) {
+      if (t.dialogue && t.dialogue.length) {
+        const labels = {input: "本次输入", assistant: "模型正文", pet: "桌宠气泡", details: "聊天明细"};
+        detail.innerHTML += t.dialogue.map(line =>
+          "<h3>" + escapeHtml(labels[line.role] || "对话内容") + "</h3><div class='answer-preview' style='white-space:pre-wrap'>" + escapeHtml(line.text) + "</div>"
+        ).join("");
+      } else if (t.answer_text) {
         detail.innerHTML +=
           "<h3>回答预览</h3><div class='answer-preview'>" + escapeHtml(t.answer_text) + "</div>";
       }

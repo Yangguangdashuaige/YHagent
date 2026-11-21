@@ -81,7 +81,9 @@ export function seed(home: string, language: Language): void {
     });
   }
   const configured = appLanguage((JSON.parse(readTextFile(config)) as { language?: unknown }).language);
-  if (!existsSync(join(workspace, CONSTITUTION))) copyFileSync(join(SEED_DIR, 'delta-persona.md'), join(workspace, CONSTITUTION));
+  const constitution = join(workspace, CONSTITUTION);
+  const previousDelta = 'dfdd0ea4c2c0951155736e17918dd934d522dad8ba312d7bb2cdd3cd8653d671';
+  if (!existsSync(constitution) || hashOf(constitution) === previousDelta) copyFileSync(join(SEED_DIR, 'delta-persona.md'), constitution);
   // the console shows it as the bot's avatar
   if (!existsSync(join(deploy, 'avatar.png'))) copyFileSync(join(SEED_DIR, 'avatar.png'), join(deploy, 'avatar.png'));
   followLanguage(workspace, configured);

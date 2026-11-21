@@ -1,7 +1,7 @@
 {
   "name": "yhagent-pet",
   "productName": "小小轩",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "Desktop companion for YHagent and Delta Force",
   "license": "AGPL-3.0-or-later",

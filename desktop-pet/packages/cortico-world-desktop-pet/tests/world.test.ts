@@ -873,6 +873,20 @@ describe('chat page', () => {
     expect(refs.map((r) => Buffer.from(host.blob(r)!.bytes).toString())).toEqual(['cat-before', 'screen']);
   });
 
+  it('stores full answer details in chat and sends only the spoken script to the pet window', async () => {
+    const { world } = await mounted();
+    const page = await FakePage.open(origin(world));
+    cleanup.push(() => page.close());
+    const chat = chatSocket(world);
+    const details = '西区大门　800000　05:00\n金卡　3930000　11:00';
+    await tool(world, 'pet_say').handler({ script: '西区大门预计八十万。', details }, ctx);
+    const spoken = await page.next((item) => item.t === 'say');
+    expect(JSON.stringify(spoken)).not.toContain('3930000');
+    await expect.poll(() => chat.last('item')?.item).toMatchObject({ kind: 'say', details });
+    chat.send({ t: 'hello' });
+    await expect.poll(() => chat.last('init')?.items).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'say', details })]));
+  });
+
   it('pet_say with only images needs no pet window; an unreadable or non-image handle stores nothing', async () => {
     const { world, host } = await mounted();
     const shot = host.logBlobs.put(Buffer.from('screen'), 'image/png');

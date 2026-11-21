@@ -42,6 +42,8 @@ const errPreviewMax = 160
 
 // answerPreviewMax 回答预览长度（字节），观测页看回答质量够用
 const answerPreviewMax = 320
+const dialogueEntryLimit = 12 << 10
+const dialogueLimit = 32 << 10
 
 // defaultKeepDays trace 文件保留天数（TRACE_KEEP_DAYS 可覆盖）
 const defaultKeepDays = 7
@@ -77,49 +79,59 @@ type CompactInfo struct {
 }
 
 // Record 单次请求的完整 trace（JSONL 一行）
+type DialogueLine struct {
+	Role string `json:"role"`
+	Text string `json:"text"`
+}
+
 type Record struct {
-	TraceID     string       `json:"trace_id"`
-	Time        string       `json:"ts"` // RFC3339
-	SessionID   string       `json:"session_id"`
-	Query       string       `json:"query"`
-	Mode        string       `json:"mode,omitempty"` // 执行范式：reactive（反应式）/ plan（规划式，调用了 plan_and_execute）
-	Images      int          `json:"images"`         // 携带图片数
-	OK          bool         `json:"ok"`
-	Error       string       `json:"error,omitempty"`
-	TotalMS     int64        `json:"total_ms"`     // 请求总耗时
-	FirstTokMS  int64        `json:"first_tok_ms"` // 首 token 延迟（TTFT），0 = 未产生回答
-	LLMRounds   int          `json:"llm_rounds"`   // LLM 调用轮数
-	LLM         []LLMRound   `json:"llm,omitempty"`
-	Tools       []ToolCall   `json:"tools,omitempty"`
-	Compact     *CompactInfo `json:"compact,omitempty"` // 本次请求触发的上下文压缩
-	CacheHits   int          `json:"cache_hits"`        // delta 缓存命中次数
-	CacheMisses int          `json:"cache_misses"`      // delta 缓存未命中次数
-	StaleServed int          `json:"stale_served"`      // 上游失败回吐过期缓存次数
-	AnswerChars int          `json:"answer_chars"`      // 最终回答字符数
-	AnswerText  string       `json:"answer_text,omitempty"` // 回答预览（前 ~160 字符，观测页直接看回答质量）
+	Dialogue      []DialogueLine `json:"dialogue,omitempty"`
+	ContinuedFrom string         `json:"continued_from,omitempty"`
+	TraceID       string         `json:"trace_id"`
+	Time          string         `json:"ts"` // RFC3339
+	SessionID     string         `json:"session_id"`
+	Query         string         `json:"query"`
+	Mode          string         `json:"mode,omitempty"` // 执行范式：reactive（反应式）/ plan（规划式，调用了 plan_and_execute）
+	Images        int            `json:"images"`         // 携带图片数
+	OK            bool           `json:"ok"`
+	Error         string         `json:"error,omitempty"`
+	TotalMS       int64          `json:"total_ms"`     // 请求总耗时
+	FirstTokMS    int64          `json:"first_tok_ms"` // 首 token 延迟（TTFT），0 = 未产生回答
+	LLMRounds     int            `json:"llm_rounds"`   // LLM 调用轮数
+	LLM           []LLMRound     `json:"llm,omitempty"`
+	Tools         []ToolCall     `json:"tools,omitempty"`
+	Compact       *CompactInfo   `json:"compact,omitempty"`     // 本次请求触发的上下文压缩
+	CacheHits     int            `json:"cache_hits"`            // delta 缓存命中次数
+	CacheMisses   int            `json:"cache_misses"`          // delta 缓存未命中次数
+	StaleServed   int            `json:"stale_served"`          // 上游失败回吐过期缓存次数
+	AnswerChars   int            `json:"answer_chars"`          // 最终回答字符数
+	AnswerText    string         `json:"answer_text,omitempty"` // 回答预览（前 ~160 字符，观测页直接看回答质量）
 }
 
 // Span 请求级 trace 累积器。Agent 在请求入口 Start，结束时 End 落盘；
 // 中间各埋点通过 context 拿到 Span（可能为 nil，全部方法 nil 安全）。
 // 同轮多个工具并行执行时会并发调用各记录方法，内部用互斥锁保证安全。
 type Span struct {
-	mu          sync.Mutex
-	rec         *Recorder
-	traceID     string
-	sessionID   string
-	query       string
-	images      int
-	start       time.Time
-	firstChunk  time.Time
-	llm         []LLMRound
-	tools       []ToolCall
-	compact     *CompactInfo
-	mode        string
-	cacheHits   int
-	cacheMiss   int
-	staleServed int
-	answer      int    // 回答字符数
-	answerPrev  string // 回答预览（前 ~160 字符）
+	dialogue      []DialogueLine
+	dialogueBytes int
+	continuedFrom string
+	mu            sync.Mutex
+	rec           *Recorder
+	traceID       string
+	sessionID     string
+	query         string
+	images        int
+	start         time.Time
+	firstChunk    time.Time
+	llm           []LLMRound
+	tools         []ToolCall
+	compact       *CompactInfo
+	mode          string
+	cacheHits     int
+	cacheMiss     int
+	staleServed   int
+	answer        int    // 回答字符数
+	answerPrev    string // 回答预览（前 ~160 字符）
 }
 
 type spanKey struct{}
@@ -132,14 +144,52 @@ func Start(sessionID, query string, images int) *Span {
 	}
 	var b [8]byte
 	_, _ = rand.Read(b[:])
-	return &Span{
+	s := &Span{
 		rec:       r,
 		traceID:   "t_" + hex.EncodeToString(b[:]),
 		sessionID: sessionID,
-		query:     preview(query, queryPreviewMax),
+		query:     textPreview(query, queryPreviewMax),
 		images:    images,
 		start:     time.Now(),
 	}
+	s.AddDialogue("input", query)
+	return s
+}
+
+// AddDialogue preserves line breaks. Only request input and outward replies belong here.
+func (s *Span) AddDialogue(role, text string) {
+	text = strings.TrimSpace(text)
+	if s == nil || text == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	remaining := min(dialogueEntryLimit, dialogueLimit-s.dialogueBytes)
+	if remaining <= 0 {
+		return
+	}
+	if len(text) > remaining {
+		const suffix = "…(截断)"
+		if remaining <= len(suffix) {
+			return
+		}
+		end := remaining - len(suffix)
+		for end > 0 && !utf8.RuneStart(text[end]) {
+			end--
+		}
+		text = text[:end] + suffix
+	}
+	s.dialogue = append(s.dialogue, DialogueLine{Role: role, Text: text})
+	s.dialogueBytes += len(text)
+}
+
+func (s *Span) ContinueFrom(id string) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.continuedFrom = id
+	s.mu.Unlock()
 }
 
 // WithSpan 把 Span 注入 context（span 为 nil 时原样返回）
@@ -295,24 +345,26 @@ func (s *Span) End(errMsg string) {
 	}
 	s.mu.Lock()
 	rec := &Record{
-		TraceID:     s.traceID,
-		Time:        s.start.Format(time.RFC3339),
-		SessionID:   s.sessionID,
-		Query:       s.query,
-		Mode:        s.mode,
-		Images:      s.images,
-		OK:          errMsg == "",
-		Error:       errMsg,
-		TotalMS:     time.Since(s.start).Milliseconds(),
-		LLMRounds:   len(s.llm),
-		LLM:         s.llm,
-		Tools:       s.tools,
-		Compact:     s.compact,
-		CacheHits:   s.cacheHits,
-		CacheMisses: s.cacheMiss,
-		StaleServed: s.staleServed,
-		AnswerChars: s.answer,
-		AnswerText:  s.answerPrev,
+		Dialogue:      s.dialogue,
+		ContinuedFrom: s.continuedFrom,
+		TraceID:       s.traceID,
+		Time:          s.start.Format(time.RFC3339),
+		SessionID:     s.sessionID,
+		Query:         s.query,
+		Mode:          s.mode,
+		Images:        s.images,
+		OK:            errMsg == "",
+		Error:         errMsg,
+		TotalMS:       time.Since(s.start).Milliseconds(),
+		LLMRounds:     len(s.llm),
+		LLM:           s.llm,
+		Tools:         s.tools,
+		Compact:       s.compact,
+		CacheHits:     s.cacheHits,
+		CacheMisses:   s.cacheMiss,
+		StaleServed:   s.staleServed,
+		AnswerChars:   s.answer,
+		AnswerText:    s.answerPrev,
 	}
 	if !s.firstChunk.IsZero() {
 		rec.FirstTokMS = s.firstChunk.Sub(s.start).Milliseconds()
@@ -463,8 +515,18 @@ func readTail(path string, max int) []Record {
 	}
 	defer f.Close()
 	var lines []string
-	sc := bufio.NewScanner(io.LimitReader(f, RecentLimit))
+	var skipped bool
+	if info, err := f.Stat(); err == nil && info.Size() > RecentLimit {
+		if _, err := f.Seek(-RecentLimit-1, io.SeekEnd); err != nil {
+			return nil
+		}
+		skipped = true
+	}
+	sc := bufio.NewScanner(io.LimitReader(f, RecentLimit+1))
 	sc.Buffer(make([]byte, 0, 64*1024), 1<<20) // 单条 trace 可达数百 KB（多轮工具调用）
+	if skipped {
+		sc.Scan()
+	}
 	for sc.Scan() {
 		lines = append(lines, sc.Text())
 	}

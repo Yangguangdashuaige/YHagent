@@ -38,7 +38,7 @@ export type ChatItem =
   /** `text` for touches stored before they were stored as `touch`. */
   | { kind: 'touch'; cursor: number; ts: string; touch?: ChatTouch; text?: string }
   | { kind: 'figure'; cursor: number; ts: string; figure: ChatFigure }
-  | { kind: 'say'; cursor: number; ts: string; beats: SayBeat[]; images?: WireImage[] }
+  | { kind: 'say'; cursor: number; ts: string; beats: SayBeat[]; images?: WireImage[]; details?: string }
   | { kind: 'ask'; cursor: number; ts: string; askId: string; question: string; options: string[]; own: boolean }
   | { kind: 'activity'; cursor: number; ts: string; steps: string[]; ms: number };
 
@@ -89,7 +89,8 @@ export function chatItem(e: EventEnvelope): ChatItem | null {
       if (m.kind === 'say' && Array.isArray(m.beats)) {
         const beats = (m.beats as Meta[]).flatMap((b) => (typeof b.text === 'string' && b.text ? [{ text: b.text, ...(b.mood && typeof b.mood === 'object' ? { mood: b.mood as Record<string, string> } : {}) }] : []));
         const images = wireImages(e);
-        return beats.length || images.length ? { kind: 'say', ...base, beats, ...(images.length ? { images } : {}) } : null;
+        const details = str(m.details);
+        return beats.length || images.length || details ? { kind: 'say', ...base, beats, ...(images.length ? { images } : {}), ...(details ? { details } : {}) } : null;
       }
       if (m.kind === 'ask' && str(m.askId) && str(m.question)) {
         const options = Array.isArray(m.options) ? m.options.filter((o): o is string => typeof o === 'string') : [];

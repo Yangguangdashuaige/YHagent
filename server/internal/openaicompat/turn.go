@@ -7,12 +7,13 @@
 //     自管历史），WAL/压缩/反馈闭环均不挂接（可观测性走 trace/eventlog）。
 //
 // 客户端工具中继（本文件的核心机制）：
-//   模型的工具调用按"调用方"分拣——注册在服务端 Registry 的就地执行（客户端
-//   无感知），请求 tools 里带来的客户端工具（pet_* 等）以 tool_calls 流回
-//   客户端执行。一轮混调时：服务端工具先执行并入影子上下文（保 Ark API 的
-//   tool_calls/tool 配对完整），客户端工具调用则重写 id（yhx_<turnID>_<seq>）
-//   后作为本次 HTTP 响应输出（finish_reason=tool_calls）。客户端执行完携结果
-//   发起下一次请求，门面按 id 前缀唤醒影子回合，合并结果继续循环。
+//
+//	模型的工具调用按"调用方"分拣——注册在服务端 Registry 的就地执行（客户端
+//	无感知），请求 tools 里带来的客户端工具（pet_* 等）以 tool_calls 流回
+//	客户端执行。一轮混调时：服务端工具先执行并入影子上下文（保 Ark API 的
+//	tool_calls/tool 配对完整），客户端工具调用则重写 id（yhx_<turnID>_<seq>）
+//	后作为本次 HTTP 响应输出（finish_reason=tool_calls）。客户端执行完携结果
+//	发起下一次请求，门面按 id 前缀唤醒影子回合，合并结果继续循环。
 package openaicompat
 
 import (
@@ -32,6 +33,7 @@ import (
 	"github.com/volcengine/ark-runtime-go/arkruntime/model/chat"
 
 	"yhagent-server/internal/ai"
+	"yhagent-server/internal/data/deltaapi"
 	"yhagent-server/internal/eventlog"
 	"yhagent-server/internal/trace"
 )
@@ -163,7 +165,10 @@ func (f *Facade) RunTurn(ctx context.Context, req ChatRequest, ev TurnEvents) (r
 
 	// 续轮识别：末尾 tool 消息带 yhx_ 前缀 = 客户端工具回执 → 唤醒影子回合；
 	// 否则（含 pending 丢失的降级路径）按客户端历史原样重建开新回合。
-	span := trace.Start(sessionIDForFacade, relayPreview(history), 0)
+	parentID := relayReceiptTurnID(history.Messages)
+	question := turnInput(req.Messages, parentID != "")
+	span := trace.Start(sessionIDForFacade, question, 0)
+	span.ContinueFrom(parentID)
 	span.NoteMode("coopanion")
 	ctx = trace.WithSpan(ctx, span)
 	turnID := span.ID()
@@ -171,7 +176,8 @@ func (f *Facade) RunTurn(ctx context.Context, req ChatRequest, ev TurnEvents) (r
 		turnID = newFacadeTurnID()
 	}
 
-	msgs, isResume := f.resolveContext(ctx, history, turnID)
+	msgs, isResume, daily := f.resolveContext(history)
+	withDetails := clientHasDetails(req)
 	tools := f.toolsetFor(req)
 
 	eventlog.EmitWith(eventlog.LevelInfo, eventlog.EvtAgentTurnBegin, turnID, sessionIDForFacade, map[string]any{
@@ -188,8 +194,8 @@ func (f *Facade) RunTurn(ctx context.Context, req ChatRequest, ev TurnEvents) (r
 			retErr = errors.New("服务内部异常，请稍后重试")
 		}
 		eventlog.EmitWith(eventlog.LevelInfo, eventlog.EvtAgentTurnEnd, turnID, sessionIDForFacade, map[string]any{
-			"ok":  retErr == nil,
-			"ms":  time.Since(started).Milliseconds(),
+			"ok": retErr == nil,
+			"ms": time.Since(started).Milliseconds(),
 		})
 		span.End(errText(retErr))
 	}()
@@ -232,6 +238,15 @@ func (f *Facade) RunTurn(ctx context.Context, req ChatRequest, ev TurnEvents) (r
 		}
 		span.LLMRound(time.Since(llmStart).Milliseconds(),
 			usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens, 0)
+		span.AddDialogue("assistant", answer.String())
+		if len(pendingCalls) == 0 && withDetails {
+			if script, details := dailyPriceReply(daily, question); details != "" {
+				pendingCalls = []chat.ChatCompletionMessageToolCall{{
+					ID: newFacadeTurnID(), Type: chat.ToolTypeFunction,
+					Function: chat.ChatCompletionMessageToolCallFunction{Name: "pet_say", Arguments: withDailyDetails("{}", script, details)},
+				}}
+			}
+		}
 
 		// 无工具调用 = 最终回答
 		if len(pendingCalls) == 0 {
@@ -256,13 +271,20 @@ func (f *Facade) RunTurn(ctx context.Context, req ChatRequest, ev TurnEvents) (r
 
 		// 完整 tool_calls 信封先入上下文（配对完整性的生命线：
 		// assistant.tool_calls 与后续 tool 结果必须一一对应）
-		msgs = append(msgs, ai.NewAssistantToolCallMessage(pendingCalls))
+		assistantAt := len(msgs)
+		msgs = append(msgs, ai.NewAssistantMessageWithToolCalls(answer.String(), pendingCalls))
 
 		// 服务端工具就地执行（客户端不可见），期间发心跳防断流
 		if len(serverCalls) > 0 {
 			results := f.executeServerTools(ctx, round+1, serverCalls, ev)
 			for i, c := range serverCalls {
 				msgs = append(msgs, ai.NewToolResultMessage(callIDOf(round, i, c), c.Function.Name, results[i]))
+				if c.Function.Name == "delta_keys_day_price" {
+					var table deltaapi.DailyKeyPrices
+					if json.Unmarshal([]byte(results[i]), &table) == nil && len(table.Cards) > 0 {
+						daily = append(daily, table)
+					}
+				}
 			}
 		}
 
@@ -270,7 +292,29 @@ func (f *Facade) RunTurn(ctx context.Context, req ChatRequest, ev TurnEvents) (r
 		if len(clientCalls) > 0 {
 			wireCalls := make([]WireToolCall, 0, len(clientCalls))
 			relayCalls := make([]relayCall, 0, len(clientCalls))
+			var spoken []string
 			for seq, c := range clientCalls {
+				if c.Function.Name == "pet_say" && withDetails && len(daily) > 0 {
+					if script, details := dailyPriceReply(daily, question); details != "" {
+						c.Function.Arguments = withDailyDetails(c.Function.Arguments, script, details)
+						for i := range pendingCalls {
+							if pendingCalls[i].ID == c.ID {
+								pendingCalls[i] = c
+								break
+							}
+						}
+						daily = nil
+					}
+				}
+				if c.Function.Name == "pet_say" || c.Function.Name == "pet_ask" {
+					var reply petReply
+					if json.Unmarshal([]byte(c.Function.Arguments), &reply) == nil {
+						span.AddDialogue("pet", reply.Script)
+						span.AddDialogue("pet", reply.Question)
+						span.AddDialogue("details", reply.Details)
+						spoken = append(spoken, reply.Script, reply.Question, reply.Details)
+					}
+				}
 				wireID := fmt.Sprintf("%s%s_%d", relayCallIDPrefix, turnID, seq)
 				wireCalls = append(wireCalls, WireToolCall{
 					ID:   wireID,
@@ -286,7 +330,9 @@ func (f *Facade) RunTurn(ctx context.Context, req ChatRequest, ev TurnEvents) (r
 			// 但不含客户端回执（下一请求到达时补齐）
 			snapshot := make([]chat.ChatCompletionRequestMessage, len(msgs))
 			copy(snapshot, msgs)
-			f.relays.save(turnID, snapshot, relayCalls)
+			snapshot[assistantAt] = ai.NewAssistantMessageWithToolCalls(answer.String(), pendingCalls)
+			f.relays.save(turnID, snapshot, relayCalls, daily)
+			span.Answer(strings.TrimSpace(answer.String() + "\n" + strings.Join(spoken, "\n")))
 			log.Printf("[openaicompat] 回合 %s 中继 %d 个客户端工具（服务端工具 %d 个已就地执行）",
 				turnID, len(clientCalls), len(serverCalls))
 			return TurnResult{
@@ -305,6 +351,7 @@ func (f *Facade) RunTurn(ctx context.Context, req ChatRequest, ev TurnEvents) (r
 		ev.OnContent(tip)
 	}
 	span.Answer(tip)
+	span.AddDialogue("assistant", tip)
 	return TurnResult{FinishReason: FinishStop, Text: tip, Usage: wireUsage(usage)}, nil
 }
 
@@ -315,14 +362,14 @@ const sessionIDForFacade = "coopanion"
 // resolveContext 组装本轮起跑上下文。续轮命中影子回合时返回其快照并按
 // wire→原生 id 映射合并客户端回执；否则（新回合 / pending 丢失降级）
 // 按客户端历史原样重建。
-func (f *Facade) resolveContext(ctx context.Context, history ParsedHistory, turnID string) ([]chat.ChatCompletionRequestMessage, bool) {
+func (f *Facade) resolveContext(history ParsedHistory) ([]chat.ChatCompletionRequestMessage, bool, []deltaapi.DailyKeyPrices) {
 	system := f.fusedSystemPrompt(history.SystemText)
 	base := append([]chat.ChatCompletionRequestMessage{ai.NewSystemMessage(system)}, history.Messages...)
 
 	// 续轮识别：消息末尾是 tool 回执（yhx_ 前缀）
 	relayTurnID := relayReceiptTurnID(history.Messages)
 	if relayTurnID == "" {
-		return base, false
+		return base, false, nil
 	}
 	stored, ok := f.relays.take(relayTurnID)
 	if !ok {
@@ -332,7 +379,7 @@ func (f *Facade) resolveContext(ctx context.Context, history ParsedHistory, turn
 		eventlog.EmitWith(eventlog.LevelWarn, eventlog.EvtAgentTurnInterrupted, relayTurnID, sessionIDForFacade, map[string]any{
 			"reason": "影子回合丢失，降级重建上下文",
 		})
-		return base, false
+		return base, false, nil
 	}
 	// 合并客户端回执：按重写 id（wire）映射回模型原生 id（orig）后追加，
 	// 保证与影子上下文里 assistant.tool_calls 的配对完整；客户端漏回执的
@@ -352,7 +399,7 @@ func (f *Facade) resolveContext(ctx context.Context, history ParsedHistory, turn
 		}
 	}
 	log.Printf("[openaicompat] 影子回合 %s 唤醒（回执 %d/%d）", relayTurnID, merged, len(stored.relays))
-	return msgs, true
+	return msgs, true, stored.daily
 }
 
 // fusedSystemPrompt 融合系统提示词（详见 prompt.go）。
@@ -470,6 +517,7 @@ type relayCall struct {
 
 // relayTurn 一个挂起的影子回合。
 type relayTurn struct {
+	daily    []deltaapi.DailyKeyPrices
 	messages []chat.ChatCompletionRequestMessage // 影子上下文（不含客户端回执）
 	relays   []relayCall                         // 待回执清单（wire→orig 映射）
 	expires  time.Time
@@ -493,10 +541,10 @@ func newRelayStore(ttl time.Duration) *relayStore {
 	return s
 }
 
-func (s *relayStore) save(turnID string, messages []chat.ChatCompletionRequestMessage, relays []relayCall) {
+func (s *relayStore) save(turnID string, messages []chat.ChatCompletionRequestMessage, relays []relayCall, daily []deltaapi.DailyKeyPrices) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.turns[turnID] = &relayTurn{messages: messages, relays: relays, expires: time.Now().Add(s.ttl)}
+	s.turns[turnID] = &relayTurn{messages: messages, relays: relays, daily: daily, expires: time.Now().Add(s.ttl)}
 }
 
 // take 取出并删除影子回合（消费即删：继续跑出新的客户端工具调用会存新回合）。
@@ -698,32 +746,6 @@ func newFacadeTurnID() string {
 		return fmt.Sprintf("oc%d", time.Now().UnixNano())
 	}
 	return hex.EncodeToString(b[:])
-}
-
-// relayPreview 提取本次提问预览（事件日志可读性用）。
-func relayPreview(h ParsedHistory) string {
-	for i := len(h.Messages) - 1; i >= 0; i-- {
-		if !isToolMessage(h.Messages[i]) {
-			b, err := h.Messages[i].MarshalJSON()
-			if err != nil {
-				return ""
-			}
-			var obj struct {
-				Role    string          `json:"role"`
-				Content json.RawMessage `json:"content"`
-			}
-			if err := json.Unmarshal(b, &obj); err != nil || obj.Role != "user" {
-				continue
-			}
-			s := contentString(obj.Content)
-			r := []rune(s)
-			if len(r) > 60 {
-				r = r[:60]
-			}
-			return string(r)
-		}
-	}
-	return ""
 }
 
 func errText(err error) string {

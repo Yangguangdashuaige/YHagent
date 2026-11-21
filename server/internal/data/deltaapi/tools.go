@@ -354,7 +354,7 @@ func RegisterTools(reg *ai.Registry, c *Client) {
 	// 17. 今日钥匙卡低价预测
 	reg.Register(ai.NewFunctionTool(
 		"delta_keys_day_price",
-		"查询今日钥匙卡低价买入预测（每天0点更新）。用户问“今天买什么钥匙卡、钥匙卡价格走势”时使用。",
+		"查指定地图每张钥匙卡今日预测低价及对应小时（数据每天0点更新）。用户问今日钥匙卡价格、买入时段时使用。返回 cards 中的卡名、low_price（哈夫币）、hour，逐张给数值和时段。实时挂单价应查物品价格工具。",
 		map[string]any{
 			"mid": ai.EnumIntProp("地图（必填）：1大坝 2航天 3长弓 4巴克什 5潮汐监狱", 1, 2, 3, 4, 5),
 		},
@@ -370,7 +370,7 @@ func RegisterTools(reg *ai.Registry, c *Client) {
 			if err != nil {
 				return nil, err
 			}
-			return compactResult(data, 30), nil
+			return dailyKeyPrices(data, p.Mid)
 		},
 	))
 

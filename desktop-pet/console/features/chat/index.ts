@@ -41,7 +41,7 @@ type ChatItem =
   | { kind: 'answer'; cursor: number; ts: string; askId: string; index?: number; text?: string; dismissed?: true }
   | { kind: 'touch'; cursor: number; ts: string; touch?: Touch; text?: string }
   | { kind: 'figure'; cursor: number; ts: string; figure: { kind: string; name: Record<string, string>; reason?: string } }
-  | { kind: 'say'; cursor: number; ts: string; beats: SayBeat[]; images?: WireImage[] }
+  | { kind: 'say'; cursor: number; ts: string; beats: SayBeat[]; images?: WireImage[]; details?: string }
   | { kind: 'ask'; cursor: number; ts: string; askId: string; question: string; options: string[]; own: boolean }
   | { kind: 'activity'; cursor: number; ts: string; steps: string[]; ms: number };
 type UserItem = Extract<ChatItem, { kind: 'user' }>;
@@ -301,6 +301,11 @@ async function mount(ctx: PageContext): Promise<void> {
           row.append(said);
           if (beat.mood) row.append(ui.h('span', 'mood', localName(beat.mood)));
           body.append(row);
+        }
+        if (it.details) {
+          const answer = ui.h('div', 'pet-bubble say');
+          answer.append(linked(it.details));
+          body.append(answer);
         }
         for (const img of it.images ?? []) body.append(thumb(img));
       } else if (it.kind === 'ask') cooBody().append(askNode(it, it.askId === openAsk));
