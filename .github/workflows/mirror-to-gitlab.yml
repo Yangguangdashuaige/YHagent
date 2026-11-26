@@ -1,4 +1,4 @@
-# 每次代码推送到 GitHub 的 master 分支，自动镜像同步到 GitLab 的 main 分支。
+# 每次代码推送到 GitHub 的 main 分支，自动镜像同步到 GitLab 的 main 分支。
 #
 # 前置配置（只需一次）：
 #   1. GitLab 头像 → Edit profile → Access Tokens，创建一个 Token：
@@ -8,7 +8,7 @@
 #      - Name: GITLAB_TOKEN
 #      - Secret: 粘贴上一步生成的 GitLab Token
 #
-# 注意：本工作流为单向镜像（GitHub master 为唯一事实源）：分叉时先在日志里
+# 注意：本工作流为单向镜像（GitHub main 为唯一事实源）：分叉时先在日志里
 # 记录 GitLab main 独有的提交，再以 force-with-lease 覆盖对齐。若 GitLab 侧
 # main 是受保护分支且未放开 force push，覆盖会被拒绝——到 GitLab 项目
 # Settings → Repository → Protected branches 临时打开 main 的
@@ -18,7 +18,7 @@ name: Mirror to GitLab
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   # 支持在 Actions 页面手动触发一次同步（补救/首次验证用）
   workflow_dispatch:
 
@@ -38,8 +38,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
 
-      - name: 推送 master 到 GitLab main
+      - name: 推送 GitHub main 到 GitLab main
         env:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
         run: |
@@ -67,9 +68,9 @@ jobs:
           git -c http.version=HTTP/1.1 fetch gitlab main
           DIVERGENT=$(git log --oneline HEAD..FETCH_HEAD)
           if [ -n "${DIVERGENT}" ]; then
-            echo "::warning::GitLab main 存在 GitHub master 没有的提交，本次镜像将覆盖："
+            echo "::warning::GitLab main 存在 GitHub main 没有的提交，本次镜像将覆盖："
             echo "${DIVERGENT}"
           fi
           # force-with-lease：仅当远端仍是刚才 fetch 到的版本才覆盖，
           # 防并发推送意外冲掉新内容；同时同步标签。HTTP/1.1 规避 runner curl 的 h2 怪癖
-          git -c http.version=HTTP/1.1 push --force-with-lease=main:"$(git rev-parse FETCH_HEAD)" gitlab master:main --tags
+          git -c http.version=HTTP/1.1 push --force-with-lease=main:"$(git rev-parse FETCH_HEAD)" gitlab HEAD:refs/heads/main --tags
